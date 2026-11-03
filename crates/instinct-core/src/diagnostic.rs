@@ -1,29 +1,29 @@
-//! Diagnóstico con archivo, línea y mensaje.
-//! Formato de texto: `archivo:línea: mensaje`.
+//! Diagnostic with file, line, and message.
+//! Text format: `file:line: message`.
 
-/// Un diagnóstico producido por compilación, carga o ejecución.
-/// La línea siempre se cuenta desde 1.
+/// A diagnostic produced by compilation, loading, or execution.
+/// The line is always counted from 1.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
-    pub archivo: String,
-    pub linea: usize,
-    pub mensaje: String,
+    pub file: String,
+    pub line: usize,
+    pub message: String,
 }
 
 impl Diagnostic {
-    /// Construye un nuevo diagnóstico.
-    pub fn new(archivo: impl Into<String>, linea: usize, mensaje: impl Into<String>) -> Self {
+    /// Builds a new diagnostic.
+    pub fn new(file: impl Into<String>, line: usize, message: impl Into<String>) -> Self {
         Diagnostic {
-            archivo: archivo.into(),
-            linea,
-            mensaje: mensaje.into(),
+            file: file.into(),
+            line,
+            message: message.into(),
         }
     }
 }
 
 impl std::fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}: {}", self.archivo, self.linea, self.mensaje)
+        write!(f, "{}:{}: {}", self.file, self.line, self.message)
     }
 }
 
@@ -33,13 +33,13 @@ mod tests {
 
     #[test]
     fn test_diagnostic_display_format() {
-        let d = Diagnostic::new("criaturas/walker.ins", 42, "etiqueta 'fin' no definida");
+        let d = Diagnostic::new("creatures/walker.ins", 42, "label 'end' not defined");
         assert_eq!(
             d.to_string(),
-            "criaturas/walker.ins:42: etiqueta 'fin' no definida"
+            "creatures/walker.ins:42: label 'end' not defined"
         );
-        assert_eq!(d.archivo, "criaturas/walker.ins");
-        assert_eq!(d.linea, 42);
-        assert_eq!(d.mensaje, "etiqueta 'fin' no definida");
+        assert_eq!(d.file, "creatures/walker.ins");
+        assert_eq!(d.line, 42);
+        assert_eq!(d.message, "label 'end' not defined");
     }
 }

@@ -3,14 +3,14 @@ use std::process::exit;
 use instinct_core::resources;
 use instinct_core::world;
 
-/// Texto de uso del programa. Describe los subcomandos `run` y `check`
-/// (`check` se implementa en F0-06; hasta entonces se trata como desconocido).
+/// Usage text of the program. Describes the `run` and `check` subcommands
+/// (`check` is implemented in F0-06; until then it is treated as unknown).
 const USAGE: &str = "Uso: instinct-cli <comando> [argumentos]\n\nComandos:\n  run --root <dir> --map <nombre> [--seed <n>] [--ticks <n>] [--every <n>] [--place <Especie>@<x>,<y>]\n  check <archivo.ins>\n\nEjecute `instinct-cli --help` para ver esta ayuda.";
 
-/// Argumentos del subcomando `run`.
+/// Arguments of the `run` subcommand.
 struct RunArgs {
     root: String,
-    mapa: String,
+    map_name: String,
     seed: u64,
     ticks: i64,
     every: i64,
@@ -21,27 +21,27 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() == 1 {
-        // Sin argumentos: uso por stderr, salida 2.
+        // No arguments: usage to stderr, exit 2.
         eprintln!("{USAGE}");
         exit(2);
     }
 
     if args.len() == 2 && (args[1] == "--help" || args[1] == "-h") {
-        // --help: uso por stdout, salida 0.
+        // --help: usage to stdout, exit 0.
         println!("{USAGE}");
         exit(0);
     }
 
     match args[1].as_str() {
-        "run" => exit(ejecutar_run(&args[2..])),
+        "run" => exit(execute_run(&args[2..])),
         "check" => {
-            // check aún no implementado (F0-06).
+            // check not yet implemented (F0-06).
             eprintln!("{USAGE}");
             eprintln!("error: subcomando 'check' aún no implementado");
             exit(2);
         }
         _ => {
-            // Cualquier otra cosa: subcomando desconocido.
+            // Anything else: unknown subcommand.
             eprintln!("{USAGE}");
             eprintln!("error: subcomando o argumentos no reconocidos");
             exit(2);
@@ -49,9 +49,9 @@ fn main() {
     }
 }
 
-/// Ejecuta el subcomando `run`. Devuelve el código de salida.
-fn ejecutar_run(args: &[String]) -> i32 {
-    let parsed = match parsear_run(args) {
+/// Executes the `run` subcommand. Returns the exit code.
+fn execute_run(args: &[String]) -> i32 {
+    let parsed = match parse_run(args) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("{USAGE}");
@@ -60,27 +60,27 @@ fn ejecutar_run(args: &[String]) -> i32 {
         }
     };
 
-    let raiz = std::path::Path::new(&parsed.root);
-    let recursos = resources::cargar_recursos(raiz);
+    let root = std::path::Path::new(&parsed.root);
+    let resources = resources::load_resources(root);
 
-    // Los diagnósticos de carga se reportan por stderr.
-    for d in &recursos.diagnosticos {
+    // Load diagnostics are reported to stderr.
+    for d in &resources.diagnostics {
         eprintln!("{d}");
     }
 
-    // Buscar el mapa por nombre.
-    let mapa = recursos.mapas.iter().find(|m| m.nombre == parsed.mapa);
-    let mapa = match mapa {
+    // Find the map by name.
+    let map = resources.maps.iter().find(|m| m.name == parsed.map_name);
+    let map = match map {
         Some(m) => m,
         None => {
-            eprintln!("mapa no encontrado: '{}'", parsed.mapa);
-            if !recursos.mapas.is_empty() {
+            eprintln!("mapa no encontrado: '{}'", parsed.map_name);
+            if !resources.maps.is_empty() {
                 eprint!("mapas disponibles: ");
-                for (i, m) in recursos.mapas.iter().enumerate() {
+                for (i, m) in resources.maps.iter().enumerate() {
                     if i > 0 {
                         eprint!(", ");
                     }
-                    eprint!("{}", m.nombre);
+                    eprint!("{}", m.name);
                 }
                 eprintln!();
             }
@@ -88,29 +88,29 @@ fn ejecutar_run(args: &[String]) -> i32 {
         }
     };
 
-    if recursos.terrenos.is_empty() {
+    if resources.terrains.is_empty() {
         eprintln!("no hay terrenos cargados para dibujar el mapa");
         return 1;
     }
 
-    let mundo = world::World::desde_mapa(mapa, &recursos.terrenos, &recursos.objetos);
-    for d in &mundo.diagnosticos {
+    let world = world::World::from_map(map, &resources.terrains, &resources.objects);
+    for d in &world.diagnostics {
         eprintln!("{d}");
     }
 
-    // --seed, --ticks, --every y --place se leen y validan, pero aún no
-    // se usan en la simulación (F0-07 en adelante).
+    // --seed, --ticks, --every, and --place are read and validated, but not
+    // yet used in the simulation (F0-07 onwards).
     let _ = (&parsed.seed, &parsed.ticks, &parsed.every, &parsed.places);
 
     println!("== tick 0 ==");
-    print!("{}", mundo.dibujar(&recursos.terrenos, &recursos.objetos));
+    print!("{}", world.draw(&resources.terrains, &resources.objects));
     0
 }
 
-/// Parsea los argumentos del subcomando `run` (tras el nombre `run`).
-fn parsear_run(args: &[String]) -> Result<RunArgs, String> {
+/// Parses the arguments of the `run` subcommand (after the `run` name).
+fn parse_run(args: &[String]) -> Result<RunArgs, String> {
     let mut root: Option<String> = None;
-    let mut mapa: Option<String> = None;
+    let mut map_name: Option<String> = None;
     let mut seed: Option<u64> = None;
     let mut ticks: Option<i64> = None;
     let mut every: Option<i64> = None;
@@ -121,34 +121,34 @@ fn parsear_run(args: &[String]) -> Result<RunArgs, String> {
         let token = &args[i];
         match token.as_str() {
             "--root" => {
-                root = Some(valor_siguiente(args, &mut i, "--root")?);
+                root = Some(next_value(args, &mut i, "--root")?);
             }
             "--map" => {
-                mapa = Some(valor_siguiente(args, &mut i, "--map")?);
+                map_name = Some(next_value(args, &mut i, "--map")?);
             }
             "--seed" => {
-                let v = valor_siguiente(args, &mut i, "--seed")?;
+                let v = next_value(args, &mut i, "--seed")?;
                 seed = Some(
                     v.parse::<u64>()
                         .map_err(|_| format!("--seed debe ser un entero, obtuvo '{v}'"))?,
                 );
             }
             "--ticks" => {
-                let v = valor_siguiente(args, &mut i, "--ticks")?;
+                let v = next_value(args, &mut i, "--ticks")?;
                 ticks = Some(
                     v.parse::<i64>()
                         .map_err(|_| format!("--ticks debe ser un entero, obtuvo '{v}'"))?,
                 );
             }
             "--every" => {
-                let v = valor_siguiente(args, &mut i, "--every")?;
+                let v = next_value(args, &mut i, "--every")?;
                 every = Some(
                     v.parse::<i64>()
                         .map_err(|_| format!("--every debe ser un entero, obtuvo '{v}'"))?,
                 );
             }
             "--place" => {
-                places.push(valor_siguiente(args, &mut i, "--place")?);
+                places.push(next_value(args, &mut i, "--place")?);
             }
             _ => {
                 i += 1;
@@ -157,11 +157,11 @@ fn parsear_run(args: &[String]) -> Result<RunArgs, String> {
     }
 
     let root = root.unwrap_or_else(|| "examples".to_string());
-    let mapa = mapa.ok_or_else(|| "falta el argumento obligatorio --map".to_string())?;
+    let map_name = map_name.ok_or_else(|| "falta el argumento obligatorio --map".to_string())?;
 
     Ok(RunArgs {
         root,
-        mapa,
+        map_name,
         seed: seed.unwrap_or(0),
         ticks: ticks.unwrap_or(0),
         every: every.unwrap_or(1),
@@ -169,11 +169,11 @@ fn parsear_run(args: &[String]) -> Result<RunArgs, String> {
     })
 }
 
-/// Lee el valor que sigue a una bandera, avanzando `i`.
-fn valor_siguiente(args: &[String], i: &mut usize, bandera: &str) -> Result<String, String> {
-    let valor = args
+/// Reads the value following a flag, advancing `i`.
+fn next_value(args: &[String], i: &mut usize, flag: &str) -> Result<String, String> {
+    let value = args
         .get(*i + 1)
-        .ok_or_else(|| format!("{bandera} requiere un valor"))?;
+        .ok_or_else(|| format!("{flag} requires a value"))?;
     *i += 2;
-    Ok(valor.clone())
+    Ok(value.clone())
 }

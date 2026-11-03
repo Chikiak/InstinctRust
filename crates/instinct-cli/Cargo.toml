@@ -1,6 +1,6 @@
 [package]
 name = "instinct-cli"
-description = "CLI del simulador Instinct"
+description = "CLI of the Instinct simulator"
 edition = "2021"
 
 [[bin]]

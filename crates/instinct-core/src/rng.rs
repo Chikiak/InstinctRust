@@ -1,11 +1,11 @@
-//! Generador pseudoaleatorio propio y sembrado.
+//! Own seeded pseudo-random number generator.
 //!
-//! Algoritmo: SplitMix64. Es una permutación de 64 bits simple, rápida y
-//! determinista, independiente de la plataforma y de la versión de Rust (no
-//! usa `usize` en ninguna operación de generación). Cada llamada a `next_u64`
-//! avanza el estado interno y devuelve un nuevo valor.
+//! Algorithm: SplitMix64. A simple, fast, deterministic 64-bit permutation,
+//! independent of platform and Rust version (no `usize` in any generation
+//! operation). Each call to `next_u64` advances the internal state and
+//! returns a new value.
 
-/// Generador pseudoaleatorio con semilla de 64 bits.
+/// Seeded pseudo-random number generator with a 64-bit seed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rng {
     state: u64,
@@ -16,12 +16,12 @@ const SPLITMIX64_MUL1: u64 = 0xBF58476D1CE4E5B9;
 const SPLITMIX64_MUL2: u64 = 0x94D049BB133111EB;
 
 impl Rng {
-    /// Construye un generador desde una semilla de 64 bits (la semilla 0 funciona).
+    /// Builds a generator from a 64-bit seed (seed 0 works).
     pub fn new(seed: u64) -> Self {
         Rng { state: seed }
     }
 
-    /// Avanza el estado y devuelve el siguiente u64.
+    /// Advances the state and returns the next u64.
     pub fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(SPLITMIX64_INCREMENT);
         let mut z = self.state;
@@ -30,22 +30,22 @@ impl Rng {
         z ^ (z >> 31)
     }
 
-    /// Devuelve un entero entre 0 y `max` inclusive (máximo incluido).
-    /// `max` debe ser >= 0; si es negativo se trata como 0.
+    /// Returns an integer between 0 and `max` inclusive (maximum included).
+    /// `max` must be >= 0; if negative it is treated as 0.
     pub fn next_bounded(&mut self, max: i64) -> i64 {
         let max = if max < 0 { 0 } else { max };
         let range = (max as u64).wrapping_add(1);
         (self.next_u64() % range) as i64
     }
 
-    /// Baraja `lista` in-place usando Fisher–Yates con este mismo generador.
-    /// Conserva todos los elementos y con la misma semilla produce el mismo orden.
-    pub fn shuffle<T>(&mut self, lista: &mut [T]) {
-        let mut i = lista.len();
+    /// Shuffles `lista` in-place using Fisher–Yates with this same generator.
+    /// Preserves all elements and with the same seed produces the same order.
+    pub fn shuffle<T>(&mut self, list: &mut [T]) {
+        let mut i = list.len();
         while i > 1 {
             i -= 1;
             let j = self.next_bounded(i as i64) as usize;
-            lista.swap(i, j);
+            list.swap(i, j);
         }
     }
 }
@@ -68,16 +68,16 @@ mod tests {
     fn test_rng_different_seeds_different_sequences() {
         let mut a = Rng::new(0);
         let mut b = Rng::new(1);
-        let mut diferente = false;
+        let mut different = false;
         for _ in 0..100 {
             if a.next_u64() != b.next_u64() {
-                diferente = true;
+                different = true;
                 break;
             }
         }
         assert!(
-            diferente,
-            "semillas distintas deben producir secuencias distintas"
+            different,
+            "different seeds must produce different sequences"
         );
     }
 
@@ -93,7 +93,7 @@ mod tests {
         let mut rng = Rng::new(12345);
         for _ in 0..10_000 {
             let v = rng.next_bounded(99);
-            assert!((0..=99).contains(&v), "valor fuera de rango: {v}");
+            assert!((0..=99).contains(&v), "value out of range: {v}");
         }
     }
 
@@ -118,29 +118,26 @@ mod tests {
         Rng::new(100).shuffle(&mut c);
         Rng::new(100).shuffle(&mut d);
         assert_eq!(c, d);
-        assert_ne!(
-            a, c,
-            "semillas distintas deberían producir órdenes distintos"
-        );
+        assert_ne!(a, c, "different seeds should produce different orders");
 
-        // Permutación: mismo contenido, distinto orden (salvo suerte)
-        let mut orden: Vec<i32> = (0..20).collect();
-        Rng::new(5).shuffle(&mut orden);
-        let mut esperado: Vec<i32> = (0..20).collect();
-        esperado.sort();
-        let mut orden_sorted = orden.clone();
-        orden_sorted.sort();
-        assert_eq!(orden_sorted, esperado);
+        // Permutation: same content, different order (unless by chance)
+        let mut order: Vec<i32> = (0..20).collect();
+        Rng::new(5).shuffle(&mut order);
+        let mut expected: Vec<i32> = (0..20).collect();
+        expected.sort();
+        let mut order_sorted = order.clone();
+        order_sorted.sort();
+        assert_eq!(order_sorted, expected);
     }
 
     #[test]
     fn test_shuffle_empty_and_single() {
-        let mut vacia: Vec<i32> = vec![];
-        Rng::new(1).shuffle(&mut vacia);
-        assert!(vacia.is_empty());
+        let mut empty: Vec<i32> = vec![];
+        Rng::new(1).shuffle(&mut empty);
+        assert!(empty.is_empty());
 
-        let mut uno: Vec<i32> = vec![42];
-        Rng::new(1).shuffle(&mut uno);
-        assert_eq!(uno, vec![42]);
+        let mut one: Vec<i32> = vec![42];
+        Rng::new(1).shuffle(&mut one);
+        assert_eq!(one, vec![42]);
     }
 }

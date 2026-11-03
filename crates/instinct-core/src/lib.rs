@@ -1,5 +1,5 @@
-//! Núcleo del intérprete y simulador del lenguaje Instinct.
-//! Sin dependencias externas; el mundo emite eventos, nunca imprime.
+//! Core of the Instinct interpreter and simulator.
+//! No external dependencies; the world emits events, never prints.
 
 pub mod diagnostic;
 pub mod resources;

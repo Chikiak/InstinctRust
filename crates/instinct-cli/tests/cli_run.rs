@@ -1,24 +1,24 @@
 use std::process::{Command, Stdio};
 
-/// Directorio raíz de recursos de ejemplo, relativo al manifiesto de este crate.
-fn ejemplos_dir() -> String {
+/// Example resources root directory, relative to this crate's manifest.
+fn examples_dir() -> String {
     format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"))
 }
 
-/// Localiza el binario de la prueba de integración.
-fn binario_instinct_cli() -> std::path::PathBuf {
+/// Locates the integration test binary.
+fn instinct_cli_binary() -> std::path::PathBuf {
     std::env::var("BIN_INSTINCT_CLI")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_BIN_EXE_instinct-cli")).to_path_buf())
 }
 
 fn run_cli(args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(binario_instinct_cli())
+    let output = Command::new(instinct_cli_binary())
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
-        .expect("no se pudo ejecutar el binario instinct-cli");
+        .expect("could not run the instinct-cli binary");
     (
         output.status.code().unwrap_or(-1),
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -28,8 +28,8 @@ fn run_cli(args: &[&str]) -> (i32, String, String) {
 
 #[test]
 fn test_cli_prints_map() {
-    let root = ejemplos_dir();
-    let (codigo, stdout, stderr) = run_cli(&[
+    let root = examples_dir();
+    let (code, stdout, stderr) = run_cli(&[
         "run",
         "--root",
         &root,
@@ -38,13 +38,13 @@ fn test_cli_prints_map() {
         "--ticks",
         "0",
     ]);
-    assert_eq!(codigo, 0, "salida debe ser 0, stderr: {stderr}");
+    assert_eq!(code, 0, "exit code should be 0, stderr: {stderr}");
     assert!(
         stdout.contains("== tick 0 =="),
-        "stdout debe contener '== tick 0 ==', obtuvo:\n{stdout}"
+        "stdout should contain '== tick 0 ==', got:\n{stdout}"
     );
-    // Las siete filas del mapa, idénticas al archivo.
-    let esperado = [
+    // The seven rows of the map, identical to the file.
+    let expected = [
         "....................",
         "...##...............",
         "...##.....#.........",
@@ -53,38 +53,35 @@ fn test_cli_prints_map() {
         ".#..................",
         ".#........##........",
     ];
-    for fila in esperado {
+    for row in expected {
         assert!(
-            stdout.contains(fila),
-            "stdout debe contener la fila '{fila}', obtuvo:\n{stdout}"
+            stdout.contains(row),
+            "stdout should contain the row '{row}', got:\n{stdout}"
         );
     }
     assert!(
         stderr.is_empty(),
-        "stderr debe estar vacío para un mapa válido, obtuvo: {stderr}"
+        "stderr should be empty for a valid map, got: {stderr}"
     );
 }
 
 #[test]
 fn test_cli_unknown_map_exits_1() {
-    let root = ejemplos_dir();
-    let (codigo, _, stderr) =
+    let root = examples_dir();
+    let (code, _, stderr) =
         run_cli(&["run", "--root", &root, "--map", "No existe", "--ticks", "0"]);
-    assert_eq!(codigo, 1, "mapa inexistente debe salir con 1");
-    assert!(
-        !stderr.is_empty(),
-        "stderr debe informar el mapa no encontrado"
-    );
+    assert_eq!(code, 1, "nonexistent map should exit with 1");
+    assert!(!stderr.is_empty(), "stderr should report the map not found");
     assert!(
         stderr.contains("Plain with rocks"),
-        "stderr debe listar los mapas disponibles, obtuvo: {stderr}"
+        "stderr should list available maps, got: {stderr}"
     );
 }
 
 #[test]
-fn test_cli_ticks_no_entero_salida_2() {
-    let root = ejemplos_dir();
-    let (codigo, _, _) = run_cli(&[
+fn test_cli_ticks_not_integer_exits_2() {
+    let root = examples_dir();
+    let (code, _, _) = run_cli(&[
         "run",
         "--root",
         &root,
@@ -93,5 +90,5 @@ fn test_cli_ticks_no_entero_salida_2() {
         "--ticks",
         "abc",
     ]);
-    assert_eq!(codigo, 2, "--ticks no entero debe salir con 2");
+    assert_eq!(code, 2, "--ticks not an integer should exit with 2");
 }

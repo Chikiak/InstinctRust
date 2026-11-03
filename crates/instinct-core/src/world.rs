@@ -1,118 +1,117 @@
-//! Modelo de mundo: rejilla de terreno, objetos y dibujo ASCII.
+//! World model: terrain grid, objects, and ASCII drawing.
 
 use crate::diagnostic::Diagnostic;
-use crate::resources::{Mapa, Objeto, Terrain};
+use crate::resources::{Map, Object, Terrain};
 
-/// Un elemento que ocupa una casilla sobre el terreno.
+/// An element occupying a cell on the terrain.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ContenidoCasilla {
-    /// Solo terreno.
-    Vacio,
-    /// Hay un objeto sobre el terreno.
-    Objeto(usize), // índice en el catálogo de objetos del mundo
+pub enum CellContent {
+    /// Terrain only.
+    Empty,
+    /// There is an object on the terrain.
+    Object(usize), // index in the world's object catalog
 }
 
-/// El mundo: rejilla de terrenos y objetos sobre ellos.
+/// The world: terrain grid and objects on top.
 #[derive(Debug, Clone)]
 pub struct World {
-    pub nombre_mapa: String,
-    pub columnas: usize,
-    pub filas: usize,
-    /// Terreno de cada casilla, indexado como [fila][columna].
-    pub terreno: Vec<Vec<usize>>, // índice en el catálogo de terrenos
-    /// Contenido opcional (objeto) de cada casilla.
-    pub contenido: Vec<Vec<ContenidoCasilla>>,
-    pub diagnosticos: Vec<Diagnostic>,
+    pub map_name: String,
+    pub columns: usize,
+    pub rows: usize,
+    /// Terrain of each cell, indexed as [row][column].
+    pub terrain: Vec<Vec<usize>>, // index in the terrain catalog
+    /// Optional content (object) of each cell.
+    pub content: Vec<Vec<CellContent>>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl World {
-    /// Construye un mundo a partir de un mapa cargado y los catálogos.
-    /// Los caracteres que no coincidan con ningún terreno u objeto generan
-    /// diagnóstico; el terreno debajo de una casilla con objeto es el primer
-    /// terreno cargado.
-    pub fn desde_mapa(mapa: &Mapa, terrenos: &[Terrain], objetos: &[Objeto]) -> Self {
-        let mut diagnosticos: Vec<Diagnostic> = Vec::new();
+    /// Builds a world from a loaded map and the catalogs.
+    /// Characters that do not match any terrain or object produce a diagnostic;
+    /// the terrain below a cell with an object is the first loaded terrain.
+    pub fn from_map(map: &Map, terrains: &[Terrain], objects: &[Object]) -> Self {
+        let mut diagnostics: Vec<Diagnostic> = Vec::new();
 
-        if terrenos.is_empty() {
-            diagnosticos.push(Diagnostic::new(
-                mapa.nombre.as_str(),
+        if terrains.is_empty() {
+            diagnostics.push(Diagnostic::new(
+                map.name.as_str(),
                 1,
-                "no hay terrenos cargados para dibujar el mapa".to_string(),
+                "no terrains loaded to draw the map".to_string(),
             ));
             return World {
-                nombre_mapa: mapa.nombre.clone(),
-                columnas: 0,
-                filas: 0,
-                terreno: Vec::new(),
-                contenido: Vec::new(),
-                diagnosticos,
+                map_name: map.name.clone(),
+                columns: 0,
+                rows: 0,
+                terrain: Vec::new(),
+                content: Vec::new(),
+                diagnostics,
             };
         }
 
-        let primer_terreno = 0usize;
-        let columnas = mapa.filas[0].len();
-        let filas = mapa.filas.len();
+        let first_terrain = 0usize;
+        let columns = map.rows[0].len();
+        let rows = map.rows.len();
 
-        let mut terreno: Vec<Vec<usize>> = Vec::with_capacity(filas);
-        let mut contenido: Vec<Vec<ContenidoCasilla>> = Vec::with_capacity(filas);
+        let mut terrain: Vec<Vec<usize>> = Vec::with_capacity(rows);
+        let mut content: Vec<Vec<CellContent>> = Vec::with_capacity(rows);
 
-        for (fila_idx, fila) in mapa.filas.iter().enumerate() {
-            let mut fila_terreno: Vec<usize> = Vec::with_capacity(columnas);
-            let mut fila_contenido: Vec<ContenidoCasilla> = Vec::with_capacity(columnas);
-            for c in fila.iter() {
-                // Buscar el carácter entre objetos primero, luego terrenos.
-                let objeto_idx = objetos.iter().position(|o| o.caracter == *c);
-                if let Some(idx) = objeto_idx {
-                    fila_terreno.push(primer_terreno);
-                    fila_contenido.push(ContenidoCasilla::Objeto(idx));
+        for (row_idx, row) in map.rows.iter().enumerate() {
+            let mut row_terrain: Vec<usize> = Vec::with_capacity(columns);
+            let mut row_content: Vec<CellContent> = Vec::with_capacity(columns);
+            for c in row.iter() {
+                // Look for the character among objects first, then terrains.
+                let object_idx = objects.iter().position(|o| o.character == *c);
+                if let Some(idx) = object_idx {
+                    row_terrain.push(first_terrain);
+                    row_content.push(CellContent::Object(idx));
                     continue;
                 }
-                let terreno_idx = terrenos.iter().position(|t| t.caracter == *c);
-                match terreno_idx {
+                let terrain_idx = terrains.iter().position(|t| t.character == *c);
+                match terrain_idx {
                     Some(idx) => {
-                        fila_terreno.push(idx);
-                        fila_contenido.push(ContenidoCasilla::Vacio);
+                        row_terrain.push(idx);
+                        row_content.push(CellContent::Empty);
                     }
                     None => {
-                        diagnosticos.push(Diagnostic::new(
-                            mapa.nombre.as_str(),
-                            fila_idx + 2,
-                            format!("carácter desconocido en el mapa: '{c}'"),
+                        diagnostics.push(Diagnostic::new(
+                            map.name.as_str(),
+                            row_idx + 2,
+                            format!("unknown character in the map: '{c}'"),
                         ));
-                        fila_terreno.push(primer_terreno);
-                        fila_contenido.push(ContenidoCasilla::Vacio);
+                        row_terrain.push(first_terrain);
+                        row_content.push(CellContent::Empty);
                     }
                 }
             }
-            terreno.push(fila_terreno);
-            contenido.push(fila_contenido);
+            terrain.push(row_terrain);
+            content.push(row_content);
         }
 
         World {
-            nombre_mapa: mapa.nombre.clone(),
-            columnas,
-            filas,
-            terreno,
-            contenido,
-            diagnosticos,
+            map_name: map.name.clone(),
+            columns,
+            rows,
+            terrain,
+            content,
+            diagnostics,
         }
     }
 
-    /// Dibuja el mundo en ASCII: el carácter del objeto si lo hay, si no el del
-    /// terreno. Las criaturas se añadirán en F0-04.
-    pub fn dibujar(&self, terrenos: &[Terrain], objetos: &[Objeto]) -> String {
-        let mut salida = String::new();
-        for fila in 0..self.filas {
-            for columna in 0..self.columnas {
-                let c = match &self.contenido[fila][columna] {
-                    ContenidoCasilla::Objeto(idx) => objetos[*idx].caracter,
-                    ContenidoCasilla::Vacio => terrenos[self.terreno[fila][columna]].caracter,
+    /// Draws the world in ASCII: the character of the object if there is one, otherwise the
+    /// terrain's character. Creatures will be added in F0-04.
+    pub fn draw(&self, terrains: &[Terrain], objects: &[Object]) -> String {
+        let mut output = String::new();
+        for row in 0..self.rows {
+            for column in 0..self.columns {
+                let c = match &self.content[row][column] {
+                    CellContent::Object(idx) => objects[*idx].character,
+                    CellContent::Empty => terrains[self.terrain[row][column]].character,
                 };
-                salida.push(c);
+                output.push(c);
             }
-            salida.push('\n');
+            output.push('\n');
         }
-        salida
+        output
     }
 }
 
@@ -120,61 +119,61 @@ impl World {
 mod tests {
     use super::*;
 
-    fn terreno_grass() -> Terrain {
+    fn terrain_grass() -> Terrain {
         Terrain {
-            nombre: "Grass".to_string(),
-            caracter: '.',
+            name: "Grass".to_string(),
+            character: '.',
             resource_max: 100,
             regen: 2,
-            reserva: 100,
+            reserve: 100,
         }
     }
 
-    fn objeto_rock() -> Objeto {
-        Objeto {
-            nombre: "Rock".to_string(),
-            caracter: '#',
+    fn object_rock() -> Object {
+        Object {
+            name: "Rock".to_string(),
+            character: '#',
             resource_max: 100,
-            reserva: 100,
+            reserve: 100,
         }
     }
 
     #[test]
-    fn test_dibujo_mapa_ejemplo() {
-        let mapa = Mapa {
-            nombre: "Plain with rocks".to_string(),
-            filas: vec![
+    fn test_draw_example_map() {
+        let map = Map {
+            name: "Plain with rocks".to_string(),
+            rows: vec![
                 "....................".chars().collect(),
                 "...##...............".chars().collect(),
             ],
         };
-        let terrenos = vec![terreno_grass()];
-        let objetos = vec![objeto_rock()];
-        let mundo = World::desde_mapa(&mapa, &terrenos, &objetos);
-        assert!(mundo.diagnosticos.is_empty(), "{:?}", mundo.diagnosticos);
-        let dibujo = mundo.dibujar(&terrenos, &objetos);
-        let lineas: Vec<&str> = dibujo.lines().collect();
-        assert_eq!(lineas.len(), 2);
-        assert_eq!(lineas[0], "....................");
-        assert_eq!(lineas[1], "...##...............");
+        let terrains = vec![terrain_grass()];
+        let objects = vec![object_rock()];
+        let world = World::from_map(&map, &terrains, &objects);
+        assert!(world.diagnostics.is_empty(), "{:?}", world.diagnostics);
+        let drawing = world.draw(&terrains, &objects);
+        let lines: Vec<&str> = drawing.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], "....................");
+        assert_eq!(lines[1], "...##...............");
     }
 
     #[test]
-    fn test_caracter_desconocido_genera_diagnostico() {
-        let mapa = Mapa {
-            nombre: "Raro".to_string(),
-            filas: vec!["....x....".chars().collect()],
+    fn test_unknown_character_generates_diagnostic() {
+        let map = Map {
+            name: "Rare".to_string(),
+            rows: vec!["....x....".chars().collect()],
         };
-        let terrenos = vec![terreno_grass()];
-        let objetos = vec![objeto_rock()];
-        let mundo = World::desde_mapa(&mapa, &terrenos, &objetos);
+        let terrains = vec![terrain_grass()];
+        let objects = vec![object_rock()];
+        let world = World::from_map(&map, &terrains, &objects);
         assert!(
-            mundo
-                .diagnosticos
+            world
+                .diagnostics
                 .iter()
-                .any(|d| d.linea == 2 && d.mensaje.contains('x')),
+                .any(|d| d.line == 2 && d.message.contains('x')),
             "{:?}",
-            mundo.diagnosticos
+            world.diagnostics
         );
     }
 }
