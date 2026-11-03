@@ -2,7 +2,7 @@
 id: F0-04
 title: Colocar criaturas y aplicar acciones
 phase: F0
-status: todo
+status: done
 depends_on: [F0-02]
 size: M
 ---
@@ -78,3 +78,27 @@ Si no ves cómo aplicar una acción sin dos préstamos mutables simultáneos, pa
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+AC1 (test_place_rejects_invalid_cells): PASS — `World::place_creature` validates bounds and occupancy; returns `Diagnostic` naming coordinates; world unchanged on failure. (`crates/instinct-core/src/world.rs`)
+AC2 (test_render_shows_creature): PASS — `World::draw` prints first letter of species name on the creature's cell; rest unchanged. (`crates/instinct-core/src/world.rs`)
+AC3 (test_move_stops_before_obstacles): PASS — `Move` advances up to `speed` cells one by one, stopping before map edge, object, or creature. Covers diagonal, immediate block, edge, speed > free run. (`crates/instinct-core/src/actions.rs`)
+AC4 (test_move_argument_errors): PASS — `move` with (0,0) or speed <= 0 does not move, no error; dx/dy outside {-1,0,1} or text args fail naming the argument. (`crates/instinct-core/src/actions.rs`)
+AC5 (test_wait_sleep_turns): PASS — `wait n` sleeps n-1 turns; n < 1 counts as 1 (zero sleep); text argument fails naming 'n'. (`crates/instinct-core/src/actions.rs`)
+AC6 (test_say_emits_event_and_is_free): PASS — `say` emits `Said` with tick, species, pos, text (number as text); `consumes_turn` is false; wait and move are true. (`crates/instinct-core/src/actions.rs`, `event.rs`)
+AC7 (test_catalog_lookup_and_extension): PASS — `Catalog` resolves wait(1), move(3), say(1) by name; rejects unknown and wrong arity; test-defined extra action registers without touching existing types. (`crates/instinct-core/src/actions.rs`)
+AC8 (suite complete): PASS — `cargo test --workspace` all green; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0.
+
+New files:
+- `crates/instinct-core/src/species.rs` — `Species { name }`
+- `crates/instinct-core/src/event.rs` — `Event` enum (Said, Died, RuntimeError) and `Pos`
+- `crates/instinct-core/src/actions.rs` — `Action` trait, `Catalog`, `Wait`, `Move`, `Say`, `ActionResult`
+Modified:
+- `crates/instinct-core/src/world.rs` — `CreatureId`, `Creature`, `CellContent::Creature`, `place_creature`, `remove_creature`, `creature_position`, `creature_species`, `ticks`, `events`, `draw` with creature letter
+- `crates/instinct-core/src/lib.rs` — added modules actions, event, species
+Test files:
+- `crates/instinct-core/tests/actions_tests.rs` (9 tests)
+- `crates/instinct-core/tests/species_tests.rs` (2 tests)
+- `crates/instinct-core/tests/event_tests.rs` (2 tests)
+- `crates/instinct-core/tests/world_tests.rs` (added 4 creature tests)
+
+No new ambiguities; A13 already covers move speed <= 0.

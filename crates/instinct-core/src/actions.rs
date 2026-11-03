@@ -1,0 +1,285 @@
+//! Actions: `wait`, `move`, `say`.
+//!
+//! Actions are stateless types; the catalog keeps them as shared references
+//! of a single thread (`Rc<dyn Action>`). The interpreter resolves each name
+//! against the catalog validating arity; there are no `if nombre == ...`
+//! chains by name.
+
+use crate::diagnostic::Diagnostic;
+use crate::event::Event;
+use crate::value::Value;
+use crate::world::{CreatureId, World};
+use std::rc::Rc;
+
+/// Result of applying an action: the number of sleep turns (0 = none) and
+/// any events to append to the world's event log.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActionResult {
+    pub sleep_turns: i64,
+    pub events: Vec<Event>,
+}
+
+/// Trait every action type implements. Stateless: no per-creature state here.
+pub trait Action: std::fmt::Debug {
+    /// Action name as it appears in the language (e.g. `wait`, `move`, `say`).
+    fn name(&self) -> &str;
+    /// Number of evaluated arguments the action expects.
+    fn arity(&self) -> usize;
+    /// Whether executing this action consumes a turn. `say` does not.
+    fn consumes_turn(&self) -> bool;
+    /// Apply the action with already-evaluated arguments on the world for the
+    /// given creature id. Returns an `ActionResult`.
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic>;
+}
+
+/// Catalog of actions by name. Resolves an action name validating arity.
+#[derive(Debug, Clone)]
+pub struct Catalog {
+    actions: Vec<Rc<dyn Action>>,
+}
+
+impl Catalog {
+    pub fn new() -> Self {
+        Catalog {
+            actions: Vec::new(),
+        }
+    }
+
+    /// Registers an action type. Returns an error if an action with the same
+    /// name is already registered.
+    pub fn register(&mut self, action: Rc<dyn Action>) -> Result<(), Diagnostic> {
+        if self.actions.iter().any(|a| a.name() == action.name()) {
+            return Err(Diagnostic::new(
+                "catalog",
+                1,
+                format!("action '{}' already registered", action.name()),
+            ));
+        }
+        self.actions.push(action);
+        Ok(())
+    }
+
+    /// Resolves an action by name, validating arity. Returns a diagnostic
+    /// naming the argument if unknown or wrong arity.
+    pub fn resolve(&self, name: &str, arg_count: usize) -> Result<Rc<dyn Action>, Diagnostic> {
+        match self.actions.iter().find(|a| a.name() == name) {
+            Some(action) => {
+                if action.arity() != arg_count {
+                    return Err(Diagnostic::new(
+                        "catalog",
+                        1,
+                        format!(
+                            "action '{}' expects {} arguments, got {}",
+                            name,
+                            action.arity(),
+                            arg_count
+                        ),
+                    ));
+                }
+                Ok(Rc::clone(action))
+            }
+            None => Err(Diagnostic::new(
+                "catalog",
+                1,
+                format!("unknown action '{name}'"),
+            )),
+        }
+    }
+}
+
+impl Default for Catalog {
+    fn default() -> Self {
+        let mut c = Catalog::new();
+        let _ = c.register(Rc::new(Wait));
+        let _ = c.register(Rc::new(Move));
+        let _ = c.register(Rc::new(Say));
+        c
+    }
+}
+
+// ---------------------------------------------------------------------------
+// wait(n): sleep n-1 turns; n < 1 counts as 1 (zero sleep); text fails.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Wait;
+
+impl Action for Wait {
+    fn name(&self) -> &str {
+        "wait"
+    }
+    fn arity(&self) -> usize {
+        1
+    }
+    fn consumes_turn(&self) -> bool {
+        true
+    }
+    fn apply(
+        &self,
+        _world: &mut World,
+        _creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let n = match &args[0] {
+            Value::Int(n) => *n,
+            Value::Text(_) => {
+                return Err(Diagnostic::new(
+                    "wait",
+                    1,
+                    "argument 'n' must be an integer, got text".to_string(),
+                ));
+            }
+        };
+        let sleep_turns = if n < 1 { 0 } else { n - 1 };
+        Ok(ActionResult {
+            sleep_turns,
+            events: Vec::new(),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// move(dx, dy, speed): advances up to `speed` cells one by one, stopping
+// before the first cell outside the map, with an object, or with a creature.
+// Direction (0, 0) or speed <= 0: does not move and does not fail.
+// dx or dy outside {-1, 0, 1}, or text arguments: error naming the argument.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Move;
+
+impl Action for Move {
+    fn name(&self) -> &str {
+        "move"
+    }
+    fn arity(&self) -> usize {
+        3
+    }
+    fn consumes_turn(&self) -> bool {
+        true
+    }
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let dx = parse_move_arg(&args[0], "dx")?;
+        let dy = parse_move_arg(&args[1], "dy")?;
+        let speed = match &args[2] {
+            Value::Int(s) => *s,
+            Value::Text(_) => {
+                return Err(Diagnostic::new(
+                    "move",
+                    1,
+                    "argument 'speed' must be an integer, got text".to_string(),
+                ));
+            }
+        };
+
+        // Direction (0, 0) or speed <= 0: no move, no error.
+        if (dx == 0 && dy == 0) || speed <= 0 {
+            return Ok(ActionResult {
+                sleep_turns: 0,
+                events: Vec::new(),
+            });
+        }
+
+        // dx or dy outside {-1, 0, 1}: error naming the argument.
+        if !((-1..=1).contains(&dx)) {
+            return Err(Diagnostic::new(
+                "move",
+                1,
+                format!("argument 'dx' must be -1, 0, or 1, got {dx}"),
+            ));
+        }
+        if !((-1..=1).contains(&dy)) {
+            return Err(Diagnostic::new(
+                "move",
+                1,
+                format!("argument 'dy' must be -1, 0, or 1, got {dy}"),
+            ));
+        }
+
+        let pos = world.creature_position(creature_id)?;
+        let mut x = pos.x as i64;
+        let mut y = pos.y as i64;
+
+        for _ in 0..speed {
+            let nx = x + dx;
+            let ny = y + dy;
+            if !world.cell_is_free(nx as usize, ny as usize) {
+                break;
+            }
+            x = nx;
+            y = ny;
+        }
+
+        let _ = world.move_creature_to(creature_id, x as usize, y as usize);
+        Ok(ActionResult {
+            sleep_turns: 0,
+            events: Vec::new(),
+        })
+    }
+}
+
+/// Parses a move direction argument, returning it as i64 or an error naming
+/// the argument if it is text.
+fn parse_move_arg(value: &Value, arg_name: &str) -> Result<i64, Diagnostic> {
+    match value {
+        Value::Int(n) => Ok(*n),
+        Value::Text(_) => Err(Diagnostic::new(
+            "move",
+            1,
+            format!("argument '{arg_name}' must be an integer, got text"),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// say(val): emits a Said event with the creature's current position and tick,
+// does not consume a turn. A number is shown as text.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Say;
+
+impl Action for Say {
+    fn name(&self) -> &str {
+        "say"
+    }
+    fn arity(&self) -> usize {
+        1
+    }
+    fn consumes_turn(&self) -> bool {
+        false
+    }
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let text = match &args[0] {
+            Value::Int(n) => n.to_string(),
+            Value::Text(s) => s.clone(),
+        };
+        let pos = world.creature_position(creature_id)?;
+        let species = world.creature_species(creature_id)?;
+        let tick = world.tick();
+        Ok(ActionResult {
+            sleep_turns: 0,
+            events: vec![Event::Said {
+                tick,
+                species,
+                pos,
+                text,
+            }],
+        })
+    }
+}
