@@ -4,10 +4,11 @@ use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources;
+use instinct_core::sim::Simulation;
+use instinct_core::species::Species;
 use instinct_core::world;
 
-/// Usage text of the program. Describes the `run` and `check` subcommands
-/// (`check` is implemented in F0-06; until then it is treated as unknown).
+/// Usage text of the program. Describes the `run` and `check` subcommands.
 const USAGE: &str = "Uso: instinct-cli <comando> [argumentos]\n\nComandos:\n  run --root <dir> --map <nombre> [--seed <n>] [--ticks <n>] [--every <n>] [--place <Especie>@<x>,<y>]\n  check <archivo.ins>\n\nEjecute `instinct-cli --help` para ver esta ayuda.";
 
 /// Arguments of the `run` subcommand.
@@ -18,6 +19,13 @@ struct RunArgs {
     ticks: i64,
     every: i64,
     places: Vec<String>,
+}
+
+/// A parsed creature placement: species name and map coordinates.
+struct Placement {
+    species: String,
+    x: usize,
+    y: usize,
 }
 
 fn main() {
@@ -91,18 +99,106 @@ fn execute_run(args: &[String]) -> i32 {
         return 1;
     }
 
-    let world = world::World::from_map(map, &resources.terrains, &resources.objects);
+    // Parse every --place value. A malformed placement or an unknown species
+    // aborts with exit code 1 before simulating.
+    let mut placements: Vec<(Placement, Species)> = Vec::new();
+    for place_str in &parsed.places {
+        let placement = match parse_place(place_str) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("{e}");
+                return 1;
+            }
+        };
+        let species = match resources
+            .creatures
+            .iter()
+            .find(|s| s.name == placement.species)
+        {
+            Some(s) => s.clone(),
+            None => {
+                eprintln!("especie desconocida: '{}'", placement.species);
+                return 1;
+            }
+        };
+        placements.push((placement, species));
+    }
+
+    // Build the world and place creatures.
+    let mut world = world::World::from_map(map, &resources.terrains, &resources.objects);
     for d in &world.diagnostics {
         eprintln!("{d}");
     }
 
-    // --seed, --ticks, --every, and --place are read and validated, but not
-    // yet used in the simulation (F0-07 onwards).
-    let _ = (&parsed.seed, &parsed.ticks, &parsed.every, &parsed.places);
+    for (placement, species) in &placements {
+        match world.place_creature(species.clone(), placement.x, placement.y) {
+            Ok(_) => {}
+            Err(d) => {
+                eprintln!("{d}");
+                return 1;
+            }
+        }
+    }
 
+    // Create the simulation and seed its generator.
+    let mut sim = Simulation::new(world, resources.terrains, resources.objects);
+    sim.set_rng_seed(parsed.seed);
+
+    let ticks = parsed.ticks;
+    let every = parsed.every;
+
+    // Map at tick 0 (initial state).
     println!("== tick 0 ==");
-    print!("{}", world.draw(&resources.terrains, &resources.objects));
+    print!("{}", sim.world().draw(&sim.terrains, &sim.objects));
+
+    for _ in 0..ticks {
+        let events = sim.step_tick();
+
+        // Events from the tick that just ran (they carry the pre-increment
+        // tick number) are printed after that tick's map.
+        for event in &events {
+            println!("{event}");
+        }
+
+        let next_tick = sim.tick();
+
+        // Print the map when the tick counter hits a multiple of `--every`
+        // or the final tick.
+        let should_print =
+            every > 0 && (next_tick.is_multiple_of(every as u64) || next_tick == ticks as u64);
+        if should_print {
+            println!("== tick {next_tick} ==");
+            print!("{}", sim.world().draw(&sim.terrains, &sim.objects));
+        }
+    }
+
     0
+}
+
+/// Parses a `--place` value of the form `Especie@x,y`.
+fn parse_place(value: &str) -> Result<Placement, String> {
+    let at_pos = value.find('@').ok_or_else(|| {
+        format!("'--place' tiene formato invalido: '{value}', se esperaba Especie@x,y")
+    })?;
+    let species = value[..at_pos].to_string();
+    if species.is_empty() {
+        return Err(format!(
+            "'--place' tiene formato invalido: '{value}', falta el nombre de la especie"
+        ));
+    }
+    let coords = &value[at_pos + 1..];
+    let comma_pos = coords.find(',').ok_or_else(|| {
+        format!("'--place' tiene formato invalido: '{value}', se esperaba Especie@x,y")
+    })?;
+    let x_str = &coords[..comma_pos];
+    let y_str = &coords[comma_pos + 1..];
+    let x: usize = x_str
+        .parse()
+        .map_err(|_| format!("'--place' coordenada x invalida: '{x_str}' en '{value}'"))?;
+    let y: usize = y_str
+        .parse()
+        .map_err(|_| format!("'--place' coordenada y invalida: '{y_str}' en '{value}'"))?;
+    Ok(Placement { species, x, y })
 }
 
 /// Parses the arguments of the `run` subcommand (after the `run` name).
@@ -140,10 +236,15 @@ fn parse_run(args: &[String]) -> Result<RunArgs, String> {
             }
             "--every" => {
                 let v = next_value(args, &mut i, "--every")?;
-                every = Some(
-                    v.parse::<i64>()
-                        .map_err(|_| format!("--every debe ser un entero, obtuvo '{v}'"))?,
-                );
+                let parsed = v
+                    .parse::<i64>()
+                    .map_err(|_| format!("--every debe ser un entero, obtuvo '{v}'"))?;
+                if parsed < 1 {
+                    return Err(format!(
+                        "--every debe ser mayor o igual a 1, obtuvo {parsed}"
+                    ));
+                }
+                every = Some(parsed);
             }
             "--place" => {
                 places.push(next_value(args, &mut i, "--place")?);
