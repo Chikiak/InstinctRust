@@ -1,0 +1,6 @@
+[package]
+name = "instinct-core"
+description = "Núcleo del intérprete y simulador del lenguaje Instinct"
+edition = "2021"
+
+[dependencies]

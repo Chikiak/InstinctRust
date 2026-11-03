@@ -1,0 +1,11 @@
+[package]
+name = "instinct-cli"
+description = "CLI del simulador Instinct"
+edition = "2021"
+
+[[bin]]
+name = "instinct-cli"
+path = "src/main.rs"
+
+[dependencies]
+instinct-core = { path = "../instinct-core" }

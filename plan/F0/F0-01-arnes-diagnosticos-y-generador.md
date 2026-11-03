@@ -2,7 +2,7 @@
 id: F0-01
 title: Arnés, diagnósticos y generador sembrado
 phase: F0
-status: todo
+status: done
 depends_on: []
 size: S
 ---
@@ -76,3 +76,19 @@ Si el toolchain no compila el workspace vacío, para y reporta el error exacto; 
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+**AC1 PASS** — `cargo build --workspace` exit 0; `cargo tree --workspace` lista solo `instinct-cli` → `instinct-core`, sin dependencias externas. Archivos: `Cargo.toml` (raíz, workspace), `crates/instinct-core/Cargo.toml`, `crates/instinct-cli/Cargo.toml`.
+
+**AC2 PASS** — `Diagnostic` en `crates/instinct-core/src/diagnostic.rs` con `archivo`, `linea`, `mensaje`; `Display` imprime `archivo:línea: mensaje`. Test: `test_diagnostic_display_format` (cargo test -p instinct-core, 8 tests ok).
+
+**AC3 PASS** — `Rng` en `crates/instinct-core/src/rng.rs`, algoritmo SplitMix64 (documentado en comentario de cabecera). Semilla 0 funciona; misma semilla = misma secuencia; semillas distintas = secuencias distintas; 10 000 lecturas `next_bounded(99)` siempre en [0, 99]. Tests: `test_rng_is_deterministic`, `test_rng_range_0_99`, `test_rng_different_seeds_different_sequences`, `test_rng_seed_zero_works`, `test_rng_bounded_zero`.
+
+**AC4 PASS** — `Rng::shuffle` Fisher–Yates in-place; misma semilla = mismo orden; conserva todos los elementos (permutación). Test: `test_shuffle_is_deterministic_permutation`, `test_shuffle_empty_and_single`.
+
+**AC5 PASS** — `crates/instinct-cli/src/main.rs`: sin argumentos → uso por stderr, salida 2; `--help` → uso por stdout, salida 0; subcomando desconocido → stderr + salida 2. Integración: `crates/instinct-cli/tests/cli_usage.rs` con `test_cli_without_args_exits_2`, `test_cli_help_exits_0`, `test_cli_unknown_subcommand_exits_2`. El binario localiza el path con `BIN_INSTINCT_CLI` / `CARGO_BIN_EXE_instinct-cli`.
+
+**AC6 PASS** — `docs/enunciado.md` (copia de `docs/instinct.md`) empieza por `## Instinto`; `docs/ambiguedades.md` tiene una fila por A1–A13 con columnas decisión, alternativa y "confirmar con profesores" (vacía).
+
+**AC7 PASS** — `cargo test --workspace` (11 tests ok), `cargo clippy --workspace --all-targets -- -D warnings` exit 0, `cargo fmt --all --check` exit 0.
+
+Sin `unwrap`/`expect` sobre datos de usuario; sin `rand`; sin `println!` en el núcleo; sin `f32`/`f64`; `usize` solo para índices de slice en `shuffle`, nunca en generación de números.
