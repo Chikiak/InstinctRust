@@ -151,7 +151,7 @@ La criatura se dibuja con la primera letra del nombre de su especie.
 | ID | Título | Depende de | Tamaño | Paralelizable con | Estado |
 |----|--------|------------|--------|-------------------|--------|
 | F0-01 | Arnés, diagnósticos y generador sembrado | — | S | — | done |
-| F0-02 | Cargar recursos y mostrar un mapa | F0-01 | M | F0-03 | todo |
+| F0-02 | Cargar recursos y mostrar un mapa | F0-01 | M | F0-03 | done |
 | F0-03 | Evaluar expresiones sobre enteros y texto | F0-01 | M | F0-02 | todo |
 | F0-04 | Colocar criaturas y aplicar acciones | F0-02 | M | F0-03 | todo |
 | F0-05 | Leer percepciones y variables de una criatura | F0-03, F0-04 | M | — | todo |

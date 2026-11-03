@@ -62,7 +62,7 @@ fn test_cli_help_exits_0() {
 
 #[test]
 fn test_cli_unknown_subcommand_exits_2() {
-    let (codigo, _, stderr) = run_cli(&["run", "--root", ".", "--map", "x"]);
+    let (codigo, _, stderr) = run_cli(&["inexistente"]);
     assert_eq!(codigo, 2, "subcomando no implementado debe salir con 2");
     assert!(
         !stderr.is_empty(),

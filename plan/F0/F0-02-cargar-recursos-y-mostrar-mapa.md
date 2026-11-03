@@ -2,7 +2,7 @@
 id: F0-02
 title: Cargar recursos y mostrar un mapa
 phase: F0
-status: todo
+status: done
 depends_on: [F0-01]
 size: M
 ---
@@ -86,3 +86,21 @@ Si `Diagnostic` no encaja con lo que necesitas, repórtalo en las notas en lugar
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+**AC1 PASS** — `cargo test -p instinct-core resources` → `test_load_terrain_example` ok. `grass.te` carga como `Terrain { nombre: "Grass", caracter: '.', resource_max: 100, regen: 2, reserva: 100 }`. Archivos: `crates/instinct-core/src/resources.rs` (`cargar_terreno`), `examples/terrains/grass.te`.
+
+**AC2 PASS** — `test_load_object_example` + `test_char_hash_is_not_a_comment` ok. `rock.ob` carga como `Objeto { nombre: "Rock", caracter: '#', resource_max: 100 }`. `char #` no se toma por comentario (la línea no inicia por `#`); una línea cuyo primer no-blanco es `#` sí es comentario (`leer_claves`/`separar_clave_valor`).
+
+**AC3 PASS** — `test_load_map_example` ok. `plain.map` → nombre "Plain with rocks", 7 filas × 20 columnas, rocas en (3,1) y (4,1). `World::desde_mapa` resuelve objeto sobre el primer terreno (`crates/instinct-core/src/world.rs`).
+
+**AC4 PASS** — `test_map_unknown_char_reports_line` + `test_map_ragged_row_reports_line` ok. `cargar_mapa(contenido, archivo, caracteres_validos)` reporta diagnóstico con la línea de la fila para carácter desconocido o fila de largo distinto; no impide cargar el resto.
+
+**AC5 PASS** — `test_resource_validation_diagnostics` + `test_char_repetido_descarta_archivo` ok. Clave faltante, valor no numérico, `char` >1 carácter, `resource_max` <= 0, `regen` < 0 y `char` repetido por otro recurso → diagnóstico con línea y el archivo se descarta (primero se conserva en orden alfabético).
+
+**AC6 PASS** — `test_missing_directory_is_empty` ok. Carpeta ausente (`terrains/`, `objects/`, `maps/`) se carga como vacía sin diagnóstico (`listar_archivos_ordenados` ignora directorios ausentes).
+
+**AC7 PASS** — `cargo test -p instinct-cli` → `test_cli_prints_map` (`run --root examples --map "Plain with rocks" --ticks 0` imprime `== tick 0 ==` y las 7 filas, salida 0) + `test_cli_unknown_map_exits_1` (mapa inexistente escribe mapas disponibles por stderr, salida 1). CLI: `crates/instinct-cli/src/main.rs` (subcomando `run`, flags `--root/--map/--seed/--ticks/--every/--place`, `--ticks` validado como entero) + `crates/instinct-cli/tests/cli_run.rs`.
+
+**AC8 PASS** — `cargo test --workspace` (26 tests ok), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0), `cargo fmt --all --check` (exit 0).
+
+Tipos nuevos: `Terrain`, `Objeto`, `Mapa`, `RecursosCargados` en `resources.rs`; `World`, `ContenidoCasilla` en `world.rs`. Funciones clave: `cargar_recursos`, `cargar_terrenos_carpeta`, `cargar_objetos_carpeta`, `cargar_mapas_carpeta`, `cargar_terreno`, `cargar_objeto`, `cargar_mapa`, `World::desde_mapa`, `World::dibujar`. Orden de carga: terrenos, objetos, mapas; alfabético por archivo (A1). Carpeta ausente = vacía (A2). Sin `unwrap`/`expect` sobre datos de usuario; sin `rand`; sin `println!` en el núcleo; sin floats.
