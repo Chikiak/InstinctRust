@@ -2,7 +2,7 @@
 id: F0-07
 title: Turnos y ticks con sus leyes
 phase: F0
-status: todo
+status: done
 depends_on: [F0-06]
 size: M
 ---
@@ -81,3 +81,32 @@ Si la separación lectura/escritura te empuja a `Rc<RefCell>` por todo el mundo 
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+- AC1 (test_turn_resumes_after_action): `cargo test -p instinct-core --test interp_tests` → 6 passed. Interp returns say as pending (no turn consumed) then move as pending (turn ends); pc resumes at line after action.
+- AC2 (test_line_limit_ends_turn): 100-line limit counts labels; loop of label+goto ends turn with no action, creature stays alive, pc left at line where limit hit.
+- AC3 (test_end_of_program_restarts_at_start): End of file ends turn with no action; next turn resumes at `start:` label (index 0).
+- AC4 (test_wait_skips_turns): `wait(3)` sets sleep=2; two subsequent turns decrement sleep with no action; creature ages; wake resumes at saved pc.
+- AC5 (test_death_by_health_and_by_age): End of tick: -1 health, +1 age; health 10 → dies by `vida` at tick 10; lifespan 5 → dies by `edad` at tick 5; `Died` events emitted; creature removed from map.
+- AC6 (test_terrain_regenerates_and_empty_objects_vanish): Terrain regen capped at resource_max; object with reserve 0 vanishes, cell freed.
+- AC7 (test_division_by_zero_is_runtime_error, test_unassigned_variable_is_runtime_error): Division by zero and unassigned variable produce `RuntimeError` with line; creature dies with cause `error`, removed from map, other creatures unaffected.
+- AC8 (test_same_seed_same_history, test_seed_changes_turn_order): Same seed → identical events and map byte-for-byte over 50 ticks; different seeds → different turn order and map outcome.
+- AC9: `cargo test --workspace` (106 passed), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0), `cargo fmt --all --check` (exit 0).
+
+New files:
+- `crates/instinct-core/src/interp.rs` — `CreatureTurnState`, `TurnResult`, `PendingAction`, `execute_turn`.
+- `crates/instinct-core/src/sim.rs` — `Simulation`, `step_tick`, turn shuffle, action application, end-of-tick.
+- `crates/instinct-core/tests/interp_tests.rs` — AC1, AC2, AC3, AC4, AC7 tests.
+- `crates/instinct-core/tests/sim_tests.rs` — AC5, AC6, AC8 tests.
+
+Modified files:
+- `crates/instinct-core/src/lib.rs` — added `mod interp`, `mod sim`.
+- `crates/instinct-core/src/world.rs` — added `pc: usize` to `Creature`, init health/lifespan from species, `end_of_tick_creatures`, `end_of_tick_terrain_and_objects`.
+- `crates/instinct-core/src/compile.rs` — fixed `parse_assignment` return value being ignored (assignments were silently dropped).
+- `crates/instinct-core/tests/interp_tests.rs`, `tests/sim_tests.rs` — new test files.
+
+Design notes:
+- `CreatureTurnState.variables` is `Rc<RefCell<HashMap>>` so the eval context sees assignments made during the same turn.
+- `Simulation` owns `world`, `terrains`, `objects`; end-of-tick regenerates each terrain once (not per cell).
+- Interpreter reads world immutably via `CreatureContext`; simulation applies pending actions mutably.
+- Bug fixed in F0-06 code: `parse_assignment` return value was ignored, so `name = expr` lines never reached `Program.lines`.
+

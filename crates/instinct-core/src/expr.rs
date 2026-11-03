@@ -21,9 +21,11 @@ pub trait EvalContext {
 ///
 /// Evaluation errors are plain strings without a line; the line is added by
 /// whoever executes a source line.
-pub trait Expr {
+pub trait Expr: std::fmt::Debug {
     /// Evaluates the node against `ctx`.
     fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String>;
+    /// Clones the node into a boxed trait object.
+    fn clone_box(&self) -> Box<dyn Expr>;
 }
 
 /// Literal integer.
@@ -36,6 +38,10 @@ impl Expr for LiteralInt {
     fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
         Ok(Value::Int(self.value))
     }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(LiteralInt { value: self.value })
+    }
 }
 
 /// Literal text.
@@ -47,6 +53,12 @@ pub struct LiteralText {
 impl Expr for LiteralText {
     fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
         Ok(Value::Text(self.value.clone()))
+    }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(LiteralText {
+            value: self.value.clone(),
+        })
     }
 }
 
@@ -61,12 +73,28 @@ impl Expr for Name {
         ctx.resolve(&self.name)
             .ok_or_else(|| format!("unknown variable '{}'", self.name))
     }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(Name {
+            name: self.name.clone(),
+        })
+    }
 }
 
 /// A unary operation (`-` or `not`).
+#[derive(Debug)]
 pub struct Unary {
     pub op: String,
     pub operand: Box<dyn Expr>,
+}
+
+impl Clone for Unary {
+    fn clone(&self) -> Self {
+        Unary {
+            op: self.op.clone(),
+            operand: self.operand.clone_box(),
+        }
+    }
 }
 
 impl Expr for Unary {
@@ -74,13 +102,31 @@ impl Expr for Unary {
         let value = self.operand.eval(ctx)?;
         value.unary_op(&self.op)
     }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(Unary {
+            op: self.op.clone(),
+            operand: self.operand.clone_box(),
+        })
+    }
 }
 
 /// A binary operation.
+#[derive(Debug)]
 pub struct Binary {
     pub op: String,
     pub left: Box<dyn Expr>,
     pub right: Box<dyn Expr>,
+}
+
+impl Clone for Binary {
+    fn clone(&self) -> Self {
+        Binary {
+            op: self.op.clone(),
+            left: self.left.clone_box(),
+            right: self.right.clone_box(),
+        }
+    }
 }
 
 impl Expr for Binary {
@@ -106,6 +152,14 @@ impl Expr for Binary {
             "or" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
             _ => left.binary_op(&self.op, &right),
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(Binary {
+            op: self.op.clone(),
+            left: self.left.clone_box(),
+            right: self.right.clone_box(),
+        })
     }
 }
 

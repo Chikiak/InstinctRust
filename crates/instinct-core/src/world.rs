@@ -47,6 +47,8 @@ pub struct Creature {
     pub lifespan: i64,
     /// Turns of sleep remaining (from `wait`). Zero means awake.
     pub sleep_turns: i64,
+    /// Next line index to execute at the start of the next turn.
+    pub pc: usize,
     /// Variables owned by this creature, separate from other creatures.
     pub variables: HashMap<String, Value>,
 }
@@ -194,15 +196,18 @@ impl World {
 
         let id = CreatureId(self.next_creature_id);
         self.next_creature_id += 1;
+        let health = species.health;
+        let lifespan = species.lifespan;
         let creature = Creature {
             id,
             species,
             x,
             y,
-            health: 0,
+            health,
             age: 0,
-            lifespan: 0,
+            lifespan,
             sleep_turns: 0,
+            pc: 0,
             variables: HashMap::new(),
         };
         self.content[y][x] = CellContent::Creature(id);
@@ -364,6 +369,80 @@ impl World {
             self.emit_event(event);
         }
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // End of tick laws.
+    // -----------------------------------------------------------------------
+
+    /// Applies the end-of-tick laws to every creature: -1 health, +1 age, and
+    /// death when health <= 0 or age >= lifespan. Returns `Died` events for
+    /// creatures that die and removes them from the map.
+    pub fn end_of_tick_creatures(&mut self) -> Vec<Event> {
+        let mut died: Vec<Event> = Vec::new();
+        let mut dead_ids: Vec<CreatureId> = Vec::new();
+
+        for creature in self.creatures.iter() {
+            let next_health = creature.health - 1;
+            let next_age = creature.age + 1;
+            let dead = next_health <= 0 || next_age >= creature.lifespan;
+            if dead {
+                dead_ids.push(creature.id);
+                let cause = if next_health <= 0 { "vida" } else { "edad" };
+                died.push(Event::Died {
+                    tick: self.ticks,
+                    species: creature.species.name.clone(),
+                    pos: Pos {
+                        x: creature.x,
+                        y: creature.y,
+                    },
+                    cause: cause.to_string(),
+                });
+            }
+        }
+
+        // Apply health/age changes (to survivors) and remove the dead.
+        for creature in self.creatures.iter_mut() {
+            if !dead_ids.contains(&creature.id) {
+                creature.health -= 1;
+                creature.age += 1;
+            }
+        }
+        for id in &dead_ids {
+            let _ = self.remove_creature(*id);
+        }
+        died
+    }
+
+    /// Regenerates terrain reserves up to `resource_max` and removes objects
+    /// whose reserve is 0 or less, freeing their cells.
+    pub fn end_of_tick_terrain_and_objects(
+        &mut self,
+        terrains: &mut [Terrain],
+        objects: &[Object],
+    ) -> Vec<Pos> {
+        let mut freed: Vec<Pos> = Vec::new();
+
+        // Regenerate each terrain once per tick (not once per cell).
+        for terrain in terrains.iter_mut() {
+            if terrain.reserve < terrain.resource_max {
+                let new_reserve = terrain.reserve + terrain.regen;
+                terrain.reserve = new_reserve.min(terrain.resource_max);
+            }
+        }
+
+        // Remove exhausted objects and free their cells.
+        for y in 0..self.rows {
+            for x in 0..self.columns {
+                if let CellContent::Object(obj_idx) = &self.content[y][x] {
+                    if objects[*obj_idx].reserve <= 0 {
+                        self.content[y][x] = CellContent::Empty;
+                        freed.push(Pos { x, y });
+                    }
+                }
+            }
+        }
+        freed
     }
 
     // -----------------------------------------------------------------------

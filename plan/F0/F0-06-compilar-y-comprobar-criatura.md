@@ -2,7 +2,7 @@
 id: F0-06
 title: Compilar y comprobar una criatura .ins
 phase: F0
-status: todo
+status: done
 depends_on: [F0-05]
 size: M
 ---
@@ -98,3 +98,30 @@ Si el parser de F0-03 no sirve para el caso del `if`, repórtalo en vez de dupli
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+AC1 (PASS): `cargo test -p instinct-core --test compile_tests test_compile_walker_example` → walker.ins compiles, species Walker, faction any, health 10, vision 3, lifespan 100, label `start` present.
+AC2 (PASS): `cargo test -p instinct-core --test compile_tests test_header_*` → all header validation tests pass (keys in any order, missing key on line 1, repeated key, unknown key, non-integer value, zero health, zero vision).
+AC3 (PASS): `cargo test -p instinct-core --test compile_tests test_body_all_line_forms` → label, goto, if-goto, assignment, action call; blank lines, full-line comments, trailing comments, indentation ignored.
+AC4 (PASS): `cargo test -p instinct-core --test compile_tests test_goto_to_missing_label_reports_on_goto_line test_duplicate_label_reports_on_second test_missing_start_reports_on_line_1` → goto to missing label on goto line, duplicate label on second, missing start on line 1.
+AC5 (PASS): `cargo test -p instinct-core --test compile_tests test_assign_to_perception_reports_on_its_line test_assign_to_action_reports_on_its_line test_assign_to_reserved_word_reports_on_its_line test_unknown_action_reports_on_its_line test_wrong_arity_reports_on_its_line test_function_in_expression_reports_on_its_line` → all name/arity errors report on their line naming the element.
+AC6 (PASS): `cargo test -p instinct-core --test compile_tests test_unrecognized_line_reports_its_text test_multiple_errors_ordered_by_line` → unrecognized line names the text; multiple errors ordered by line.
+AC7 (PASS): `cargo test -p instinct-cli --test cli_check` → all 5 CLI check tests pass (valid OK exit 0, invalid diagnostics exit 1).
+AC8 (PASS): `cargo test -p instinct-core --test resources_tests test_bad_creature_does_not_stop_loading` → bad creature doesn't stop loading others or maps.
+AC9 (PASS): `cargo test --workspace` → all pass; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+
+Files created/modified:
+- `crates/instinct-core/src/compile.rs` (new) — header validation, body parsing, label table, name/arity checks, `compile()` returning `CompileResult{program, diagnostics, header}`.
+- `crates/instinct-core/src/program.rs` (new) — `Program`, `Line` enum, `resolve_label()`, manual `Clone` for `Line` via `Expr::clone_box`.
+- `crates/instinct-core/src/species.rs` (modified) — `Species` now stores `faction`, `health`, `vision`, `lifespan`, `program: Option<Rc<Program>>`; `new(name)` with defaults + `with_program(...)`.
+- `crates/instinct-core/src/resources.rs` (modified) — `LoadedResources.creatures`, `load_creatures_folder()`, `load_resources()` loads creatures/ last.
+- `crates/instinct-core/src/expr.rs` (modified) — `Expr: Debug` trait + `clone_box()` method; manual `Clone` for `Unary`/`Binary`; `clone_box` on all 5 node types.
+- `crates/instinct-core/src/lib.rs` (modified) — added `compile` and `program` modules.
+- `crates/instinct-cli/src/main.rs` (modified) — `check` subcommand implemented: prints `OK`/diagnostics (`archivo:línea: mensaje`), exit 0/1.
+- `examples/creatures/walker.ins` (new) — Walker, faction any, health 10, vision 3, lifespan 100, loops `move(1,0,1); goto start`.
+- `crates/instinct-core/tests/compile_tests.rs` (new) — 20 unit tests covering AC1-AC6.
+- `crates/instinct-cli/tests/cli_check.rs` (new) — 5 integration tests for AC7.
+- `crates/instinct-cli/tests/fixtures/{bad_header,bad_label,bad_action}.ins` (new) — invalid fixtures.
+- `crates/instinct-core/tests/resources_tests.rs` (modified) — added `test_bad_creature_does_not_stop_loading` for AC8.
+
+Rust concepts practiced: `Result` accumulation, `HashMap` for labels, `Rc` for shared program, trait object `Box<dyn Expr>` with `clone_box`, separation "compiler reads, world writes".
+

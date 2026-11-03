@@ -1,5 +1,8 @@
 use std::process::exit;
 
+use instinct_core::actions::Catalog;
+use instinct_core::compile;
+use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources;
 use instinct_core::world;
 
@@ -34,12 +37,7 @@ fn main() {
 
     match args[1].as_str() {
         "run" => exit(execute_run(&args[2..])),
-        "check" => {
-            // check not yet implemented (F0-06).
-            eprintln!("{USAGE}");
-            eprintln!("error: subcomando 'check' aún no implementado");
-            exit(2);
-        }
+        "check" => exit(execute_check(&args[2..])),
         _ => {
             // Anything else: unknown subcommand.
             eprintln!("{USAGE}");
@@ -176,4 +174,37 @@ fn next_value(args: &[String], i: &mut usize, flag: &str) -> Result<String, Stri
         .ok_or_else(|| format!("{flag} requires a value"))?;
     *i += 2;
     Ok(value.clone())
+}
+
+/// Executes the `check` subcommand. Returns the exit code.
+fn execute_check(args: &[String]) -> i32 {
+    if args.len() != 1 {
+        eprintln!("{USAGE}");
+        eprintln!("error: el subcomando 'check' requiere un archivo .ins");
+        return 2;
+    }
+
+    let path = &args[0];
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{USAGE}");
+            eprintln!("error: no se pudo leer el archivo '{path}': {e}");
+            return 1;
+        }
+    };
+
+    let catalog = Catalog::default();
+    let perception_catalog = PerceptionCatalog::default();
+    let result = compile::compile(&content, &catalog, &perception_catalog, path);
+
+    if result.diagnostics.is_empty() {
+        println!("OK");
+        0
+    } else {
+        for d in &result.diagnostics {
+            eprintln!("{d}");
+        }
+        1
+    }
 }
