@@ -1,0 +1,580 @@
+//! Expressions: a hierarchy of nodes that evaluate themselves.
+//!
+//! The parser turns a line of expression text into a tree of nodes, each
+//! implementing [`Expr`]. A function call in an expression is a compile-time
+//! error ("unknown function"), since no functions exist in this phase.
+
+use crate::diagnostic::Diagnostic;
+use crate::lexer::{lex, Token};
+use crate::value::Value;
+
+/// A context that resolves names to values during evaluation.
+///
+/// The real implementation (later phases) resolves against perceptions and
+/// variables; tests use a fake context backed by a map.
+pub trait EvalContext {
+    /// Returns the value bound to `name`, or `None` if it is unknown.
+    fn resolve(&self, name: &str) -> Option<Value>;
+}
+
+/// An expression node that evaluates itself against a context.
+///
+/// Evaluation errors are plain strings without a line; the line is added by
+/// whoever executes a source line.
+pub trait Expr {
+    /// Evaluates the node against `ctx`.
+    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String>;
+}
+
+/// Literal integer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiteralInt {
+    pub value: i64,
+}
+
+impl Expr for LiteralInt {
+    fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
+        Ok(Value::Int(self.value))
+    }
+}
+
+/// Literal text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiteralText {
+    pub value: String,
+}
+
+impl Expr for LiteralText {
+    fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
+        Ok(Value::Text(self.value.clone()))
+    }
+}
+
+/// A name (variable, perception, or constant) resolved through the context.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Name {
+    pub name: String,
+}
+
+impl Expr for Name {
+    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
+        ctx.resolve(&self.name)
+            .ok_or_else(|| format!("unknown variable '{}'", self.name))
+    }
+}
+
+/// A unary operation (`-` or `not`).
+pub struct Unary {
+    pub op: String,
+    pub operand: Box<dyn Expr>,
+}
+
+impl Expr for Unary {
+    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
+        let value = self.operand.eval(ctx)?;
+        value.unary_op(&self.op)
+    }
+}
+
+/// A binary operation.
+pub struct Binary {
+    pub op: String,
+    pub left: Box<dyn Expr>,
+    pub right: Box<dyn Expr>,
+}
+
+impl Expr for Binary {
+    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
+        let left = self.left.eval(ctx)?;
+        // Short-circuit: only evaluate the right operand when needed.
+        match self.op.as_str() {
+            "and" => {
+                if !left.is_truthy() {
+                    return Ok(Value::Int(0));
+                }
+            }
+            "or" => {
+                if left.is_truthy() {
+                    return Ok(Value::Int(1));
+                }
+            }
+            _ => {}
+        }
+        let right = self.right.eval(ctx)?;
+        match self.op.as_str() {
+            "and" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
+            "or" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
+            _ => left.binary_op(&self.op, &right),
+        }
+    }
+}
+
+/// A fake evaluation context backed by a name -> value map, for tests.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FakeContext {
+    pub values: Vec<(String, Value)>,
+}
+
+impl FakeContext {
+    pub fn new() -> Self {
+        FakeContext { values: Vec::new() }
+    }
+
+    pub fn with(mut self, name: &str, value: Value) -> Self {
+        self.values.push((name.to_string(), value));
+        self
+    }
+}
+
+impl EvalContext for FakeContext {
+    fn resolve(&self, name: &str) -> Option<Value> {
+        self.values
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.clone())
+    }
+}
+
+/// A parsing error with file, line, and message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseError {
+    pub file: String,
+    pub line: usize,
+    pub message: String,
+}
+
+impl ParseError {
+    pub fn new(file: impl Into<String>, line: usize, message: impl Into<String>) -> Self {
+        ParseError {
+            file: file.into(),
+            line,
+            message: message.into(),
+        }
+    }
+}
+
+/// A recursive-descent parser for expressions.
+///
+/// Precedence (high to low): parentheses; unary `-` and `not`; `*` `/` `%`;
+/// `+` `-`; comparisons (left to right); `and`; `or`.
+struct Parser {
+    tokens: Vec<crate::lexer::SpannedToken>,
+    pos: usize,
+    file: String,
+    line: usize,
+}
+
+impl Parser {
+    fn new(tokens: Vec<crate::lexer::SpannedToken>, file: String, line: usize) -> Self {
+        Parser {
+            tokens,
+            pos: 0,
+            file,
+            line,
+        }
+    }
+
+    /// Parses the full token stream into one expression.
+    fn parse_all(mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let expr = self.parse_or()?;
+        if self.peek().is_some() {
+            return self.error("unexpected token after expression");
+        }
+        Ok(expr)
+    }
+
+    fn error(&self, message: impl Into<String>) -> Result<Box<dyn Expr>, ParseError> {
+        Err(ParseError::new(
+            self.file.clone(),
+            self.current_line(),
+            message.into(),
+        ))
+    }
+
+    fn current_line(&self) -> usize {
+        self.tokens
+            .get(self.pos)
+            .map(|t| t.line)
+            .unwrap_or(self.line)
+    }
+
+    fn peek(&self) -> Option<&crate::lexer::SpannedToken> {
+        self.tokens.get(self.pos)
+    }
+
+    fn advance(&mut self) -> Option<crate::lexer::SpannedToken> {
+        let tok = self.tokens.get(self.pos).cloned();
+        if tok.is_some() {
+            self.pos += 1;
+        }
+        tok
+    }
+
+    fn expect(&mut self, expected: Token) -> Result<crate::lexer::SpannedToken, ParseError> {
+        match self.peek() {
+            Some(tok) if tok.kind == expected => Ok(self.advance().unwrap()),
+            Some(tok) => Err(ParseError::new(
+                self.file.clone(),
+                self.current_line(),
+                format!("expected {:?}, found {:?}", expected, tok.kind),
+            )),
+            None => Err(ParseError::new(
+                self.file.clone(),
+                self.current_line(),
+                format!("expected {:?}, found end of expression", expected),
+            )),
+        }
+    }
+
+    // or_expr := and_expr (or and_expr)*
+    fn parse_or(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let mut left = self.parse_and()?;
+        while matches!(self.peek(), Some(t) if t.kind == Token::Or) {
+            let op = self.advance().unwrap().kind;
+            let right = self.parse_and()?;
+            left = Box::new(Binary {
+                op: operator_text(&op),
+                left,
+                right,
+            });
+        }
+        Ok(left)
+    }
+
+    // and_expr := comparison (and comparison)*
+    fn parse_and(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let mut left = self.parse_comparison()?;
+        while matches!(self.peek(), Some(t) if t.kind == Token::And) {
+            let op = self.advance().unwrap().kind;
+            let right = self.parse_comparison()?;
+            left = Box::new(Binary {
+                op: operator_text(&op),
+                left,
+                right,
+            });
+        }
+        Ok(left)
+    }
+
+    // comparison := term ((<|<=|>|>=|==|!=) term)*
+    fn parse_comparison(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let mut left = self.parse_term()?;
+        while let Some(tok) = self.peek() {
+            let op = match tok.kind {
+                Token::Lt => "<",
+                Token::Le => "<=",
+                Token::Gt => ">",
+                Token::Ge => ">=",
+                Token::Eq => "==",
+                Token::Ne => "!=",
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_term()?;
+            left = Box::new(Binary {
+                op: op.to_string(),
+                left,
+                right,
+            });
+        }
+        Ok(left)
+    }
+
+    // term := factor ((+|-) factor)*
+    fn parse_term(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let mut left = self.parse_factor()?;
+        while let Some(tok) = self.peek() {
+            let op = match tok.kind {
+                Token::Plus => "+",
+                Token::Minus => "-",
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_factor()?;
+            left = Box::new(Binary {
+                op: op.to_string(),
+                left,
+                right,
+            });
+        }
+        Ok(left)
+    }
+
+    // factor := unary ((*|/|%) unary)*
+    fn parse_factor(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let mut left = self.parse_unary()?;
+        while let Some(tok) = self.peek() {
+            let op = match tok.kind {
+                Token::Star => "*",
+                Token::Slash => "/",
+                Token::Percent => "%",
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_unary()?;
+            left = Box::new(Binary {
+                op: op.to_string(),
+                left,
+                right,
+            });
+        }
+        Ok(left)
+    }
+
+    // unary := (-|not) unary | primary
+    fn parse_unary(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        match self.peek() {
+            Some(tok) if tok.kind == Token::Minus => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Box::new(Unary {
+                    op: "-".to_string(),
+                    operand,
+                }))
+            }
+            Some(tok) if tok.kind == Token::Not => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Box::new(Unary {
+                    op: "not".to_string(),
+                    operand,
+                }))
+            }
+            _ => self.parse_primary(),
+        }
+    }
+
+    // primary := number | text | name | '(' expr ')' | name ( ... ) -> error
+    fn parse_primary(&mut self) -> Result<Box<dyn Expr>, ParseError> {
+        let tok = match self.peek() {
+            Some(t) => t.clone(),
+            None => return self.error("unexpected end of expression"),
+        };
+        match tok.kind {
+            Token::Number(n) => {
+                self.advance();
+                Ok(Box::new(LiteralInt { value: n }))
+            }
+            Token::Text(s) => {
+                self.advance();
+                Ok(Box::new(LiteralText { value: s }))
+            }
+            Token::Name(name) => {
+                // A name immediately followed by `(` is a function call,
+                // which is a compile-time error in this phase.
+                if self
+                    .tokens
+                    .get(self.pos + 1)
+                    .map(|t| t.kind == Token::LParen)
+                    == Some(true)
+                {
+                    self.advance();
+                    return self.error(format!("unknown function '{name}'"));
+                }
+                self.advance();
+                Ok(Box::new(Name { name }))
+            }
+            Token::LParen => {
+                self.advance();
+                let inner = self.parse_or()?;
+                self.expect(Token::RParen)?;
+                Ok(inner)
+            }
+            _ => self.error(format!("unexpected token {:?}", tok.kind)),
+        }
+    }
+}
+
+/// The textual operator for a token, used when building binary nodes.
+fn operator_text(token: &Token) -> String {
+    match token {
+        Token::Or => "or".to_string(),
+        Token::And => "and".to_string(),
+        _ => token.to_string(),
+    }
+}
+
+/// Parses a single line of expression text.
+///
+/// `line` is the source line number attributed to any syntax error, and
+/// `file` is the source file name.
+pub fn parse(text: &str, line: usize, file: &str) -> Result<Box<dyn Expr>, Diagnostic> {
+    let tokens = lex(text, line).map_err(|err| Diagnostic::new(file, err.line, err.message))?;
+    let parser = Parser::new(tokens, file.to_string(), line);
+    let captured_file = parser.file.clone();
+    parser
+        .parse_all()
+        .map_err(|err| Diagnostic::new(captured_file, err.line, err.message))
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Plus => write!(f, "'+'"),
+            Token::Minus => write!(f, "'-'"),
+            Token::Star => write!(f, "'*'"),
+            Token::Slash => write!(f, "'/'"),
+            Token::Percent => write!(f, "'%'"),
+            Token::Eq => write!(f, "'=='"),
+            Token::Ne => write!(f, "'!='"),
+            Token::Lt => write!(f, "'<'"),
+            Token::Le => write!(f, "'<='"),
+            Token::Gt => write!(f, "'>'"),
+            Token::Ge => write!(f, "'>='"),
+            Token::And => write!(f, "'and'"),
+            Token::Or => write!(f, "'or'"),
+            Token::Not => write!(f, "'not'"),
+            Token::LParen => write!(f, "'('"),
+            Token::RParen => write!(f, "')'"),
+            Token::Comma => write!(f, "','"),
+            Token::Number(_) => write!(f, "an integer"),
+            Token::Text(_) => write!(f, "a text"),
+            Token::Name(_) => write!(f, "a name"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn eval(text: &str, ctx: &FakeContext) -> Result<Value, String> {
+        let expr = parse(text, 1, "test.ins").unwrap();
+        expr.eval(ctx)
+    }
+
+    fn eval_diagnostic(text: &str) -> Diagnostic {
+        match parse(text, 1, "test.ins") {
+            Err(d) => d,
+            Ok(_) => panic!("expected a parse error"),
+        }
+    }
+
+    #[test]
+    fn test_expr_precedence_table() {
+        let ctx = FakeContext::new();
+        assert_eq!(eval("2 + 3 * 4", &ctx).unwrap(), Value::Int(14));
+        assert_eq!(eval("(2 + 3) * 4", &ctx).unwrap(), Value::Int(20));
+        assert_eq!(eval("-2 * 3", &ctx).unwrap(), Value::Int(-6));
+        assert_eq!(eval("10 - 4 - 3", &ctx).unwrap(), Value::Int(3));
+        // `not` binds tighter than `==`: (not 0) == 5 => 1 == 5 => 0
+        assert_eq!(eval("not 0 == 5", &ctx).unwrap(), Value::Int(0));
+        // `and` binds tighter than `or`: 1 or (0 and 0) => 1 or 0 => 1
+        assert_eq!(eval("1 or 0 and 0", &ctx).unwrap(), Value::Int(1));
+    }
+
+    #[test]
+    fn test_expr_floor_division_and_modulo() {
+        let ctx = FakeContext::new();
+        assert_eq!(eval("7 / 2", &ctx).unwrap(), Value::Int(3));
+        assert_eq!(eval("-7 / 2", &ctx).unwrap(), Value::Int(-4));
+        assert_eq!(eval("7 / -2", &ctx).unwrap(), Value::Int(-4));
+        assert_eq!(eval("-7 % 3", &ctx).unwrap(), Value::Int(2));
+        assert_eq!(eval("7 % -3", &ctx).unwrap(), Value::Int(-2));
+    }
+
+    #[test]
+    fn test_expr_division_by_zero_and_overflow() {
+        let ctx = FakeContext::new();
+        let err = eval("7 / 0", &ctx).unwrap_err();
+        assert_eq!(err, "division by zero");
+        let err = eval("7 % 0", &ctx).unwrap_err();
+        assert_eq!(err, "modulo by zero");
+        let err = eval("9223372036854775807 + 1", &ctx).unwrap_err();
+        assert!(err.contains("overflow"));
+        let err = eval("9223372036854775807 * 2", &ctx).unwrap_err();
+        assert!(err.contains("overflow"));
+    }
+
+    #[test]
+    fn test_expr_logic_truthiness_and_short_circuit() {
+        let ctx = FakeContext::new();
+        // 0 and empty text are false.
+        assert_eq!(eval("0 and 1", &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval("1 and 0", &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval("1 and 1", &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval("0 or 0", &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval("0 or 1", &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval("1 or 0", &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval("not 0", &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval("not 1", &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval("not \"\"", &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval("not \"x\"", &ctx).unwrap(), Value::Int(0));
+
+        // Short-circuit: the right side divides by zero but is never reached.
+        assert_eq!(eval("0 and 1 / 0", &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval("1 or 1 / 0", &ctx).unwrap(), Value::Int(1));
+    }
+
+    #[test]
+    fn test_expr_text_operations_and_type_errors() {
+        let ctx = FakeContext::new();
+        assert_eq!(eval(r#""a" == "a""#, &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval(r#""a" == "b""#, &ctx).unwrap(), Value::Int(0));
+        assert_eq!(eval(r#""a" != "b""#, &ctx).unwrap(), Value::Int(1));
+        assert_eq!(eval(r#""a" != "a""#, &ctx).unwrap(), Value::Int(0));
+
+        // text with ordering operator is an error
+        assert!(eval(r#""a" < "b""#, &ctx).is_err());
+        // int with text is an error
+        assert!(eval("5 == \"a\"", &ctx).is_err());
+        assert!(eval("5 < \"a\"", &ctx).is_err());
+        // negate a text is an error
+        assert!(eval(r#"-"a""#, &ctx).is_err());
+        // add text to text is an error
+        assert!(eval(r#""a" + "b""#, &ctx).is_err());
+    }
+
+    #[test]
+    fn test_expr_hash_inside_string_is_not_a_comment() {
+        let ctx = FakeContext::new();
+        // The `#` is inside the text, not a comment.
+        assert_eq!(
+            eval("\"#hello\"", &ctx).unwrap(),
+            Value::Text("#hello".to_string())
+        );
+    }
+
+    #[test]
+    fn test_expr_syntax_errors_report_line() {
+        // unmatched closing paren
+        let d = eval_diagnostic("(2 + 3");
+        assert_eq!(d.line, 1);
+        assert!(d.message.contains("expected"));
+        // missing operand
+        let d = eval_diagnostic("2 +");
+        assert_eq!(d.line, 1);
+        // unterminated text
+        let d = eval_diagnostic(r#"2 + "unterminated"#);
+        assert_eq!(d.line, 1);
+        assert!(d.message.contains("unterminated"));
+        // unknown character
+        let d = eval_diagnostic("2 @ 3");
+        assert_eq!(d.line, 1);
+        assert!(d.message.contains('@'));
+        // integer out of range
+        let d = eval_diagnostic("99999999999999999999999");
+        assert_eq!(d.line, 1);
+        assert!(d.message.contains("out of range"));
+        // function call is a compile error
+        let d = eval_diagnostic("foo(1, 2)");
+        assert_eq!(d.line, 1);
+        assert!(d.message.contains("unknown function"));
+    }
+
+    #[test]
+    fn test_expr_names_resolve_through_context() {
+        let ctx = FakeContext::new()
+            .with("x", Value::Int(10))
+            .with("greeting", Value::Text("hi".to_string()));
+        assert_eq!(eval("x", &ctx).unwrap(), Value::Int(10));
+        assert_eq!(
+            eval("greeting", &ctx).unwrap(),
+            Value::Text("hi".to_string())
+        );
+        // unknown name is a runtime error naming the variable
+        let err = eval("undefined_var", &ctx).unwrap_err();
+        assert!(err.contains("unknown variable"));
+        assert!(err.contains("undefined_var"));
+    }
+}

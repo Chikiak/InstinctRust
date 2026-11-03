@@ -2,7 +2,7 @@
 id: F0-03
 title: Evaluar expresiones sobre enteros y texto
 phase: F0
-status: todo
+status: done
 depends_on: [F0-01]
 size: M
 ---
@@ -78,3 +78,21 @@ Si la jerarquía de nodos choca con el borrow checker de una forma que obliga a 
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+**AC1 PASS** — `cargo test -p instinct-core expr` → `test_expr_precedence_table` ok ("2 + 3 * 4"=14, "(2 + 3) * 4"=20, "-2 * 3"=-6, "10 - 4 - 3"=3, "not 0 == 5"=0, "1 or 0 and 0"=1).
+
+**AC2 PASS** — `cargo test -p instinct-core value` → `test_floor_division_and_modulo` ok (7/2=3, -7/2=-4, 7/-2=-4, -7%3=2, 7%-3=-2) and `test_division_by_zero_and_overflow` ok (division/modulo by zero, overflow in add/sub/mul/neg/div/rem all error with cause-naming messages). Files: `crates/instinct-core/src/value.rs` (`floor_div` helper for floor division; remainder with sign of divisor; `checked_*` arithmetic).
+
+**AC3 PASS** — `cargo test -p instinct-core expr` → `test_expr_logic_truthiness_and_short_circuit` ok (0/empty=false; `and`/`or` short-circuit so `0 and 1/0` and `1 or 1/0` never evaluate the right side).
+
+**AC4 PASS** — `cargo test -p instinct-core expr` → `test_expr_text_operations_and_type_errors` ok (text `==`/`!=` only; text ordering, int-vs-text compare, text negation, text+text all error; `and`/`or`/`not` accept any type) plus `value::tests::test_text_*`.
+
+**AC5 PASS** — `cargo test -p instinct-core lexer` → `test_lexer_hash_inside_string_is_not_a_comment` ok (`"#hello"` is text, `#` not a comment); trailing comment ignored.
+
+**AC6 PASS** — `cargo test -p instinct-core expr` → `test_expr_syntax_errors_report_line` ok (unmatched paren, missing operand, unterminated text, unknown char, out-of-range integer, `foo(...)` unknown function all return `Diagnostic` with line); `test_expr_names_resolve_through_context` ok (names resolve via `EvalContext`; unknown name → runtime error naming the variable).
+
+**AC7 PASS** — `cargo test --workspace` exit 0 (38 tests ok, no regressions); `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0.
+
+Files added: `crates/instinct-core/src/value.rs` (`Value`, ops), `crates/instinct-core/src/lexer.rs` (`Token`, `SpannedToken`, `lex`), `crates/instinct-core/src/expr.rs` (`Expr` trait, `EvalContext`, nodes `LiteralInt`/`LiteralText`/`Name`/`Unary`/`Binary`, `FakeContext`, `parse`). Modified: `crates/instinct-core/src/lib.rs` (export `expr`, `lexer`, `value`).
+
+Design notes: `Value::div`/`rem` implement floor division and remainder-with-sign-of-divisor manually (Rust's `div_euclid`/`rem_euclid` are Euclidean, not matching the enunciado); `-i64::MIN` and `i64::MIN / -1` / `i64::MIN % -1` are overflow errors. Evaluation errors are strings without a line; syntax errors are `Diagnostic` with line. Short-circuit for `and`/`or`. No external dependencies; no `unwrap`/`expect` on user data in the core; no `f32`/`f64`; no `rand`.
