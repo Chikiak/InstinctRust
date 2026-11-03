@@ -1,10 +1,20 @@
 //! World model: terrain grid, objects, creatures, ticks, and events.
+//!
+//! The world owns the seeded generator (with interior mutability confined to
+//! the generator) and the shared catalog of actions and perceptions. Each
+//! creature keeps its own variable map.
 
-use crate::actions::ActionResult;
+use crate::actions::{ActionResult, Catalog};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
+use crate::expr::EvalContext;
+use crate::perception::CreatureView;
 use crate::resources::{Map, Object, Terrain};
+use crate::rng::Rng;
 use crate::species::Species;
+use crate::value::Value;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 /// Stable identifier of a creature. The world owns creatures by id, never by
 /// reference; actions receive an id, not a borrow of the creature.
@@ -29,8 +39,16 @@ pub struct Creature {
     pub species: Species,
     pub x: usize,
     pub y: usize,
+    /// Current health.
+    pub health: i64,
+    /// Current age.
+    pub age: i64,
+    /// Maximum lifespan.
+    pub lifespan: i64,
     /// Turns of sleep remaining (from `wait`). Zero means awake.
     pub sleep_turns: i64,
+    /// Variables owned by this creature, separate from other creatures.
+    pub variables: HashMap<String, Value>,
 }
 
 /// The world: terrain grid, objects, creatures, tick counter, and event log.
@@ -52,6 +70,11 @@ pub struct World {
     /// Events emitted since the last consumer drained them.
     pub events: Vec<Event>,
     pub diagnostics: Vec<Diagnostic>,
+    /// Shared catalog of actions and perceptions.
+    pub catalog: Catalog,
+    /// Seeded pseudo-random generator. Interior mutability is confined to this
+    /// field so `random` can advance it through an immutable world reference.
+    pub rng: RefCell<Rng>,
 }
 
 impl World {
@@ -78,6 +101,8 @@ impl World {
                 ticks: 0,
                 events: Vec::new(),
                 diagnostics,
+                catalog: Catalog::default(),
+                rng: RefCell::new(Rng::new(0)),
             };
         }
 
@@ -131,6 +156,8 @@ impl World {
             ticks: 0,
             events: Vec::new(),
             diagnostics,
+            catalog: Catalog::default(),
+            rng: RefCell::new(Rng::new(0)),
         }
     }
 
@@ -172,7 +199,11 @@ impl World {
             species,
             x,
             y,
+            health: 0,
+            age: 0,
+            lifespan: 0,
             sleep_turns: 0,
+            variables: HashMap::new(),
         };
         self.content[y][x] = CellContent::Creature(id);
         self.creatures.push(creature);
@@ -217,6 +248,51 @@ impl World {
             .ok_or_else(|| {
                 Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
             })
+    }
+
+    /// Returns the creature with the given id, or `None`.
+    fn creature(&self, id: CreatureId) -> Option<&Creature> {
+        self.creatures.iter().find(|c| c.id == id)
+    }
+
+    /// Returns the creature with the given id mutably, or `None`.
+    fn creature_mut(&mut self, id: CreatureId) -> Option<&mut Creature> {
+        self.creatures.iter_mut().find(|c| c.id == id)
+    }
+
+    /// Returns the value of a creature variable, or `None` if unassigned or
+    /// unknown creature.
+    pub fn variable(&self, creature_id: CreatureId, name: &str) -> Option<Value> {
+        self.creature(creature_id)
+            .and_then(|c| c.variables.get(name).cloned())
+    }
+
+    /// Assigns a variable on a creature. Rejects any name the catalog knows
+    /// as an action or a perception.
+    pub fn set_variable(
+        &mut self,
+        creature_id: CreatureId,
+        name: &str,
+        value: Value,
+    ) -> Result<(), Diagnostic> {
+        if self.catalog.is_action_name(name) || self.catalog.is_perception_name(name) {
+            return Err(Diagnostic::new(
+                "world",
+                1,
+                format!("cannot assign to '{name}': it is a reserved action or perception name"),
+            ));
+        }
+        let creature = self.creature_mut(creature_id).ok_or_else(|| {
+            Diagnostic::new("world", 1, format!("unknown creature id {creature_id:?}"))
+        })?;
+        creature.variables.insert(name.to_string(), value);
+        Ok(())
+    }
+
+    /// Seeds the world's generator. Two worlds with the same seed produce the
+    /// same `random` sequence and turn order.
+    pub fn set_rng_seed(&mut self, seed: u64) {
+        self.rng.replace(Rng::new(seed));
     }
 
     /// Returns the current tick count.
@@ -318,5 +394,87 @@ impl World {
             output.push('\n');
         }
         output
+    }
+}
+
+/// Read-only view of a creature and its world, used to evaluate perceptions.
+/// Nothing here mutates the world except `random`, which advances the
+/// generator through interior mutability.
+#[derive(Debug)]
+struct CreatureSnapshot<'a> {
+    world: &'a World,
+    creature_id: CreatureId,
+}
+
+impl CreatureView for CreatureSnapshot<'_> {
+    fn health(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.health)
+            .unwrap_or(0)
+    }
+
+    fn age(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.age)
+            .unwrap_or(0)
+    }
+
+    fn lifespan(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.lifespan)
+            .unwrap_or(0)
+    }
+
+    fn x(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.x as i64)
+            .unwrap_or(0)
+    }
+
+    fn y(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.y as i64)
+            .unwrap_or(0)
+    }
+
+    fn tick(&self) -> u64 {
+        self.world.ticks
+    }
+
+    fn random(&self) -> i64 {
+        self.world.rng.borrow_mut().next_bounded(99)
+    }
+}
+
+/// Evaluation context for a single creature. Resolves perceptions first, then
+/// variables. Execution reads the world immutably; the world applies actions
+/// afterward.
+pub struct CreatureContext<'a> {
+    world: &'a World,
+    creature_id: CreatureId,
+}
+
+impl<'a> CreatureContext<'a> {
+    pub fn new(world: &'a World, creature_id: CreatureId) -> Self {
+        CreatureContext { world, creature_id }
+    }
+}
+
+impl<'a> EvalContext for CreatureContext<'a> {
+    fn resolve(&self, name: &str) -> Option<Value> {
+        // Perceptions take priority over variables.
+        if let Some(perception) = self.world.catalog.resolve_perception(name) {
+            let view = CreatureSnapshot {
+                world: self.world,
+                creature_id: self.creature_id,
+            };
+            return Some(perception.read(&view));
+        }
+        self.world.variable(self.creature_id, name)
     }
 }

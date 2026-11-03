@@ -6,6 +6,7 @@ pub mod diagnostic;
 pub mod event;
 pub mod expr;
 pub mod lexer;
+pub mod perception;
 pub mod resources;
 pub mod rng;
 pub mod species;

@@ -2,7 +2,7 @@
 id: F0-05
 title: Leer percepciones y variables de una criatura
 phase: F0
-status: todo
+status: done
 depends_on: [F0-03, F0-04]
 size: M
 ---
@@ -76,3 +76,30 @@ Si no consigues leer `random` sin pedir acceso mutable al mundo completo, para y
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+AC1 PASS — `test_perceptions_report_creature_state`: salud 10, edad 3, esperanza 50, x 4, y 2, tick 7 y random en 0..=99 leídos del mundo real. (`cargo test -p instinct-core perception` y `cargo test --workspace`)
+
+AC2 PASS — `test_expression_reads_perceptions`: "health * 2 + x" = 24; "tick" en mundo recién creado = 0. (suite en verde)
+
+AC3 PASS — `test_random_consumes_one_draw_per_read`: dos lecturas consumen dos valores, misma semilla repite la secuencia, "random + random" consume dos draws y la siguiente lectura es el tercer valor. (suite en verde)
+
+AC4 PASS — `test_variables_assign_read_and_retype` y `test_unassigned_variable_error`: asignar/leer, cambio de Int a Text, variable no asignada error nombrándola. (suite en verde)
+
+AC5 PASS — `test_variables_are_per_creature`: variables independientes por criatura (usó "energia" porque "x" es percepción reservada). (suite en verde)
+
+AC6 PASS — `test_cannot_assign_perception`: asignar a "health" y a "wait" falla nombrando el nombre. (suite en verde)
+
+AC7 PASS — `test_catalog_accepts_extra_perception`: percepción "bonus" definida solo en el test, leída por una expresión; las siete originales siguen presentes. (suite en verde)
+
+AC8 PASS — `cargo test --workspace` (todo verde), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0, sin warnings), `cargo fmt --all --check` (exit 0).
+
+Cambios de código:
+- Nuevo `crates/instinct-core/src/perception.rs`: trait `CreatureView`, trait `Perception` (con `clone_box`), siete percepciones `Health`/`Age`/`Lifespan`/`X`/`Y`/`Tick`/`Random`, `PerceptionCatalog` y `Default` con las siete.
+- `crates/instinct-core/src/lib.rs`: registra el módulo `perception`.
+- `crates/instinct-core/src/actions.rs`: `Catalog` suma campo `perceptions: PerceptionCatalog`, `register_perception`, `resolve_perception`, `is_action_name`, `is_perception_name`; `Default` registra las siete percepciones.
+- `crates/instinct-core/src/world.rs`: `Creature` gana `health`, `age`, `lifespan`, `variables: HashMap<String, Value>`; `World` gana `catalog: Catalog` y `rng: RefCell<Rng>` (mutabilidad interior acotada al generador); `place_creature` inicializa los nuevos campos; `set_rng_seed`, `variable`, `set_variable` (rechaza nombres de acción/percepción); helpers `creature`/`creature_mut`; `CreatureSnapshot` implementa `CreatureView` (`random` avanza `rng` vía `borrow_mut`); `CreatureContext` implementa `expr::EvalContext` resolviendo percepciones primero y variables después.
+- Pruebas: `crates/instinct-core/tests/perception_tests.rs` con las 8 pruebas de AC1 a AC7.
+
+Decisiones: los nombres de percepción tienen prioridad sobre variables; escribir a un nombre de percepción o acción es error. `tick` vale 0 en el primer tick. El `Rng` usa `RefCell` solo sobre ese campo, nunca sobre el mundo entero.
+
+Rust practicado: `Cell`/`RefCell` en un solo campo, `HashMap`, objetos de trait, separación de préstamo inmutable del mundo y estado mutable de la criatura.

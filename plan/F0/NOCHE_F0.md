@@ -12,3 +12,6 @@ Pre-vuelo: OK (repositorio nuevo, sin cargo aún)
 | 00:06 | done | F0-03 | 1 | 8/8 AC | 2622bc9 → develop |
 | 00:07 | refactor | tests | 1 | tests to tests/ | 350e620 → develop |
 | 00:08 | dispatch | F0-04 | 1 rust | running | feat/f0-04-criaturas-acciones |
+| 00:09 | done | F0-04 | 1 | 8/8 AC | 60363b2 → develop |
+| 00:10 | dispatch | F0-05 | 1 rust | running | feat/f0-05-percepciones-variables |
+| 00:11 | done | F0-05 | 1 | 8/8 AC | feat/f0-05-percepciones-variables |

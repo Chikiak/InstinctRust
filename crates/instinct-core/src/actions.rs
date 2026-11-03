@@ -7,6 +7,7 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
+use crate::perception::{Age, Health, Lifespan, Perception, PerceptionCatalog, Random, Tick, X, Y};
 use crate::value::Value;
 use crate::world::{CreatureId, World};
 use std::rc::Rc;
@@ -37,16 +38,19 @@ pub trait Action: std::fmt::Debug {
     ) -> Result<ActionResult, Diagnostic>;
 }
 
-/// Catalog of actions by name. Resolves an action name validating arity.
+/// Catalog of actions and perceptions by name. Resolves each kind of name
+/// against its own registry, validating arity for actions.
 #[derive(Debug, Clone)]
 pub struct Catalog {
     actions: Vec<Rc<dyn Action>>,
+    perceptions: PerceptionCatalog,
 }
 
 impl Catalog {
     pub fn new() -> Self {
         Catalog {
             actions: Vec::new(),
+            perceptions: PerceptionCatalog::new(),
         }
     }
 
@@ -62,6 +66,15 @@ impl Catalog {
         }
         self.actions.push(action);
         Ok(())
+    }
+
+    /// Registers a perception type. Returns an error if a perception with the
+    /// same name is already registered.
+    pub fn register_perception(
+        &mut self,
+        perception: Box<dyn Perception>,
+    ) -> Result<(), Diagnostic> {
+        self.perceptions.register(perception)
     }
 
     /// Resolves an action by name, validating arity. Returns a diagnostic
@@ -90,6 +103,22 @@ impl Catalog {
             )),
         }
     }
+
+    /// Resolves a perception by name, borrowing it from the catalog. Returns
+    /// `None` when the name is not a registered perception.
+    pub fn resolve_perception(&self, name: &str) -> Option<&dyn Perception> {
+        self.perceptions.resolve(name)
+    }
+
+    /// Returns true if `name` is a registered action.
+    pub fn is_action_name(&self, name: &str) -> bool {
+        self.actions.iter().any(|a| a.name() == name)
+    }
+
+    /// Returns true if `name` is a registered perception.
+    pub fn is_perception_name(&self, name: &str) -> bool {
+        self.perceptions.contains(name)
+    }
 }
 
 impl Default for Catalog {
@@ -98,6 +127,13 @@ impl Default for Catalog {
         let _ = c.register(Rc::new(Wait));
         let _ = c.register(Rc::new(Move));
         let _ = c.register(Rc::new(Say));
+        let _ = c.register_perception(Box::new(Health));
+        let _ = c.register_perception(Box::new(Age));
+        let _ = c.register_perception(Box::new(Lifespan));
+        let _ = c.register_perception(Box::new(X));
+        let _ = c.register_perception(Box::new(Y));
+        let _ = c.register_perception(Box::new(Tick));
+        let _ = c.register_perception(Box::new(Random));
         c
     }
 }
