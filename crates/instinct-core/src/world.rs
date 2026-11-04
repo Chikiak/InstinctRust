@@ -61,6 +61,10 @@ pub struct World {
     pub rows: usize,
     /// Terrain of each cell, indexed as [row][column].
     pub terrain: Vec<Vec<usize>>, // index in the terrain catalog
+    /// Terrain catalog (reserves are mutated here when a cell's terrain is hit).
+    pub terrains: Vec<Terrain>,
+    /// Object catalog (reserves are mutated here when a cell's object is hit).
+    pub objects: Vec<Object>,
     /// Optional content (object or creature) of each cell.
     pub content: Vec<Vec<CellContent>>,
     /// Creatures by id. The position in this vec is not the id; id is stable.
@@ -97,6 +101,8 @@ impl World {
                 columns: 0,
                 rows: 0,
                 terrain: Vec::new(),
+                terrains: terrains.to_vec(),
+                objects: objects.to_vec(),
                 content: Vec::new(),
                 creatures: Vec::new(),
                 next_creature_id: 0,
@@ -152,6 +158,8 @@ impl World {
             columns,
             rows,
             terrain,
+            terrains: terrains.to_vec(),
+            objects: objects.to_vec(),
             content,
             creatures: Vec::new(),
             next_creature_id: 0,
@@ -347,6 +355,45 @@ impl World {
             }
         }
         self.content[y][x] = CellContent::Creature(creature_id);
+        Ok(())
+    }
+
+    /// Daña (o cura, si `damage` es negativo) el contenido de la celda (x, y):
+    /// reduce la reserva del objeto o del terreno de esa celda con aritmética
+    /// checked. Fuera del mapa es un no-op sin error. Las criaturas no se
+    /// tocan aquí (su salud la gestiona el llamante). Un objeto cuyo reserve
+    /// llega a 0 o menos es retirado por la ley de fin de tick existente.
+    pub(crate) fn damage_cell_content(
+        &mut self,
+        x: usize,
+        y: usize,
+        damage: i64,
+    ) -> Result<(), Diagnostic> {
+        if x >= self.columns || y >= self.rows {
+            return Ok(()); // fuera del mapa: no-op, sin error
+        }
+        match &self.content[y][x] {
+            CellContent::Object(obj_idx) => {
+                let obj = &mut self.objects[*obj_idx];
+                obj.reserve = obj.reserve.checked_sub(damage).ok_or_else(|| {
+                    Diagnostic::new("world", 0, format!("overflow damaging object at ({x},{y})"))
+                })?;
+            }
+            CellContent::Empty => {
+                let t_idx = self.terrain[y][x];
+                let t = &mut self.terrains[t_idx];
+                t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
+                    Diagnostic::new(
+                        "world",
+                        0,
+                        format!("overflow damaging terrain at ({x},{y})"),
+                    )
+                })?;
+            }
+            CellContent::Creature(_) => {
+                // La salud de criatura la gestiona el llamante (Attack).
+            }
+        }
         Ok(())
     }
 

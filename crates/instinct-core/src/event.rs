@@ -36,6 +36,16 @@ pub enum Event {
         message: String,
         line: usize,
     },
+    /// Damage applied to a cell's content (creature health, object reserve, or
+    /// terrain reserve). `pos` is the attacker's position, `target` the cell
+    /// that was hit, and `amount` the damage dealt (negative = healing).
+    Damaged {
+        tick: u64,
+        species: String,
+        pos: Pos,
+        target: Pos,
+        amount: i64,
+    },
 }
 
 impl std::fmt::Display for Event {
@@ -79,6 +89,22 @@ impl std::fmt::Display for Event {
                     "[tick {tick}] {species}@{x},{y} error en línea {line}: {message}",
                     x = pos.x,
                     y = pos.y
+                )
+            }
+            Event::Damaged {
+                tick,
+                species,
+                pos,
+                target,
+                amount,
+            } => {
+                write!(
+                    f,
+                    "[tick {tick}] {species}@{x},{y} daña {tx},{ty} por {amount}",
+                    x = pos.x,
+                    y = pos.y,
+                    tx = target.x,
+                    ty = target.y
                 )
             }
         }
