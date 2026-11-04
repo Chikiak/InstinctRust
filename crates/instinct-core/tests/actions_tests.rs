@@ -1,13 +1,13 @@
 //! Unit tests for the `actions` module: the `Action` trait, the `Catalog`,
 //! and the `wait`, `move`, `say` actions.
 
-use instinct_core::actions::{Action, ActionResult, Catalog, Move, Say, Wait};
+use instinct_core::actions::{Action, ActionResult, Attack, Catalog, Move, Say, Wait};
 use instinct_core::diagnostic::Diagnostic;
-use instinct_core::event::Event;
+use instinct_core::event::{Event, Pos};
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
-use instinct_core::world::{CreatureId, World};
+use instinct_core::world::{CellContent, CreatureId, World};
 use std::rc::Rc;
 
 fn world_with_grass() -> (World, Vec<Terrain>, Vec<Object>) {
@@ -417,4 +417,288 @@ fn test_move_argument_errors_name_the_argument() {
         )
         .unwrap_err();
     assert!(err.message.contains("speed"), "text speed error: {err:?}");
+}
+
+// ---------------------------------------------------------------------------
+// attack (AC1-AC8)
+// ---------------------------------------------------------------------------
+
+/// Coloca una criatura y le fija la salud (Species::new tiene health 0).
+fn place_creature_with_health(world: &mut World, x: usize, y: usize, health: i64) -> CreatureId {
+    let id = world
+        .place_creature(Species::new("Walker"), x, y)
+        .expect("place creature");
+    for c in world.creatures.iter_mut() {
+        if c.id == id {
+            c.health = health;
+        }
+    }
+    id
+}
+
+fn creature_health(world: &World, id: CreatureId) -> i64 {
+    world
+        .creatures
+        .iter()
+        .find(|c| c.id == id)
+        .map(|c| c.health)
+        .expect("creature exists")
+}
+
+#[test]
+fn test_catalog_resolves_attack() {
+    let cat = Catalog::default();
+    let atk = cat.resolve("attack", 3).expect("attack arity 3");
+    assert_eq!(atk.name(), "attack");
+    assert_eq!(atk.arity(), 3);
+    assert!(atk.consumes_turn());
+}
+
+#[test]
+fn test_attack_kills_creature_immediately() {
+    // AC1: criatura muere al golpe, casilla queda solo terreno, Died causa vida este tick.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let victim = place_creature_with_health(&mut world, 1, 0, 5);
+
+    let attack = Attack;
+    let r = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(10)],
+        )
+        .expect("attack applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(
+        r.events.len() >= 2,
+        "esperaba Damaged + Died, got {:?}",
+        r.events
+    );
+
+    // Damaged evento.
+    assert!(r
+        .events
+        .iter()
+        .any(|e| matches!(e, Event::Damaged { amount, .. } if *amount == 10)));
+    // Died causa vida.
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e, Event::Died { cause, .. } if cause == "vida")),
+        "esperaba Died causa vida, got {:?}",
+        r.events
+    );
+    // Víctima removida.
+    assert!(
+        world.creatures.iter().all(|c| c.id != victim),
+        "víctima debe estar removida"
+    );
+    // Casilla de la víctima queda solo terreno.
+    assert!(matches!(world.content[0][1], CellContent::Empty));
+    // El atacante sigue vivo.
+    assert_eq!(creature_health(&world, attacker), 10);
+}
+
+#[test]
+fn test_attack_wounds_creature() {
+    // AC2: criatura herida no mata, solo reduce vida y sigue en su casilla.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let victim = place_creature_with_health(&mut world, 1, 0, 10);
+
+    let attack = Attack;
+    let r = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(3)],
+        )
+        .expect("attack applies");
+    assert_eq!(creature_health(&world, victim), 7, "vida debe reducirse");
+    assert!(
+        world.creatures.iter().any(|c| c.id == victim),
+        "víctima debe seguir viva"
+    );
+    assert!(matches!(world.content[0][1], CellContent::Creature(_)));
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e, Event::Damaged { amount, .. } if *amount == 3)),
+        "esperaba Damaged evento, got {:?}",
+        r.events
+    );
+    assert!(
+        !r.events.iter().any(|e| matches!(e, Event::Died { .. })),
+        "no debe haber Died, got {:?}",
+        r.events
+    );
+}
+
+#[test]
+fn test_attack_damages_object() {
+    // AC3: objeto reduce su reserva; al 0 desaparece al final del tick.
+    let (mut world, _, objects) = rock_world();
+    // roca en (1,1), reserve 100.
+    let attacker = place_creature_with_health(&mut world, 0, 1, 10);
+
+    let attack = Attack;
+    let r = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(30)],
+        )
+        .expect("attack applies");
+    assert_eq!(world.objects[0].reserve, 70, "reserva del objeto reducida");
+    // El objeto sigue en la celda (desaparece al final del tick, no en apply).
+    assert!(matches!(world.content[1][1], CellContent::Object(0)));
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e, Event::Damaged { amount, .. } if *amount == 30)),
+        "esperaba Damaged, got {:?}",
+        r.events
+    );
+
+    // Daño letal al objeto: reserve llega a 0.
+    let _ = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(70)],
+        )
+        .expect("attack applies");
+    assert_eq!(world.objects[0].reserve, 0);
+    assert!(matches!(world.content[1][1], CellContent::Object(0)));
+    let _ = objects;
+}
+
+#[test]
+fn test_attack_damages_terrain() {
+    // AC4: terreno reduce su reserva, incluida la casilla propia (0,0).
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 1, 1, 10);
+
+    // Golpear terreno adyacente (0,1).
+    let attack = Attack;
+    let r = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(-1), Value::Int(0), Value::Int(40)],
+        )
+        .expect("attack applies");
+    assert_eq!(
+        world.terrains[0].reserve, 60,
+        "reserva del terreno reducida"
+    );
+    assert!(
+        r.events.iter().any(|e| matches!(e, Event::Damaged { target, amount, .. } if *target == Pos { x: 0, y: 1 } && *amount == 40)),
+        "esperaba Damaged en (0,1) por 40, got {:?}",
+        r.events
+    );
+
+    // Golpear la propia casilla (1,1) con dx=0,dy=0: terreno bajo la criatura.
+    // Todas las celdas comparten el terreno 0, cuya reserva bajó a 60; ahora se le restan 60 -> 0.
+    let _ = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(0), Value::Int(0), Value::Int(60)],
+        )
+        .expect("attack applies");
+    assert_eq!(
+        world.terrains[0].reserve, 0,
+        "reserva del terreno bajo la criatura reducida a 0"
+    );
+}
+
+#[test]
+fn test_attack_out_of_map_noop() {
+    // AC5: destino fuera del mapa no-op, turno consumido, sin error, sin evento.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+
+    let attack = Attack;
+    let r = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(-1), Value::Int(0), Value::Int(100)],
+        )
+        .expect("attack applies: fuera del mapa no falla");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(
+        r.events.is_empty(),
+        "no debe emitir eventos, got {:?}",
+        r.events
+    );
+    // El mundo no cambió.
+    assert_eq!(creature_health(&world, attacker), 10);
+}
+
+#[test]
+fn test_attack_bad_direction_errors() {
+    // AC6: dx o dy fuera de {-1,0,1} falla nombrando el argumento.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let attack = Attack;
+
+    let err = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(2), Value::Int(0), Value::Int(1)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "dx error: {err:?}");
+
+    let err = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(0), Value::Int(-2), Value::Int(1)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "dy error: {err:?}");
+}
+
+#[test]
+fn test_attack_text_argument_errors() {
+    // AC7: argumento de texto falla nombrando el argumento.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let attack = Attack;
+
+    let err = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Text("uno".to_string()), Value::Int(0), Value::Int(1)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "text dx error: {err:?}");
+
+    let err = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(0), Value::Text("dos".to_string()), Value::Int(1)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "text dy error: {err:?}");
+
+    let err = attack
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(0),
+                Value::Int(0),
+                Value::Text("tres".to_string()),
+            ],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("damage"), "text damage error: {err:?}");
 }

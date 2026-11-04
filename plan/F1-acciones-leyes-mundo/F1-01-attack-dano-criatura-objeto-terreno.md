@@ -2,7 +2,7 @@
 id: F1-01
 title: attack: daño a criatura, objeto, terreno y casilla propia
 phase: F1
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -94,4 +94,13 @@ Si el repo contradice este issue (por ejemplo, `World` no expone lo necesario pa
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+- AC1 `test_attack_kills_creature_immediately`: `cargo test -p instinct-core --test actions_tests test_attack_kills_creature_immediately` → ok. Criatura muere al golpe, casilla queda `Empty`, `Died` causa `vida` mismo tick, atacante vivo.
+- AC2 `test_attack_wounds_creature`: `cargo test -p instinct-core --test actions_tests test_attack_wounds_creature` → ok. Vida reducida, criatura sigue en su casilla, sin `Died`.
+- AC3 `test_attack_damages_object`: `cargo test -p instinct-core --test actions_tests test_attack_damages_object` → ok. Reserva del objeto reducida; al 0 sigue en celda (desaparece al final del tick por ley existente).
+- AC4 `test_attack_damages_terrain`: `cargo test -p instinct-core --test actions_tests test_attack_damages_terrain` → ok. Terreno adyacente y casilla propia (dx=0,dy=0) reducen reserva del terreno de la celda.
+- AC5 `test_attack_out_of_map_noop`: `cargo test -p instinct-core --test actions_tests test_attack_out_of_map_noop` → ok. Fuera del mapa: no-op, sin error, sin evento.
+- AC6 `test_attack_bad_direction_errors`: `cargo test -p instinct-core --test actions_tests test_attack_bad_direction_errors` → ok. dx/dy fuera de {-1,0,1} error nombrando el argumento.
+- AC7 `test_attack_text_argument_errors`: `cargo test -p instinct-core --test actions_tests test_attack_text_argument_errors` → ok. Argumento de texto error nombrando el argumento (dx, dy, damage).
+- AC8 `test_catalog_resolves_attack`: `cargo test -p instinct-core --test actions_tests test_catalog_resolves_attack` → ok. `attack` aridad 3, `consumes_turn()==true`.
+- AC9 `cargo test --workspace` → todo verde (0 fallos); `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+Cambios: `Attack` registrado en `Catalog::default()` (`crates/instinct-core/src/actions.rs`); evento `Damaged` en `crates/instinct-core/src/event.rs`; `World` guarda `terrains`/`objects` (clonados en `from_map`) y helper `damage_cell_content` con bounds-check y aritmética checked (`crates/instinct-core/src/world.rs`); tests en `crates/instinct-core/tests/actions_tests.rs`. La casilla propia (0,0) golpea el terreno bajo la criatura, no a la criatura. `sim.rs` sin cambios (muerte inmediata ya gestionada).

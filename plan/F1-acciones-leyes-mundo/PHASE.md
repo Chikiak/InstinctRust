@@ -39,7 +39,7 @@ F0 completada y en verde:
 ## Issues
 | ID | Título | Depende de | Tamaño | Paralelizable con | Estado |
 |----|--------|------------|--------|-------------------|--------|
-| F1-01 | attack: daño a criatura, objeto, terreno y casilla propia | — | M | — | todo |
+| F1-01 | attack: daño a criatura, objeto, terreno y casilla propia | — | M | — | done |
 | F1-02 | consume: igual que attack más curación del atacante | F1-01 | M | — | todo |
 | F1-03 | reproduce: cría, condiciones y aborto natural | F1-01 | M | F1-02 | todo |
 | F1-04 | roar: mensaje disponible el tick siguiente | F1-01 | M | F1-02, F1-03 | todo |
