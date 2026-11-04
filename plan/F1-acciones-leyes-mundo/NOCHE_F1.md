@@ -15,3 +15,6 @@ intentará al cierre y, si no existe el agente, queda anotado.
 |------|--------|-------|---------|--------|-------------|
 | 01:52 | preflight | — | — | OK (build/test/clippy/fmt) | develop |
 | 01:52 | commit-hoja | — | — | árbol limpio | 9c4a746 |
+| 01:52 | dispatch | F1-01 | 1 rust | running | feat/f1-01-attack-dano-criatura-objeto-terreno |
+| 02:1x | done | F1-01 | 1 | 9/9 AC | 4907514 → merge 20844d9 |
+| 02:1x | dispatch | F1-02 | 1 rust | running | feat/f1-02-consume-dano-mas-curacion |

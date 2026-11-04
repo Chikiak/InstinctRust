@@ -1,7 +1,7 @@
 //! Unit tests for the `actions` module: the `Action` trait, the `Catalog`,
 //! and the `wait`, `move`, `say` actions.
 
-use instinct_core::actions::{Action, ActionResult, Attack, Catalog, Move, Say, Wait};
+use instinct_core::actions::{Action, ActionResult, Attack, Catalog, Consume, Move, Say, Wait};
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::event::{Event, Pos};
 use instinct_core::resources::{Map, Object, Terrain};
@@ -701,4 +701,239 @@ fn test_attack_text_argument_errors() {
         )
         .unwrap_err();
     assert!(err.message.contains("damage"), "text damage error: {err:?}");
+}
+
+// ---------------------------------------------------------------------------
+// consume (AC1-AC8)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_catalog_resolves_consume() {
+    let cat = Catalog::default();
+    let cons = cat.resolve("consume", 4).expect("consume arity 4");
+    assert_eq!(cons.name(), "consume");
+    assert_eq!(cons.arity(), 4);
+    assert!(cons.consumes_turn());
+}
+
+#[test]
+fn test_consume_damages_creature() {
+    // AC1: consume contra criatura reduce su vida; <=0 muere en el acto.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let victim = place_creature_with_health(&mut world, 1, 0, 5);
+
+    let consume = Consume;
+    let r = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(10), Value::Int(3)],
+        )
+        .expect("consume applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(
+        r.events
+            .iter()
+            .any(|e| matches!(e, Event::Damaged { amount, .. } if *amount == 10)),
+        "esperaba Damaged, got {:?}",
+        r.events
+    );
+    assert!(
+        world.creatures.iter().all(|c| c.id != victim),
+        "víctima debe estar removida"
+    );
+    assert!(matches!(world.content[0][1], CellContent::Empty));
+    // Atacante curado en 3 (sin tope).
+    assert_eq!(creature_health(&world, attacker), 13, "atacante curado");
+}
+
+#[test]
+fn test_consume_heals_attacker() {
+    // AC2: cura a la atacante en heal, sin tope.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let victim = place_creature_with_health(&mut world, 1, 0, 10);
+
+    let consume = Consume;
+    let r = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(3), Value::Int(7)],
+        )
+        .expect("consume applies");
+    assert_eq!(creature_health(&world, victim), 7);
+    assert_eq!(
+        creature_health(&world, attacker),
+        17,
+        "atacante +7 sin tope"
+    );
+    assert!(r
+        .events
+        .iter()
+        .any(|e| matches!(e, Event::Damaged { amount, .. } if *amount == 3)),);
+}
+
+#[test]
+fn test_consume_damages_object() {
+    // AC3: objeto reduce su reserva; al 0 desaparece al final del tick.
+    let (mut world, _, _) = rock_world();
+    let attacker = place_creature_with_health(&mut world, 0, 1, 10);
+
+    let consume = Consume;
+    let _ = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(1), Value::Int(0), Value::Int(30), Value::Int(5)],
+        )
+        .expect("consume applies");
+    assert_eq!(world.objects[0].reserve, 70);
+    assert!(matches!(world.content[1][1], CellContent::Object(0)));
+    assert!(
+        creature_health(&world, attacker) == 15,
+        "atacante curado +5"
+    );
+}
+
+#[test]
+fn test_consume_damages_terrain() {
+    // AC4: terreno reduce su reserva, incluida (0,0) bajo la propia criatura.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 1, 1, 10);
+
+    let consume = Consume;
+    let _ = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(-1),
+                Value::Int(0),
+                Value::Int(40),
+                Value::Int(10),
+            ],
+        )
+        .expect("consume applies");
+    assert_eq!(world.terrains[0].reserve, 60);
+    assert_eq!(creature_health(&world, attacker), 20);
+}
+
+#[test]
+fn test_consume_out_of_map_noop() {
+    // AC5: fuera del mapa no-op, ni daño ni curación, turno consumido.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+
+    let consume = Consume;
+    let r = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(-1),
+                Value::Int(0),
+                Value::Int(100),
+                Value::Int(50),
+            ],
+        )
+        .expect("consume applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(r.events.is_empty(), "sin eventos, got {:?}", r.events);
+    assert_eq!(
+        creature_health(&world, attacker),
+        10,
+        "sin curación fuera del mapa"
+    );
+}
+
+#[test]
+fn test_consume_bad_direction_errors() {
+    // AC6: dx/dy fuera de {-1,0,1} error nombrando el argumento.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let consume = Consume;
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(2), Value::Int(0), Value::Int(1), Value::Int(0)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "dx error: {err:?}");
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[Value::Int(0), Value::Int(-2), Value::Int(1), Value::Int(0)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "dy error: {err:?}");
+}
+
+#[test]
+fn test_consume_text_argument_errors() {
+    // AC7: argumento de texto error nombrando el argumento.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let consume = Consume;
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Text("uno".to_string()),
+                Value::Int(0),
+                Value::Int(1),
+                Value::Int(0),
+            ],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "text dx error: {err:?}");
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(0),
+                Value::Text("dos".to_string()),
+                Value::Int(1),
+                Value::Int(0),
+            ],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "text dy error: {err:?}");
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(0),
+                Value::Int(0),
+                Value::Text("tres".to_string()),
+                Value::Int(0),
+            ],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("damage"), "text damage error: {err:?}");
+
+    let err = consume
+        .apply(
+            &mut world,
+            attacker,
+            &[
+                Value::Int(0),
+                Value::Int(0),
+                Value::Int(1),
+                Value::Text("cuatro".to_string()),
+            ],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("heal"), "text heal error: {err:?}");
 }
