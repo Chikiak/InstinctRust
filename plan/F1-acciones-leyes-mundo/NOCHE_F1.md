@@ -18,3 +18,5 @@ intentará al cierre y, si no existe el agente, queda anotado.
 | 01:52 | dispatch | F1-01 | 1 rust | running | feat/f1-01-attack-dano-criatura-objeto-terreno |
 | 02:1x | done | F1-01 | 1 | 9/9 AC | 4907514 → merge 20844d9 |
 | 02:1x | dispatch | F1-02 | 1 rust | running | feat/f1-02-consume-dano-mas-curacion |
+| 02:15 | done | F1-02 | 1 | 9/9 AC | 1ca59aa + 38df194 → merge 2a41658 |
+| 02:15 | dispatch | F1-03 | 1 rust | running | feat/f1-03-reproduce-cria-condiciones-aborto |
