@@ -1,7 +1,9 @@
 //! Unit tests for the `actions` module: the `Action` trait, the `Catalog`,
 //! and the `wait`, `move`, `say` actions.
 
-use instinct_core::actions::{Action, ActionResult, Attack, Catalog, Consume, Move, Say, Wait};
+use instinct_core::actions::{
+    Action, ActionResult, Attack, Catalog, Consume, Move, Reproduce, Say, Wait,
+};
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::event::{Event, Pos};
 use instinct_core::resources::{Map, Object, Terrain};
@@ -936,4 +938,297 @@ fn test_consume_text_argument_errors() {
         )
         .unwrap_err();
     assert!(err.message.contains("heal"), "text heal error: {err:?}");
+}
+
+// ---------------------------------------------------------------------------
+// reproduce (AC1-AC8)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_catalog_resolves_reproduce() {
+    // AC8: `reproduce` resuelto con aridad 3 y consume turno.
+    let cat = Catalog::default();
+    let rep = cat.resolve("reproduce", 3).expect("reproduce arity 3");
+    assert_eq!(rep.name(), "reproduce");
+    assert_eq!(rep.arity(), 3);
+    assert!(rep.consumes_turn());
+}
+
+#[test]
+fn test_reproduce_creates_offspring() {
+    // AC1: casilla solo terreno y madre con vida > health -> cría con
+    // vida = health, edad 0, sin variables y pc al inicio.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+
+    let reproduce = Reproduce;
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(1), Value::Int(5)],
+        )
+        .expect("reproduce applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(r.events.is_empty());
+
+    let child = world
+        .creatures
+        .iter()
+        .find(|c| c.id != mother)
+        .expect("debe existir la cría");
+    assert_eq!((child.x, child.y), (1, 2), "cría en la casilla objetivo");
+    assert_eq!(child.health, 5, "vida de la cría = health");
+    assert_eq!(child.age, 0, "edad 0 al nacer");
+    assert_eq!(child.sleep_turns, 0, "sin turnos de sueño");
+    assert_eq!(child.pc, 0, "puntero de ejecución al inicio (start:)");
+    assert!(
+        child.variables.is_empty(),
+        "la cría nace sin variables, got {:?}",
+        child.variables
+    );
+    assert_eq!(child.species.name, "Walker", "misma especie");
+    assert_eq!(
+        child.species.faction,
+        world
+            .creatures
+            .iter()
+            .find(|c| c.id == mother)
+            .unwrap()
+            .species
+            .faction,
+        "misma facción"
+    );
+    assert_eq!(
+        child.species.program.is_some(),
+        world
+            .creatures
+            .iter()
+            .find(|c| c.id == mother)
+            .unwrap()
+            .species
+            .program
+            .is_some(),
+        "misma presencia de programa"
+    );
+    assert!(
+        matches!(world.content[2][1], CellContent::Creature(cid) if cid == child.id),
+        "la casilla objetivo (1,2) contiene a la cría"
+    );
+    // La madre sigue en su casilla.
+    assert_eq!(world.creature_position(mother).unwrap(), Pos { x: 1, y: 1 });
+}
+
+#[test]
+fn test_reproduce_mother_loses_health() {
+    // AC2: la madre pierde `health` de vida al reproducirse.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+
+    let reproduce = Reproduce;
+    let _ = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(1), Value::Int(5)],
+        )
+        .expect("reproduce applies");
+    assert_eq!(creature_health(&world, mother), 5, "madre pierde health");
+}
+
+#[test]
+fn test_reproduce_offspring_no_variables() {
+    // AC3: la cría no hereda variables de la madre.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+    world
+        .set_variable(mother, "tesoro", Value::Int(7))
+        .expect("set variable");
+
+    let reproduce = Reproduce;
+    let _ = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(1), Value::Int(5)],
+        )
+        .expect("reproduce applies");
+    let child = world
+        .creatures
+        .iter()
+        .find(|c| c.id != mother)
+        .expect("debe existir la cría");
+    assert!(
+        child.variables.is_empty(),
+        "sin variables heredadas, got {:?}",
+        child.variables
+    );
+    assert_eq!(
+        world.variable(mother, "tesoro"),
+        Some(Value::Int(7)),
+        "la madre conserva sus variables"
+    );
+}
+
+#[test]
+fn test_reproduce_abort_occupied_cell() {
+    // AC5: casilla con criatura -> aborto natural, no cría, madre no pierde vida.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+    let _victim = place_creature_with_health(&mut world, 1, 2, 10); // ocupa el objetivo
+
+    let reproduce = Reproduce;
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(1), Value::Int(5)],
+        )
+        .expect("reproduce applies: aborto no es error");
+    assert_eq!(r.sleep_turns, 0);
+    assert!(r.events.is_empty());
+    assert_eq!(
+        world.creatures.len(),
+        2,
+        "solo la madre y la víctima, sin cría"
+    );
+    assert_eq!(
+        creature_health(&world, mother),
+        10,
+        "madre no pierde vida al abortar"
+    );
+}
+
+#[test]
+fn test_reproduce_abort_occupied_by_object() {
+    // AC5: casilla con objeto -> aborto natural, no cría.
+    let (mut world, _, _) = rock_world(); // roca en (1,1)
+    let mother = place_creature_with_health(&mut world, 0, 1, 10);
+
+    let reproduce = Reproduce;
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(1), Value::Int(0), Value::Int(5)],
+        )
+        .expect("reproduce applies: aborto no es error");
+    assert!(r.events.is_empty());
+    assert!(
+        !world.creatures.iter().any(|c| c.id != mother),
+        "no debe haber cría"
+    );
+    assert!(matches!(world.content[1][1], CellContent::Object(0)));
+    assert_eq!(creature_health(&world, mother), 10);
+}
+
+#[test]
+fn test_reproduce_abort_out_of_map() {
+    // AC6: destino fuera del mapa -> aborto natural, no cría.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 0, 0, 10);
+
+    let reproduce = Reproduce;
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(-1), Value::Int(0), Value::Int(5)],
+        )
+        .expect("reproduce applies: fuera del mapa no es error");
+    assert!(r.events.is_empty());
+    assert!(
+        world.creatures.iter().all(|c| c.id == mother),
+        "no debe haber cría"
+    );
+    assert_eq!(creature_health(&world, mother), 10);
+}
+
+#[test]
+fn test_reproduce_abort_insufficient_health() {
+    // AC7: madre vida <= health -> aborto natural, no cría.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 5);
+
+    let reproduce = Reproduce;
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(1), Value::Int(5)],
+        )
+        .expect("reproduce applies: aborto no es error");
+    assert!(r.events.is_empty());
+    assert!(
+        !world.creatures.iter().any(|c| c.id != mother),
+        "no debe haber cría"
+    );
+    assert_eq!(creature_health(&world, mother), 5);
+
+    // vida exactamente igual: no se cumple estricto `>`.
+    let r = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(-1), Value::Int(5)],
+        )
+        .expect("reproduce applies");
+    assert!(r.events.is_empty());
+    assert!(
+        !world.creatures.iter().any(|c| c.id != mother),
+        "no debe haber cría"
+    );
+}
+
+#[test]
+fn test_reproduce_argument_errors_name_the_argument() {
+    // dx / dy fuera de {-1,0,1} y argumentos de texto nombran el argumento.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+    let reproduce = Reproduce;
+
+    let err = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(2), Value::Int(0), Value::Int(5)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "dx error: {err:?}");
+
+    let err = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(-2), Value::Int(5)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "dy error: {err:?}");
+
+    let err = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Text("x".to_string()), Value::Int(0), Value::Int(5)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dx"), "text dx error: {err:?}");
+
+    let err = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Text("y".to_string()), Value::Int(5)],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("dy"), "text dy error: {err:?}");
+
+    let err = reproduce
+        .apply(
+            &mut world,
+            mother,
+            &[Value::Int(0), Value::Int(0), Value::Text("v".to_string())],
+        )
+        .unwrap_err();
+    assert!(err.message.contains("health"), "text health error: {err:?}");
 }

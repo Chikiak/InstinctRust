@@ -280,6 +280,26 @@ impl World {
             .and_then(|c| c.variables.get(name).cloned())
     }
 
+    /// Fija la salud de la criatura con el id dado. Devuelve un diagnóstico
+    /// si el id no existe; nunca indexa fuera de rango. `reproduce` lo usa
+    /// para ajustar la salud de la cría tras `place_creature` (que usa
+    /// `species.health`) al valor indicado en la acción.
+    pub fn set_creature_health(
+        &mut self,
+        creature_id: CreatureId,
+        health: i64,
+    ) -> Result<(), Diagnostic> {
+        let creature = self
+            .creatures
+            .iter_mut()
+            .find(|c| c.id == creature_id)
+            .ok_or_else(|| {
+                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+            })?;
+        creature.health = health;
+        Ok(())
+    }
+
     /// Assigns a variable on a creature. Rejects any name the catalog knows
     /// as an action or a perception.
     pub fn set_variable(

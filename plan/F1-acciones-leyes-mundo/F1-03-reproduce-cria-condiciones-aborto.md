@@ -2,7 +2,7 @@
 id: F1-03
 title: reproduce: cría, condiciones y aborto natural
 phase: F1
-status: todo
+status: done
 depends_on: [F1-01]
 size: M
 ---
@@ -93,4 +93,15 @@ Si `place_creature` no encaja porque la cría necesita el programa compilado de 
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+- AC1 `test_reproduce_creates_offspring`: `cargo test -p instinct-core --test actions_tests test_reproduce_creates_offspring` → ok. Cría en (1,2) con vida 5 (= health), edad 0, sleep_turns 0, pc 0, variables vacías, misma especie/facción/programa; madre en su casilla.
+- AC2 `test_reproduce_mother_loses_health`: `cargo test -p instinct-core --test actions_tests test_reproduce_mother_loses_health` → ok. Madre 10 → 5.
+- AC3 `test_reproduce_offspring_no_variables`: `cargo test -p instinct-core --test actions_tests test_reproduce_offspring_no_variables` → ok. Cría sin variables; madre conserva las suyas.
+- AC4 `test_reproduce_offspring_starts_at_start_next_tick`: `cargo test -p instinct-core --test sim_tests test_reproduce_offspring_starts_at_start_next_tick` → ok. Tras el tick de nacimiento: cría en (1,2), vida 4 (5 - 1 fin de tick), edad 1, pc 0 (no jugó el tick de nacimiento por el snapshot de `step_tick`). Tick siguiente: pc 2, ejecutó su turno.
+- AC5 `test_reproduce_abort_occupied_cell` + `test_reproduce_abort_occupied_by_object`: `cargo test -p instinct-core --test actions_tests` → ok. Celda ocupada por criatura u objeto: aborto natural, sin cría, madre sin perder vida.
+- AC6 `test_reproduce_abort_out_of_map`: `cargo test -p instinct-core --test actions_tests test_reproduce_abort_out_of_map` → ok. Fuera del mapa: aborto natural.
+- AC7 `test_reproduce_abort_insufficient_health`: `cargo test -p instinct-core --test actions_tests test_reproduce_abort_insufficient_health` → ok. `mother.health <= health` (incluido `==`): aborto natural.
+- AC8 `test_catalog_resolves_reproduce`: `cargo test -p instinct-core --test actions_tests test_catalog_resolves_reproduce` → ok. `reproduce` aridad 3, `consumes_turn() == true`.
+- AC9 `cargo test --workspace` → todo verde (0 fallos en todos los crates); `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings; `cargo fmt --all --check` → exit 0; `cargo build --workspace` → exit 0.
+- Decisiones: no se añade evento `Born` (PHASE.md no lo lista); se verifica por estado del mundo, como permite el issue. La cría nace con `species.health` vía `place_creature` y se ajusta a `health` con el nuevo método público `World::set_creature_health`. La cría está sujeta a las leyes de fin de tick del tick de nacimiento (puede morir por `vida` ese mismo tick si `health <= 0`, comportamiento intencional del enunciado). `dx`/`dy` fuera de `{-1,0,1}` y argumento de texto fallan nombrando el argumento; cualquier fallo de condiciones consume turno (no hace nada, devuelve `Ok`).
+- Archivos: `crates/instinct-core/src/actions.rs` (`Reproduce`, registro en `Catalog::default()`); `crates/instinct-core/src/world.rs` (`World::set_creature_health`); `crates/instinct-core/tests/actions_tests.rs` (8 tests de `reproduce`); `crates/instinct-core/tests/sim_tests.rs` (test AC4). Sin `unwrap`/`expect` sobre datos de usuario, sin indexación fuera de rango, sin floats, sin dependencias nuevas.
+- Nota: `plan/.../NOCHE_F1.md` tiene una modificación de despacho pre-existente (no de este issue); se deja fuera del commit de este issue.
