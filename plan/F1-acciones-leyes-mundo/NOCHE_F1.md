@@ -22,3 +22,5 @@ intentará al cierre y, si no existe el agente, queda anotado.
 | 02:15 | dispatch | F1-03 | 1 rust | running | feat/f1-03-reproduce-cria-condiciones-aborto |
 | 02:3x | done | F1-03 | 1 | 9/9 AC | 5832a41 + c36b2e9 → merge a9253ad |
 | 02:3x | dispatch | F1-04 | 1 rust | running | feat/f1-04-roar-mensaje-tick-siguiente |
+| 02:5x | done | F1-04 | 1 | 6/6 AC | 1d79777 + b48dd7d → merge fe7f5c1 |
+| 02:5x | dispatch | F1-05 | 1 rust | running | feat/f1-05-escenarios-e2e-terminal |
