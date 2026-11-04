@@ -2,7 +2,7 @@
 id: F1-02
 title: consume: igual que attack más curación del atacante
 phase: F1
-status: todo
+status: done
 depends_on: [F1-01]
 size: M
 ---
@@ -84,4 +84,13 @@ Si el camino compartido de golpear casilla no es fácilmente reutilizable, para 
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+- AC1 `test_consume_damages_creature`: `cargo test -p instinct-core --test actions_tests test_consume_damages_creature` → ok. Criatura muere al golpe (hp<=0), casilla queda Empty, Died causa vida, atacante vive y se cura.
+- AC2 `test_consume_heals_attacker`: `cargo test -p instinct-core --test actions_tests test_consume_heals_attacker` → ok. Salud del atacante sube `heal` sin tope (10→17 con heal 7).
+- AC3 `test_consume_damages_object`: `cargo test -p instinct-core --test actions_tests test_consume_damages_object` → ok. Reserva del objeto reducida (100→70), sigue en celda hasta end_of_tick.
+- AC4 `test_consume_damages_terrain`: `cargo test -p instinct-core --test actions_tests test_consume_damages_terrain` → ok. Reserva de terreno reducida, incluida (0,0) bajo la propia criatura.
+- AC5 `test_consume_out_of_map_noop`: `cargo test -p instinct-core --test actions_tests test_consume_out_of_map_noop` → ok. Sin daño, sin curación, sin evento, turno consumido.
+- AC6 `test_consume_bad_direction_errors`: `cargo test -p instinct-core --test actions_tests test_consume_bad_direction_errors` → ok. dx/dy fuera de {-1,0,1} error nombrando el argumento.
+- AC7 `test_consume_text_argument_errors`: `cargo test -p instinct-core --test actions_tests test_consume_text_argument_errors` → ok. Argumento de texto (dx/dy/damage/heal) error nombrando el argumento.
+- AC8 `test_catalog_resolves_consume`: `cargo test -p instinct-core --test actions_tests test_catalog_resolves_consume` → ok. `consume` aridad 4, `consumes_turn()==true`.
+- AC9 `cargo test --workspace` → todo verde (0 fallos); `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+Cambios: `Consume` registrado en `Catalog::default()` (aridad 4) en `crates/instinct-core/src/actions.rs`; se extrajo `strike_cell` (golpear casilla adyacente) compartido por `Attack` y `Consume`, más `validate_direction` y `heal_attacker`; ningún cambio en `event.rs` ni `world.rs` (se reusa `damage_cell_content`); tests en `crates/instinct-core/tests/actions_tests.rs`. Commit 1ca59aa.

@@ -12,6 +12,155 @@ use crate::value::Value;
 use crate::world::{CellContent, CreatureId, World};
 use std::rc::Rc;
 
+/// Valida que `dx`/`dy` estén en `{-1, 0, 1}`, devolviendo un error que
+/// nombra el argumento cuando no lo están.
+fn validate_direction(action: &str, dx: i64, dy: i64) -> Result<(), Diagnostic> {
+    if !((-1..=1).contains(&dx)) {
+        return Err(Diagnostic::new(
+            action,
+            1,
+            format!("argument 'dx' must be -1, 0, or 1, got {dx}"),
+        ));
+    }
+    if !((-1..=1).contains(&dy)) {
+        return Err(Diagnostic::new(
+            action,
+            1,
+            format!("argument 'dy' must be -1, 0, or 1, got {dy}"),
+        ));
+    }
+    Ok(())
+}
+
+/// Lógica compartida de "golpear casilla adyacente": reduce la vida de una
+/// criatura (muerte inmediata a <= 0), la reserva de un objeto o la reserva
+/// del terreno de la casilla `(x+dx, y+dy)` de la criatura atacante.
+/// Devuelve los eventos de daño. Fuera del mapa: no-op sin evento ni error.
+/// `(0, 0)` apunta al terreno bajo la propia criatura.
+fn strike_cell(
+    world: &mut World,
+    creature_id: CreatureId,
+    dx: i64,
+    dy: i64,
+    damage: i64,
+) -> Result<Vec<Event>, Diagnostic> {
+    let pos = world.creature_position(creature_id)?;
+    let species = world.creature_species(creature_id)?;
+    let tick = world.tick();
+
+    let tx = pos.x as i64 + dx;
+    let ty = pos.y as i64 + dy;
+
+    // Destino fuera del mapa: no-op, sin error, sin evento.
+    if tx < 0 || ty < 0 || tx >= world.columns as i64 || ty >= world.rows as i64 {
+        return Ok(Vec::new());
+    }
+    let tx = tx as usize;
+    let ty = ty as usize;
+
+    let mut target = world.content[ty][tx].clone();
+    // La propia casilla del atacante (dx=0,dy=0) golpea el terreno bajo ella,
+    // nunca a la criatura misma.
+    if tx == pos.x && ty == pos.y {
+        target = CellContent::Empty;
+    }
+    let mut events: Vec<Event> = Vec::new();
+
+    match target {
+        CellContent::Creature(target_id) => {
+            let creature = world
+                .creatures
+                .iter_mut()
+                .find(|c| c.id == target_id)
+                .ok_or_else(|| {
+                    Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
+                })?;
+            let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
+                Diagnostic::new(
+                    "attack",
+                    1,
+                    format!("overflow damaging creature health at ({tx},{ty})"),
+                )
+            })?;
+            creature.health = new_health;
+            events.push(Event::Damaged {
+                tick,
+                species: species.clone(),
+                pos,
+                target: Pos { x: tx, y: ty },
+                amount: damage,
+            });
+            if new_health <= 0 {
+                let died_pos = Pos {
+                    x: creature.x,
+                    y: creature.y,
+                };
+                world.remove_creature(target_id)?;
+                events.push(Event::Died {
+                    tick,
+                    species: species.clone(),
+                    pos: died_pos,
+                    cause: "vida".to_string(),
+                });
+            }
+        }
+        CellContent::Object(_obj_idx) => {
+            world.damage_cell_content(tx, ty, damage)?;
+            events.push(Event::Damaged {
+                tick,
+                species: species.clone(),
+                pos,
+                target: Pos { x: tx, y: ty },
+                amount: damage,
+            });
+        }
+        CellContent::Empty => {
+            let t_idx = world.terrain[ty][tx];
+            let t = &mut world.terrains[t_idx];
+            t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
+                Diagnostic::new(
+                    "attack",
+                    1,
+                    format!("overflow damaging terrain at ({tx},{ty})"),
+                )
+            })?;
+            events.push(Event::Damaged {
+                tick,
+                species: species.clone(),
+                pos,
+                target: Pos { x: tx, y: ty },
+                amount: damage,
+            });
+        }
+    }
+
+    Ok(events)
+}
+
+/// Aplica `heal` a la salud de la criatura atacante (sin tope; puede acumularse).
+/// Devuelve un error de runtime si hay overflow.
+fn heal_attacker(world: &mut World, creature_id: CreatureId, heal: i64) -> Result<(), Diagnostic> {
+    let creature = world
+        .creatures
+        .iter_mut()
+        .find(|c| c.id == creature_id)
+        .ok_or_else(|| {
+            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+        })?;
+    let new_health = creature.health.checked_add(heal).ok_or_else(|| {
+        Diagnostic::new(
+            "consume",
+            1,
+            format!(
+                "overflow healing creature at ({},{})",
+                creature.x, creature.y
+            ),
+        )
+    })?;
+    creature.health = new_health;
+    Ok(())
+}
+
 /// Result of applying an action: the number of sleep turns (0 = none) and
 /// any events to append to the world's event log.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +277,7 @@ impl Default for Catalog {
         let _ = c.register(Rc::new(Move));
         let _ = c.register(Rc::new(Say));
         let _ = c.register(Rc::new(Attack));
+        let _ = c.register(Rc::new(Consume));
         let _ = c.register_perception(Box::new(Health));
         let _ = c.register_perception(Box::new(Age));
         let _ = c.register_perception(Box::new(Lifespan));
@@ -361,116 +511,77 @@ impl Action for Attack {
                 ));
             }
         };
+        validate_direction("attack", dx, dy)?;
 
-        if !((-1..=1).contains(&dx)) {
-            return Err(Diagnostic::new(
-                "attack",
-                1,
-                format!("argument 'dx' must be -1, 0, or 1, got {dx}"),
-            ));
-        }
-        if !((-1..=1).contains(&dy)) {
-            return Err(Diagnostic::new(
-                "attack",
-                1,
-                format!("argument 'dy' must be -1, 0, or 1, got {dy}"),
-            ));
-        }
+        let events = strike_cell(world, creature_id, dx, dy, damage)?;
+        Ok(ActionResult {
+            sleep_turns: 0,
+            events,
+        })
+    }
+}
 
+// ---------------------------------------------------------------------------
+// consume(dx, dy, damage, heal): igual que attack sobre la casilla adyacente
+// y, además, la criatura atacante gana `heal` puntos de vida (sin tope).
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Consume;
+
+impl Action for Consume {
+    fn name(&self) -> &str {
+        "consume"
+    }
+    fn arity(&self) -> usize {
+        4
+    }
+    fn consumes_turn(&self) -> bool {
+        true
+    }
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let dx = parse_move_arg(&args[0], "dx")?;
+        let dy = parse_move_arg(&args[1], "dy")?;
+        let damage = match &args[2] {
+            Value::Int(d) => *d,
+            Value::Text(_) => {
+                return Err(Diagnostic::new(
+                    "consume",
+                    1,
+                    "argument 'damage' must be an integer, got text".to_string(),
+                ));
+            }
+        };
+        let heal = match &args[3] {
+            Value::Int(h) => *h,
+            Value::Text(_) => {
+                return Err(Diagnostic::new(
+                    "consume",
+                    1,
+                    "argument 'heal' must be an integer, got text".to_string(),
+                ));
+            }
+        };
+        validate_direction("consume", dx, dy)?;
+
+        // Fuera del mapa: no-op, ni daño ni curación, turno consumido.
         let pos = world.creature_position(creature_id)?;
-        let species = world.creature_species(creature_id)?;
-        let tick = world.tick();
-
         let tx = pos.x as i64 + dx;
         let ty = pos.y as i64 + dy;
-
-        // Destino fuera del mapa: no-op, turno consumido, sin error.
         if tx < 0 || ty < 0 || tx >= world.columns as i64 || ty >= world.rows as i64 {
             return Ok(ActionResult {
                 sleep_turns: 0,
                 events: Vec::new(),
             });
         }
-        let tx = tx as usize;
-        let ty = ty as usize;
 
-        let mut target = world.content[ty][tx].clone();
-        // La propia casilla del atacante (dx=0,dy=0) golpea el terreno bajo ella,
-        // nunca a la criatura misma.
-        if tx == pos.x && ty == pos.y {
-            target = CellContent::Empty;
-        }
-        let mut events: Vec<Event> = Vec::new();
-
-        match target {
-            CellContent::Creature(target_id) => {
-                let creature = world
-                    .creatures
-                    .iter_mut()
-                    .find(|c| c.id == target_id)
-                    .ok_or_else(|| {
-                        Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
-                    })?;
-                let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
-                    Diagnostic::new(
-                        "attack",
-                        1,
-                        format!("overflow damaging creature health at ({tx},{ty})"),
-                    )
-                })?;
-                creature.health = new_health;
-                events.push(Event::Damaged {
-                    tick,
-                    species: species.clone(),
-                    pos,
-                    target: Pos { x: tx, y: ty },
-                    amount: damage,
-                });
-                if new_health <= 0 {
-                    // Muerte inmediata: libera la casilla y emite Died en este tick.
-                    let died_pos = Pos {
-                        x: creature.x,
-                        y: creature.y,
-                    };
-                    world.remove_creature(target_id)?;
-                    events.push(Event::Died {
-                        tick,
-                        species: species.clone(),
-                        pos: died_pos,
-                        cause: "vida".to_string(),
-                    });
-                }
-            }
-            CellContent::Object(_obj_idx) => {
-                world.damage_cell_content(tx, ty, damage)?;
-                events.push(Event::Damaged {
-                    tick,
-                    species: species.clone(),
-                    pos,
-                    target: Pos { x: tx, y: ty },
-                    amount: damage,
-                });
-            }
-            CellContent::Empty => {
-                let t_idx = world.terrain[ty][tx];
-                let t = &mut world.terrains[t_idx];
-                t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
-                    Diagnostic::new(
-                        "attack",
-                        1,
-                        format!("overflow damaging terrain at ({tx},{ty})"),
-                    )
-                })?;
-                events.push(Event::Damaged {
-                    tick,
-                    species: species.clone(),
-                    pos,
-                    target: Pos { x: tx, y: ty },
-                    amount: damage,
-                });
-            }
-        }
-
+        let events = strike_cell(world, creature_id, dx, dy, damage)?;
+        heal_attacker(world, creature_id, heal)?;
         Ok(ActionResult {
             sleep_turns: 0,
             events,
