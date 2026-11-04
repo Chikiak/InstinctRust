@@ -20,4 +20,11 @@ Pre-vuelo: OK (repositorio nuevo, sin cargo aún)
 | 00:14 | dispatch | F0-07 | 1 rust | running | feat/f0-07-turnos-ticks |
 | 00:15 | done | F0-07 | 1 | 9/9 AC | 03f2b16 → develop |
 | 00:16 | dispatch | F0-08 | 1 rust | running | feat/f0-08-simular-terminal |
-| 00:11 | done | F0-05 | 1 | 8/8 AC | feat/f0-05-percepciones-variables |
+| 00:17 | done | F0-08 | 1 | 8/8 AC | 87a92ae → develop |
+
+**Fase F0 completada** — todos los 8 issues en `done`. Verificación final:
+- `cargo test --workspace`: 116 tests, 0 fallos
+- `cargo clippy --workspace --all-targets -- -D warnings`: exit 0
+- `cargo fmt --all --check`: exit 0
+- Comando final de fase: salida esperada con Walker moviéndose y muriendo por vida en tick 9
+- Determinismo byte a byte confirmado con misma semilla

@@ -2,7 +2,7 @@
 id: F0-08
 title: Simular desde la terminal
 phase: F0
-status: todo
+status: done
 depends_on: [F0-07]
 size: M
 ---

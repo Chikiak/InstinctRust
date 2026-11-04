@@ -1,7 +1,7 @@
 ---
 phase: F0
 title: Esqueleto andante
-status: todo
+status: done
 master: ../MASTER.md
 ---
 
@@ -157,7 +157,7 @@ La criatura se dibuja con la primera letra del nombre de su especie.
 | F0-05 | Leer percepciones y variables de una criatura | F0-03, F0-04 | M | — | done |
 | F0-06 | Compilar y comprobar una criatura `.ins` | F0-05 | M | — | done |
 | F0-07 | Turnos y ticks con sus leyes | F0-06 | M | — | done |
-| F0-08 | Simular desde la terminal | F0-07 | M | — | todo |
+| F0-08 | Simular desde la terminal | F0-07 | M | — | done |
 
 ### Orden y dependencias
 ```mermaid
