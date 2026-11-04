@@ -91,6 +91,9 @@ fn strike_cell(
                 amount: damage,
             });
             if new_health <= 0 {
+                // `Died` identifica a la criatura que muere (víctima), no al
+                // atacante; consistente con end_of_tick_creatures y die_by_error.
+                let victim_species = creature.species.name.clone();
                 let died_pos = Pos {
                     x: creature.x,
                     y: creature.y,
@@ -98,7 +101,7 @@ fn strike_cell(
                 world.remove_creature(target_id)?;
                 events.push(Event::Died {
                     tick,
-                    species: species.clone(),
+                    species: victim_species,
                     pos: died_pos,
                     cause: "vida".to_string(),
                 });
