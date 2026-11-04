@@ -46,6 +46,15 @@ pub enum Event {
         target: Pos,
         amount: i64,
     },
+    /// Una criatura rugió. `tick` es el tick en que se emitió el rugido; el
+    /// mensaje queda disponible para las criaturas cercanas el tick siguiente
+    /// (F2 lo lee con `roars_near`/`last_roar` filtrando por `tick_actual - 1`).
+    Roared {
+        tick: u64,
+        species: String,
+        pos: Pos,
+        text: String,
+    },
 }
 
 impl std::fmt::Display for Event {
@@ -105,6 +114,19 @@ impl std::fmt::Display for Event {
                     y = pos.y,
                     tx = target.x,
                     ty = target.y
+                )
+            }
+            Event::Roared {
+                tick,
+                species,
+                pos,
+                text,
+            } => {
+                write!(
+                    f,
+                    "[tick {tick}] {species}@{x},{y} ruge: {text}",
+                    x = pos.x,
+                    y = pos.y
                 )
             }
         }

@@ -3,7 +3,7 @@
 
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
-use instinct_core::event::Event;
+use instinct_core::event::{Event, Pos};
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::sim::Simulation;
@@ -342,4 +342,44 @@ fn test_seed_changes_turn_order() {
         map1 != map2 || events1 != events2,
         "different seeds should change turn order and thus the outcome:\nmap1:\n{map1}\nmap2:\n{map2}"
     );
+}
+
+#[test]
+fn test_roar_rotates_to_previous_tick() {
+    // El rugido emitido en el tick actual pasa a ser "del tick anterior" al
+    // final del tick (sim.rs rotación), listo para que F2 lo lea con
+    // roars_near/last_roar en el tick siguiente.
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp = species_no_program("Walker", 100, 1000);
+    let _id = world.place_creature(sp, 1, 1).expect("place walker");
+    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+
+    sim.world
+        .add_roar("Walker".to_string(), Pos { x: 1, y: 1 }, "hola".to_string());
+    assert_eq!(sim.world.roars_current.len(), 1);
+    assert!(sim.world.roars_previous.is_empty());
+    assert_eq!(sim.world.roars_current[0].tick, sim.world.ticks);
+
+    let _events = sim.step_tick();
+
+    // Tras el tick: rotados a previous, current vacío.
+    assert!(sim.world.roars_current.is_empty(), "current se limpió");
+    assert_eq!(sim.world.roars_previous.len(), 1, "pasaron a previous");
+    let stored = &sim.world.roars_previous[0];
+    assert_eq!(
+        stored.tick, 0,
+        "tick del rugido (tick_actual - 1 tras el avance)"
+    );
+    assert_eq!(stored.text, "hola");
+    assert_eq!(stored.pos, Pos { x: 1, y: 1 });
+    assert_eq!(stored.species, "Walker");
+
+    // Un segundo paso sin nuevos rugidos vacía previous: un rugido solo está
+    // disponible el tick siguiente al de su emisión, no persiste indefinido.
+    let _events = sim.step_tick();
+    assert!(
+        sim.world.roars_previous.is_empty(),
+        "sin rugidos del tick anterior"
+    );
+    assert!(sim.world.roars_current.is_empty());
 }

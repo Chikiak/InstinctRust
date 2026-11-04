@@ -2,7 +2,7 @@
 //! and the `wait`, `move`, `say` actions.
 
 use instinct_core::actions::{
-    Action, ActionResult, Attack, Catalog, Consume, Move, Reproduce, Say, Wait,
+    Action, ActionResult, Attack, Catalog, Consume, Move, Reproduce, Roar, Say, Wait,
 };
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::event::{Event, Pos};
@@ -1231,4 +1231,108 @@ fn test_reproduce_argument_errors_name_the_argument() {
         )
         .unwrap_err();
     assert!(err.message.contains("health"), "text health error: {err:?}");
+}
+
+// ---------------------------------------------------------------------------
+// roar (AC1-AC5)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_catalog_resolves_roar() {
+    // AC5: `roar` resuelto con aridad 1 y consume turno.
+    let cat = Catalog::default();
+    let roar = cat.resolve("roar", 1).expect("roar arity 1");
+    assert_eq!(roar.name(), "roar");
+    assert_eq!(roar.arity(), 1);
+    assert!(roar.consumes_turn());
+}
+
+#[test]
+fn test_roar_emits_event() {
+    // AC1: `roar("texto")` emite Roared con tick, especie, posición y texto.
+    let roar = Roar;
+    let (mut world, _, _) = world_with_grass();
+    let id = place_walker(&mut world);
+
+    assert!(roar.consumes_turn(), "AC3: roar consume turno");
+
+    let r = roar
+        .apply(&mut world, id, &[Value::Text("¡auau!".to_string())])
+        .expect("roar applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert_eq!(r.events.len(), 1);
+    match &r.events[0] {
+        Event::Roared {
+            tick,
+            species,
+            pos,
+            text,
+        } => {
+            assert_eq!(*tick, world.ticks, "tick del rugido");
+            assert_eq!(species, "Walker");
+            assert_eq!(*pos, Pos { x: 1, y: 1 });
+            assert_eq!(text, "¡auau!");
+        }
+        _ => panic!("expected Roared event, got {:?}", r.events),
+    }
+}
+
+#[test]
+fn test_roar_consumes_turn() {
+    // AC3: `roar` consume turno aunque el mensaje sea vacío.
+    let roar = Roar;
+    assert!(roar.consumes_turn());
+    let (mut world, _, _) = world_with_grass();
+    let id = place_walker(&mut world);
+    let r = roar
+        .apply(&mut world, id, &[Value::Text("".to_string())])
+        .expect("roar vacío applies");
+    assert_eq!(r.sleep_turns, 0);
+    assert_eq!(r.events.len(), 1);
+    assert_eq!(world.roars_current.len(), 1);
+}
+
+#[test]
+fn test_roar_number_as_text() {
+    // AC2: `roar(42)` muestra "42" como texto.
+    let roar = Roar;
+    let (mut world, _, _) = world_with_grass();
+    let id = place_walker(&mut world);
+
+    let r = roar
+        .apply(&mut world, id, &[Value::Int(42)])
+        .expect("roar 42 applies");
+    match &r.events[0] {
+        Event::Roared { text, .. } => assert_eq!(text, "42"),
+        _ => panic!("expected Roared event, got {:?}", r.events),
+    }
+}
+
+#[test]
+fn test_roar_stored_with_tick() {
+    // AC4: el rugido se almacena asociado al tick en que se emitió.
+    let roar = Roar;
+    let (mut world, _, _) = world_with_grass();
+    let id = place_walker(&mut world);
+
+    let _ = roar
+        .apply(&mut world, id, &[Value::Text("hola".to_string())])
+        .expect("roar applies");
+
+    assert_eq!(world.roars_current.len(), 1, "almacenado en el tick actual");
+    assert!(
+        world.roars_previous.is_empty(),
+        "nada del tick anterior aún"
+    );
+    let stored = &world.roars_current[0];
+    assert_eq!(stored.tick, world.ticks, "tick de emisión");
+    assert_eq!(stored.species, "Walker");
+    assert_eq!(stored.pos, Pos { x: 1, y: 1 });
+    assert_eq!(stored.text, "hola");
+
+    // Un rugido vacío también se almacena y consume turno.
+    let _ = roar
+        .apply(&mut world, id, &[Value::Text("".to_string())])
+        .expect("roar vacío applies");
+    assert_eq!(world.roars_current.len(), 2);
 }

@@ -32,6 +32,18 @@ pub enum CellContent {
     Creature(CreatureId),
 }
 
+/// Un rugido emitido por una criatura en un tick, asociado a su especie,
+/// posición y texto. Se guarda con su tick para que, en el siguiente tick,
+/// F2 pueda leer los rugidos del tick anterior con `roars_near`/`last_roar`
+/// dentro del radio de visión.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Roar {
+    pub tick: u64,
+    pub species: String,
+    pub pos: Pos,
+    pub text: String,
+}
+
 /// A living creature placed on the map.
 #[derive(Debug, Clone)]
 pub struct Creature {
@@ -81,6 +93,12 @@ pub struct World {
     /// Seeded pseudo-random generator. Interior mutability is confined to this
     /// field so `random` can advance it through an immutable world reference.
     pub rng: RefCell<Rng>,
+    /// Rugidos emitidos en el tick actual, asociados a su tick y posición.
+    /// Al final de cada tick (`sim.rs`) se rotan a `roars_previous`.
+    pub roars_current: Vec<Roar>,
+    /// Rugidos del tick anterior; legibles durante el tick actual (prepara
+    /// `roars_near`/`last_roar` de F2).
+    pub roars_previous: Vec<Roar>,
 }
 
 impl World {
@@ -111,6 +129,8 @@ impl World {
                 diagnostics,
                 catalog: Catalog::default(),
                 rng: RefCell::new(Rng::new(0)),
+                roars_current: Vec::new(),
+                roars_previous: Vec::new(),
             };
         }
 
@@ -168,6 +188,8 @@ impl World {
             diagnostics,
             catalog: Catalog::default(),
             rng: RefCell::new(Rng::new(0)),
+            roars_current: Vec::new(),
+            roars_previous: Vec::new(),
         }
     }
 
@@ -346,6 +368,32 @@ impl World {
     /// Drains all pending events, returning them and leaving the log empty.
     pub fn drain_events(&mut self) -> Vec<Event> {
         std::mem::take(&mut self.events)
+    }
+
+    /// Registra un rugido emitido por `species` desde `pos` con el texto
+    /// `text` en el tick actual. `roar` no mata ni daña: solo deja constancia
+    /// del mensaje para que F2 lo lea el tick siguiente con
+    /// `roars_near`/`last_roar`.
+    pub fn add_roar(&mut self, species: String, pos: Pos, text: String) {
+        self.roars_current.push(Roar {
+            tick: self.ticks,
+            species,
+            pos,
+            text,
+        });
+    }
+
+    /// Devuelve los rugidos del tick anterior (disponibles durante el tick
+    /// actual). Vacío hasta que `sim.rs` ejecute la primera rotación.
+    pub fn previous_roars(&self) -> &[Roar] {
+        &self.roars_previous
+    }
+
+    /// Marca los rugidos del tick actual como "del tick anterior" y limpia los
+    /// actuales. Llama `sim.rs` al final de cada tick para que un rugido no
+    /// persista más allá del tick siguiente al de su emisión.
+    pub fn rotate_roars(&mut self) {
+        self.roars_previous = std::mem::take(&mut self.roars_current);
     }
 
     /// Returns true if the cell at (x, y) is inside the map and has no object

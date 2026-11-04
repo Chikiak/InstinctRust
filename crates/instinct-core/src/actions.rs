@@ -279,6 +279,7 @@ impl Default for Catalog {
         let _ = c.register(Rc::new(Attack));
         let _ = c.register(Rc::new(Consume));
         let _ = c.register(Rc::new(Reproduce));
+        let _ = c.register(Rc::new(Roar));
         let _ = c.register_perception(Box::new(Health));
         let _ = c.register_perception(Box::new(Age));
         let _ = c.register_perception(Box::new(Lifespan));
@@ -692,5 +693,50 @@ impl Action for Reproduce {
         mother.health = new_mother_health;
 
         Ok(abort_reproduction())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// roar(val): emite un mensaje de rugido que queda disponible el tick
+// siguiente. Cualquier valor (entero o texto) es válido; un entero se muestra
+// como su representación textual. Consume turno. No daña ni mata.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Roar;
+
+impl Action for Roar {
+    fn name(&self) -> &str {
+        "roar"
+    }
+    fn arity(&self) -> usize {
+        1
+    }
+    fn consumes_turn(&self) -> bool {
+        true
+    }
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let text = match &args[0] {
+            Value::Int(n) => n.to_string(),
+            Value::Text(s) => s.clone(),
+        };
+        let pos = world.creature_position(creature_id)?;
+        let species = world.creature_species(creature_id)?;
+        let tick = world.tick();
+        world.add_roar(species.clone(), pos, text.clone());
+        Ok(ActionResult {
+            sleep_turns: 0,
+            events: vec![Event::Roared {
+                tick,
+                species,
+                pos,
+                text,
+            }],
+        })
     }
 }
