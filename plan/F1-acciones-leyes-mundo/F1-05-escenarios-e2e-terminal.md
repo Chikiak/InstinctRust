@@ -2,7 +2,7 @@
 id: F1-05
 title: Escenarios E2E uno por acción desde la terminal
 phase: F1
-status: todo
+status: done
 depends_on: [F1-01, F1-02, F1-03, F1-04]
 size: M
 ---
@@ -80,4 +80,13 @@ Si una criatura de prueba `.ins` no compila por funciones de F2 (`see`, `name`),
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+- AC1 `test_cli_e2e_attack_kills_adjacent_creature`: `cargo test -p instinct-cli --test cli_run test_cli_e2e_attack_kills_adjacent_creature` → ok. Attacker@0,0 ataca Victim@1,0 (daño 10): Victim muere mismo tick (Died causa vida), casilla (1,0) queda terreno en tick 1, eventos Damaged + Died en stdout.
+- AC2 `test_cli_e2e_consume_kills_and_heals`: `cargo test -p instinct-cli --test cli_run test_cli_e2e_consume_kills_and_heals` → ok. Consumer mata a Food y casilla queda terreno; daño + Died causan vida.
+- AC3 `test_cli_e2e_reproduce_birth`: `cargo test -p instinct-cli --test cli_run test_cli_e2e_reproduce_birth` → ok. Mother@1,1 cría en (1,2) presente en tick 1 (edad 0 implícita al nacer), madre sigue en su casilla.
+- AC4 `test_cli_e2e_roar_emits_event`: `cargo test -p instinct-cli --test cli_run test_cli_e2e_roar_emits_event` → ok. `[tick 0] Roarer@1,1 ruge: ¡auau!` en stdout.
+- AC5 `test_cli_determinism_same_seed` + terminal: `cargo test -p instinct-cli --test cli_run test_cli_determinism_same_seed` → ok; dos corridas del binario con `--seed 1 --ticks 10 --place Walker@0,0` dan stdout y stderr byte a byte idénticos (SHA-256 igual).
+- AC6 `test_cli_f0_walker_no_regression` + terminal: `cargo test ... test_cli_f0_walker_no_regression` → ok; comando de la fase `cargo run -p instinct-cli -- run --root examples --map "Plain with rocks" --seed 1 --ticks 10 --place Walker@0,0` exit 0, muestra tick 0 y tick 10, `[tick 9] Walker@10,0 muere por vida`.
+- AC7 `cargo test --workspace` → todo verde (0 fallos); `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings; `cargo fmt --all --check` → exit 0.
+- Bug corregido (no scope creep): en `strike_cell` (`crates/instinct-core/src/actions.rs`) el evento `Died` por `attack` reportaba la especie del atacante; ahora reporta la especie de la víctima, consistente con `end_of_tick_creatures` y `die_by_error`. Sin este cambio AC1/AC2 no podían verificar quién murió.
+- Archivos: `crates/instinct-core/src.actions.rs` (fix Died species); `crates/instinct-cli/tests/cli_run.rs` (10 tests E2E + core consume heal); `examples/creatures/{attacker,victim,consumer,food,mother,roarer}.ins` (nuevos). Sin `unwrap`/`expect` sobre datos de usuario, sin floats, sin dependencias nuevas, sin `rand`.
+- `plan/.../NOCHE_F1.md` tiene una modificación previa ajena a este issue; se deja fuera del commit.
