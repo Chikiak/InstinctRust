@@ -1,4 +1,4 @@
-//! Actions: `wait`, `move`, `say`.
+//! Actions: `wait`, `move`, `say`, `attack`, `consume`, `reproduce`.
 //!
 //! Actions are stateless types; the catalog keeps them as shared references
 //! of a single thread (`Rc<dyn Action>`). The interpreter resolves each name
@@ -278,6 +278,7 @@ impl Default for Catalog {
         let _ = c.register(Rc::new(Say));
         let _ = c.register(Rc::new(Attack));
         let _ = c.register(Rc::new(Consume));
+        let _ = c.register(Rc::new(Reproduce));
         let _ = c.register_perception(Box::new(Health));
         let _ = c.register_perception(Box::new(Age));
         let _ = c.register_perception(Box::new(Lifespan));
@@ -586,5 +587,110 @@ impl Action for Consume {
             sleep_turns: 0,
             events,
         })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// reproduce(dx, dy, health): crea una cría de la misma especie en la casilla
+// adyacente (x+dx, y+dy) de la madre si está dentro del mapa y es solo
+// terreno (`CellContent::Empty`) y la madre tiene vida estrictamente mayor
+// que `health`. La madre pierde `health`; la cría nace con vida = `health`,
+// edad 0, sin turnos de sueño, pc al inicio (`start:`) y variables vacías.
+// Su primer turno es el tick siguiente (el snapshot de `step_tick` la excluye
+// del tick actual). Cualquier fallo es aborto natural: no hace nada, pero
+// consume turno.
+// ---------------------------------------------------------------------------
+
+/// Acción sin efecto: aborto natural. El turno se consume porque
+/// `consumes_turn()` es true.
+fn abort_reproduction() -> ActionResult {
+    ActionResult {
+        sleep_turns: 0,
+        events: Vec::new(),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Reproduce;
+
+impl Action for Reproduce {
+    fn name(&self) -> &str {
+        "reproduce"
+    }
+    fn arity(&self) -> usize {
+        3
+    }
+    fn consumes_turn(&self) -> bool {
+        true
+    }
+    fn apply(
+        &self,
+        world: &mut World,
+        creature_id: CreatureId,
+        args: &[Value],
+    ) -> Result<ActionResult, Diagnostic> {
+        let dx = parse_move_arg(&args[0], "dx")?;
+        let dy = parse_move_arg(&args[1], "dy")?;
+        let health = match &args[2] {
+            Value::Int(h) => *h,
+            Value::Text(_) => {
+                return Err(Diagnostic::new(
+                    "reproduce",
+                    1,
+                    "argument 'health' must be an integer, got text".to_string(),
+                ));
+            }
+        };
+        validate_direction("reproduce", dx, dy)?;
+
+        let pos = world.creature_position(creature_id)?;
+        let mother = world
+            .creatures
+            .iter()
+            .find(|c| c.id == creature_id)
+            .ok_or_else(|| {
+                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+            })?;
+        // La madre debe tener vida estrictamente mayor que `health`.
+        if mother.health <= health {
+            return Ok(abort_reproduction());
+        }
+        let species = mother.species.clone();
+        let mother_health = mother.health;
+
+        // Nueva salud de la madre con aritmética checked, antes de mutar nada.
+        let new_mother_health = mother_health.checked_sub(health).ok_or_else(|| {
+            Diagnostic::new(
+                "reproduce",
+                1,
+                format!("overflow reducing mother health at ({},{})", pos.x, pos.y),
+            )
+        })?;
+
+        let tx = pos.x as i64 + dx;
+        let ty = pos.y as i64 + dy;
+        // Fuera del mapa: aborto natural.
+        if tx < 0 || ty < 0 || tx >= world.columns as i64 || ty >= world.rows as i64 {
+            return Ok(abort_reproduction());
+        }
+        // `place_creature` valida bounds y celda libre: celda ocupada ->
+        // aborto natural sin tocar a la madre.
+        let child_id = match world.place_creature(species, tx as usize, ty as usize) {
+            Ok(id) => id,
+            Err(_) => return Ok(abort_reproduction()),
+        };
+        // `place_creature` inicializa con `species.health`; ajustar a `health`.
+        world.set_creature_health(child_id, health)?;
+
+        let mother = world
+            .creatures
+            .iter_mut()
+            .find(|c| c.id == creature_id)
+            .ok_or_else(|| {
+                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+            })?;
+        mother.health = new_mother_health;
+
+        Ok(abort_reproduction())
     }
 }

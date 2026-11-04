@@ -252,6 +252,73 @@ fn test_same_seed_same_history() {
     assert_eq!(map1, map2, "same seed must produce same map");
 }
 
+// ---------------------------------------------------------------------------
+// reproduce: la cría no juega el tick de nacimiento (AC4).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_reproduce_offspring_starts_at_start_next_tick() {
+    // Madre: start: reproduce(0, 1, 5) goto start
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp = species_with_program("Walker", 100, 1000, "reproduce(0, 1, 5)\ngoto start\n");
+    let mother = world
+        .place_creature(sp.clone(), 1, 1)
+        .expect("place mother");
+    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+
+    // Tick 0: la madre paría; la cría nace en (1,2) pero el snapshot de
+    // step_tick la excluye de este tick: pc sigue en 0.
+    let events = sim.step_tick();
+    assert!(
+        events.iter().all(|e| !matches!(e, Event::Died { .. })),
+        "no muertes esperadas en el tick de nacimiento, got: {events:?}"
+    );
+    let child = sim
+        .world
+        .creatures
+        .iter()
+        .find(|c| c.id != mother)
+        .expect("debe existir la cría tras reproducir");
+    assert_eq!((child.x, child.y), (1, 2));
+    assert_eq!(child.health, 4, "vida = health (5) menos 1 por fin de tick");
+    assert_eq!(child.age, 1, "edad 0 al nacer, +1 al final del tick");
+    assert_eq!(child.sleep_turns, 0);
+    assert_eq!(
+        child.pc, 0,
+        "aún no ha ejecutado: arranca en start: el tick siguiente"
+    );
+    assert!(child.variables.is_empty(), "la cría nace sin variables");
+
+    // Tick 1: la cría ejecuta su primer turno desde start: (label + reproduce).
+    let events = sim.step_tick();
+    assert!(
+        events.iter().all(|e| !matches!(e, Event::Died { .. })),
+        "no muertes esperadas en el segundo tick, got: {events:?}"
+    );
+    let child = sim
+        .world
+        .creatures
+        .iter()
+        .find(|c| c.id != mother)
+        .expect("la cría sigue viva");
+    assert_eq!(
+        child.pc, 2,
+        "la cría ejecutó start: y reproduce en su primer turno"
+    );
+    assert_eq!(child.age, 2);
+    assert_eq!(child.health, 3);
+    // Su propio reproduce abortó (4 no es > 5): no hay segunda cría.
+    assert_eq!(
+        sim.world
+            .creatures
+            .iter()
+            .filter(|c| c.id != mother)
+            .count(),
+        1,
+        "solo una cría (el segundo reproduce abortó por vida insuficiente o celda ocupada)"
+    );
+}
+
 #[test]
 fn test_seed_changes_turn_order() {
     // Two walkers: A at (0,0), B at (1,0). Both try to move right.

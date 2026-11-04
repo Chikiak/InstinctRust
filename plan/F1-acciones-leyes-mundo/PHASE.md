@@ -41,7 +41,7 @@ F0 completada y en verde:
 |----|--------|------------|--------|-------------------|--------|
 | F1-01 | attack: daño a criatura, objeto, terreno y casilla propia | — | M | — | done |
 | F1-02 | consume: igual que attack más curación del atacante | F1-01 | M | — | done |
-| F1-03 | reproduce: cría, condiciones y aborto natural | F1-01 | M | F1-02 | todo |
+| F1-03 | reproduce: cría, condiciones y aborto natural | F1-01 | M | F1-02 | done |
 | F1-04 | roar: mensaje disponible el tick siguiente | F1-01 | M | F1-02, F1-03 | todo |
 | F1-05 | Escenarios E2E uno por acción desde la terminal | F1-01, F1-02, F1-03, F1-04 | M | — | todo |
 
