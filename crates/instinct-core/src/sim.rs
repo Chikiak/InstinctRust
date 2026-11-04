@@ -72,7 +72,12 @@ impl Simulation {
         self.world
             .end_of_tick_terrain_and_objects(&mut self.terrains, &self.objects);
 
-        // 5. Advance the tick counter.
+        // 5. Rotar rugidos: los del tick actual pasan a ser "del tick
+        //    anterior" para el siguiente (F2 los lee con roars_near/last_roar
+        //    filtrando por tick_actual - 1).
+        self.world.rotate_roars();
+
+        // 6. Advance the tick counter.
         self.world.advance_tick();
 
         // 6. Drain the event log.

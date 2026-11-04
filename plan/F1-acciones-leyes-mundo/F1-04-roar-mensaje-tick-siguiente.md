@@ -2,7 +2,7 @@
 id: F1-04
 title: roar: mensaje disponible el tick siguiente
 phase: F1
-status: todo
+status: done
 depends_on: [F1-01]
 size: M
 ---
@@ -86,4 +86,11 @@ Si el almacén de rugidos no encaja en `World` sin romper el préstamo inmutable
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+- AC1 `test_roar_emits_event`: `cargo test -p instinct-core --test actions_tests test_roar_emits_event` → ok. `Roared` con tick, species "Walker", pos (1,1), texto "¡auau!".
+- AC2 `test_roar_number_as_text`: `cargo test -p instinct-core --test actions_tests test_roar_number_as_text` → ok. `roar(42)` → texto "42".
+- AC3 `test_roar_consumes_turn`: `cargo test -p instinct-core --test actions_tests test_roar_consumes_turn` → ok. `consumes_turn() == true`; vacío consume igualmente.
+- AC4 `test_roar_stored_with_tick`: `cargo test -p instinct-core --test actions_tests test_roar_stored_with_tick` → ok. Rugido guardado en `World.roars_current` con `tick == world.ticks`. `test_roar_rotates_to_previous_tick` (sim_tests) → ok: `sim.step_tick()` rota a `roars_previous` y limpia `roars_current`; tick del rugido = 0 = `tick_actual - 1` tras el avance.
+- AC5 `test_catalog_resolves_roar`: `cargo test -p instinct-core --test actions_tests test_catalog_resolves_roar` → ok. `roar` aridad 1, consume turno.
+- AC6: `cargo test --workspace` → 17 suites, 0 fallos; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+
+Cambios: `Event::Roared` + `Display` en `crates/instinct-core/src/event.rs`; `struct Roar`, campos `roars_current`/`roars_previous`, `add_roar`, `previous_roars`, `rotate_roars` en `crates/instinct-core/src/world.rs`; acción `Roar` (aridad 1, consume turno) registrada en `Catalog::default()` en `crates/instinct-core/src/actions.rs`; rotación `self.world.rotate_roars()` al final de cada tick en `step_tick` de `crates/instinct-core/src/sim.rs`. Tests en `crates/instinct-core/tests/actions_tests.rs` y `crates/instinct-core/tests/sim_tests.rs`. Sin stubs/TODOs/código muerto. `roars_near`/`last_roar`/`see`/`name` se dejan para F2; el contrato de PHASE.md (filtro por `tick_actual - 1`) se cumple con el almacén por tick y la rotación.
