@@ -24,3 +24,5 @@ intentará al cierre y, si no existe el agente, queda anotado.
 | 02:3x | dispatch | F1-04 | 1 rust | running | feat/f1-04-roar-mensaje-tick-siguiente |
 | 02:5x | done | F1-04 | 1 | 6/6 AC | 1d79777 + b48dd7d → merge fe7f5c1 |
 | 02:5x | dispatch | F1-05 | 1 rust | running | feat/f1-05-escenarios-e2e-terminal |
+| 03:2x | done | F1-05 | 1 | 7/7 AC | 797a297 + a901aa6 → merge d5a3d99 |
+| 03:2x | fase | F1 completa | — | 5/5 done | todos mergeados a develop |
