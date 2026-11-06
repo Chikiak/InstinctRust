@@ -191,7 +191,15 @@ pub fn execute_turn(
     }
 
     // End of file: turn ends without action; next turn resumes at start.
-    let next_pc = program.resolve_label("start").unwrap_or(0);
+    let next_pc = match program.resolve_label("start") {
+        Some(pc) => pc,
+        None => {
+            return Err((
+                Diagnostic::new("interp", 0, "missing required label 'start'".to_string()),
+                0,
+            ));
+        }
+    };
     Ok(TurnResult {
         pending: None,
         state: CreatureTurnState {

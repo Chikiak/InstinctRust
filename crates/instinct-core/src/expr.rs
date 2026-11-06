@@ -275,7 +275,12 @@ impl Parser {
 
     fn expect(&mut self, expected: Token) -> Result<crate::lexer::SpannedToken, ParseError> {
         match self.peek() {
-            Some(tok) if tok.kind == expected => Ok(self.advance().unwrap()),
+            Some(tok) if tok.kind == expected => {
+                // peek garantiza que hay un token; lo consumimos sin desenvuelto.
+                let pos = self.pos;
+                self.pos += 1;
+                Ok(self.tokens[pos].clone())
+            }
             Some(tok) => Err(ParseError::new(
                 self.file.clone(),
                 self.current_line(),
@@ -292,8 +297,14 @@ impl Parser {
     // or_expr := and_expr (or and_expr)*
     fn parse_or(&mut self) -> Result<Box<dyn Expr>, ParseError> {
         let mut left = self.parse_and()?;
-        while matches!(self.peek(), Some(t) if t.kind == Token::Or) {
-            let op = self.advance().unwrap().kind;
+        while let Some(tok) = self.peek() {
+            if tok.kind != Token::Or {
+                break;
+            }
+            let op = match self.advance() {
+                Some(tok) => tok.kind,
+                None => return self.error("unexpected end of expression"),
+            };
             let right = self.parse_and()?;
             left = Box::new(Binary {
                 op: operator_text(&op),
@@ -307,8 +318,14 @@ impl Parser {
     // and_expr := comparison (and comparison)*
     fn parse_and(&mut self) -> Result<Box<dyn Expr>, ParseError> {
         let mut left = self.parse_comparison()?;
-        while matches!(self.peek(), Some(t) if t.kind == Token::And) {
-            let op = self.advance().unwrap().kind;
+        while let Some(tok) = self.peek() {
+            if tok.kind != Token::And {
+                break;
+            }
+            let op = match self.advance() {
+                Some(tok) => tok.kind,
+                None => return self.error("unexpected end of expression"),
+            };
             let right = self.parse_comparison()?;
             left = Box::new(Binary {
                 op: operator_text(&op),
@@ -478,7 +495,10 @@ fn operator_text(token: &Token) -> String {
 /// `line` is the source line number attributed to any syntax error, and
 /// `file` is the source file name.
 pub fn parse(text: &str, line: usize, file: &str) -> Result<Box<dyn Expr>, Diagnostic> {
-    let tokens = lex(text, line).map_err(|err| Diagnostic::new(file, err.line, err.message))?;
+    let tokens = match lex(text, line, file) {
+        Ok(tokens) => tokens,
+        Err(err) => return Err(Diagnostic::from(err)),
+    };
     let parser = Parser::new(tokens, file.to_string(), line);
     let captured_file = parser.file.clone();
     parser
