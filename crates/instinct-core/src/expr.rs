@@ -26,6 +26,11 @@ pub trait Expr: std::fmt::Debug {
     fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String>;
     /// Clones the node into a boxed trait object.
     fn clone_box(&self) -> Box<dyn Expr>;
+    /// Returns the operator text for binary nodes (empty for other nodes).
+    /// Exposed so tests can verify operators are stored unquoted.
+    fn operator(&self) -> &str {
+        ""
+    }
 }
 
 /// Literal integer.
@@ -152,6 +157,10 @@ impl Expr for Binary {
             "or" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
             _ => left.binary_op(&self.op, &right),
         }
+    }
+
+    fn operator(&self) -> &str {
+        &self.op
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -440,10 +449,26 @@ impl Parser {
 }
 
 /// The textual operator for a token, used when building binary nodes.
+///
+/// Returns the bare operator text (`+`, `==`, `and`, ...), never quoted.
+/// The quoted form produced by [`Display for Token`](crate::expr::Token)
+/// exists only for human-readable error messages and must not be reused as
+/// the operator stored in a [`Binary`] node.
 fn operator_text(token: &Token) -> String {
     match token {
         Token::Or => "or".to_string(),
         Token::And => "and".to_string(),
+        Token::Plus => "+".to_string(),
+        Token::Minus => "-".to_string(),
+        Token::Star => "*".to_string(),
+        Token::Slash => "/".to_string(),
+        Token::Percent => "%".to_string(),
+        Token::Eq => "==".to_string(),
+        Token::Ne => "!=".to_string(),
+        Token::Lt => "<".to_string(),
+        Token::Le => "<=".to_string(),
+        Token::Gt => ">".to_string(),
+        Token::Ge => ">=".to_string(),
         _ => token.to_string(),
     }
 }

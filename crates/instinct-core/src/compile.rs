@@ -142,19 +142,46 @@ pub fn compile(
                         faction = Some(value.trim().to_string());
                     }
                     "health" => {
-                        if let Ok(n) = value.trim().parse::<i64>() {
+                        let parsed = value.trim().parse::<i64>();
+                        if let Ok(n) = parsed {
                             health = Some(n);
                         }
+                        validate_header_value(
+                            key,
+                            value,
+                            line_number,
+                            file,
+                            parsed,
+                            &mut diagnostics,
+                        );
                     }
                     "vision" => {
-                        if let Ok(n) = value.trim().parse::<i64>() {
+                        let parsed = value.trim().parse::<i64>();
+                        if let Ok(n) = parsed {
                             vision = Some(n);
                         }
+                        validate_header_value(
+                            key,
+                            value,
+                            line_number,
+                            file,
+                            parsed,
+                            &mut diagnostics,
+                        );
                     }
                     "lifespan" => {
-                        if let Ok(n) = value.trim().parse::<i64>() {
+                        let parsed = value.trim().parse::<i64>();
+                        if let Ok(n) = parsed {
                             lifespan = Some(n);
                         }
+                        validate_header_value(
+                            key,
+                            value,
+                            line_number,
+                            file,
+                            parsed,
+                            &mut diagnostics,
+                        );
                     }
                     _ => {
                         diagnostics.push(Diagnostic::new(
@@ -163,10 +190,6 @@ pub fn compile(
                             format!("unknown header key '{key}'"),
                         ));
                     }
-                }
-
-                if matches!(key, "health" | "vision" | "lifespan") {
-                    validate_header_value(key, value, line_number, file, &mut diagnostics);
                 }
 
                 continue;
@@ -301,9 +324,13 @@ pub fn compile(
         }
 
         // Action call: `name(arg, ...)`.
-        if let Some(line) = parse_action_call(body, catalog, line_number, file, &mut diagnostics) {
-            lines.push(line);
-            continue;
+        match parse_action_call(body, catalog, line_number, file, &mut diagnostics) {
+            ActionOutcome::Resolved(line) => {
+                lines.push(line);
+                continue;
+            }
+            ActionOutcome::Failed => continue, // diagnostic already pushed
+            ActionOutcome::NotAnAction => {}
         }
 
         diagnostics.push(Diagnostic::new(
@@ -370,24 +397,39 @@ pub fn compile(
 
 /// Returns `true` when `body` has the shape of an assignment (`name = ...`)
 /// with a valid name and a non-`==` equals sign.
+/// Returns `true` when `body` has the shape of an assignment (`name = ...`)
+/// with a valid name and a non-`==` equals sign.
+///
+/// A valid name starts with a letter or `_` and continues with letters,
+/// digits or `_`. The equals sign must be a single `=`: `==` on either side
+/// disqualifies the line as an assignment.
 fn looks_like_assignment(body: &str) -> bool {
     let eq_idx = match body.find('=') {
         Some(i) => i,
         None => return false,
     };
-    let name = &body[..eq_idx];
-    if name.trim().is_empty() {
+    let name = body[..eq_idx].trim();
+    if name.is_empty() {
         return false;
     }
-    if !name
-        .trim()
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    // The name must start with a letter or `_`.
+    let mut chars = name.chars();
+    let first = match chars.next() {
+        Some(c) => c,
+        None => return false,
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return false;
+    }
+    // Avoid treating `==` as an assignment: neither the character before nor
+    // the character after the `=` may itself be `=`.
+    let bytes = body.as_bytes();
+    if (eq_idx > 0 && bytes[eq_idx - 1] == b'=')
+        || (eq_idx + 1 < bytes.len() && bytes[eq_idx + 1] == b'=')
     {
-        return false;
-    }
-    // Avoid treating `==` as an assignment.
-    if eq_idx > 0 && body.as_bytes()[eq_idx - 1] == b'=' {
         return false;
     }
     true
@@ -395,14 +437,19 @@ fn looks_like_assignment(body: &str) -> bool {
 
 /// Validates that a header value is an integer > 0 (vision >= 1). Pushes a
 /// diagnostic naming the key when invalid.
+///
+/// The value is parsed exactly once (the caller already parsed it and passes
+/// the result); an invalid integer or a value below the minimum produces a
+/// single diagnostic on the value's line.
 fn validate_header_value(
     key: &str,
     value: &str,
     line: usize,
     file: &str,
+    parsed: Result<i64, std::num::ParseIntError>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match value.trim().parse::<i64>() {
+    match parsed {
         Ok(n) => {
             let min = 1;
             if n < min {
@@ -506,47 +553,75 @@ fn parse_assignment(
     }
 }
 
+/// Outcome of parsing an action call line.
+enum ActionOutcome {
+    /// The line is not an action call; compilation keeps looking at other
+    /// line forms (and may end up as "unrecognized").
+    NotAnAction,
+    /// The line resolved to a valid action line.
+    Resolved(Line),
+    /// The line was an action call but a diagnostic was already pushed
+    /// (bad argument, unknown action, or wrong arity); nothing more to do.
+    Failed,
+}
+
 /// Parses an action call `name(arg, ...)`. Pushes a diagnostic naming the
-/// action when it is unknown or has the wrong arity. Returns `None` when the
-/// line is not an action call or the action could not be resolved.
+/// action when it is unknown or has the wrong arity, or naming the argument
+/// when it fails to parse. The diagnostic is never silently dropped.
 fn parse_action_call(
     body: &str,
     catalog: &Catalog,
     line: usize,
     file: &str,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Option<Line> {
-    let paren = body.find('(')?;
+) -> ActionOutcome {
+    let paren = match body.find('(') {
+        Some(p) => p,
+        None => return ActionOutcome::NotAnAction,
+    };
     let name = body[..paren].trim();
     if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-        return None;
+        return ActionOutcome::NotAnAction;
     }
     let rest = body[paren + 1..].trim();
-    let closing = rest.rfind(')')?;
+    let closing = match rest.rfind(')') {
+        Some(c) => c,
+        None => return ActionOutcome::NotAnAction,
+    };
     let args_text = &rest[..closing];
     let after = rest[closing + 1..].trim();
     if !after.is_empty() {
-        return None;
+        return ActionOutcome::NotAnAction;
     }
 
     let args: Vec<Box<dyn expr::Expr>> = if args_text.trim().is_empty() {
         Vec::new()
     } else {
-        args_text
+        let mut args = Vec::new();
+        for a in args_text
             .split(',')
             .map(|a| a.trim())
             .filter(|a| !a.is_empty())
-            .map(|a| expr::parse(a, line, file))
-            .collect::<Result<Vec<_>, _>>()
-            .ok()?
+        {
+            match expr::parse(a, line, file) {
+                Ok(expr) => args.push(expr),
+                Err(d) => {
+                    // Propaga el error de parseo del argumento como diagnóstico
+                    // (con su línea y archivo) en lugar de descartarlo en silencio.
+                    diagnostics.push(d);
+                    return ActionOutcome::Failed;
+                }
+            }
+        }
+        args
     };
 
     let arg_count = args.len();
     match catalog.resolve(name, arg_count) {
-        Ok(action) => Some(Line::Action { action, args, line }),
+        Ok(action) => ActionOutcome::Resolved(Line::Action { action, args, line }),
         Err(d) => {
             diagnostics.push(Diagnostic::new(file, line, d.message));
-            None
+            ActionOutcome::Failed
         }
     }
 }
