@@ -265,7 +265,7 @@ fn test_execute_turn_missing_start_errors() {
             name: "foo".to_string(),
             line: 1,
         }],
-        labels: std::collections::HashMap::from([("foo".to_string(), 0)]),
+        labels: std::collections::BTreeMap::from([("foo".to_string(), 0)]),
     };
     let ctx = FakeCtx {
         vars: Rc::new(RefCell::new(HashMap::new())),
@@ -342,7 +342,10 @@ fn test_goto_out_of_range_errors() {
                 line: 2,
             },
         ],
-        labels: HashMap::from([("start".to_string(), 0), ("loop".to_string(), 5)]),
+        labels: std::collections::BTreeMap::from([
+            ("start".to_string(), 0),
+            ("loop".to_string(), 5),
+        ]),
     };
     let vars = Rc::new(RefCell::new(HashMap::new()));
     let ctx = FakeCtx {
@@ -384,7 +387,10 @@ fn test_if_goto_out_of_range_errors() {
                 line: 2,
             },
         ],
-        labels: HashMap::from([("start".to_string(), 0), ("far".to_string(), 9)]),
+        labels: std::collections::BTreeMap::from([
+            ("start".to_string(), 0),
+            ("far".to_string(), 9),
+        ]),
     };
     let vars = Rc::new(RefCell::new(HashMap::new()));
     let ctx = FakeCtx {
@@ -505,7 +511,7 @@ fn test_goto_unknown_label_is_runtime_error() {
                 line: 2,
             },
         ],
-        labels: HashMap::from([("start".to_string(), 0)]),
+        labels: std::collections::BTreeMap::from([("start".to_string(), 0)]),
     };
     let vars = Rc::new(RefCell::new(HashMap::new()));
     let ctx = FakeCtx {

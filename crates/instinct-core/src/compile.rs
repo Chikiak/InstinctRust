@@ -58,7 +58,7 @@ pub fn compile(
 ) -> CompileResult {
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
     let mut lines: Vec<Line> = Vec::new();
-    let mut labels: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut labels: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let mut label_refs: Vec<LabelRef> = Vec::new();
     let mut found_start = false;
     let mut seen_keys: Vec<&str> = Vec::new();

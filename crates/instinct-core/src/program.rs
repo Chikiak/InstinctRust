@@ -3,7 +3,7 @@
 
 use crate::actions::Action;
 use crate::expr::Expr;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// A compiled line: either a label definition, a goto, a conditional goto,
@@ -69,15 +69,16 @@ impl Clone for Line {
 #[derive(Debug, Clone)]
 pub struct Program {
     pub lines: Vec<Line>,
-    /// Label name -> index into `lines`.
-    pub labels: HashMap<String, usize>,
+    /// Label name -> index into `lines`. `BTreeMap` para iterar en orden
+    /// determinista (nombre de etiqueta ordenado).
+    pub labels: BTreeMap<String, usize>,
 }
 
 impl Program {
     pub fn new() -> Self {
         Program {
             lines: Vec::new(),
-            labels: HashMap::new(),
+            labels: BTreeMap::new(),
         }
     }
 
