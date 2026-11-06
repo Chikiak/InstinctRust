@@ -89,3 +89,33 @@ fn test_cli_check_nonexistent_file() {
     assert_eq!(code, 1, "nonexistent file should exit 1");
     assert!(!stderr.is_empty(), "stderr should report the error");
 }
+
+#[test]
+fn test_cli_check_wrong_arg_count_errors() {
+    // check sin argumentos -> exit 2 (uso incorrecto).
+    let (code, _, stderr) = run_cli(&["check"]);
+    assert_eq!(
+        code, 2,
+        "check sin archivo debe salir con 2, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+
+    // check con dos archivos -> exit 2 (uso incorrecto).
+    let root = format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"));
+    let (code, _, stderr) = run_cli(&[
+        "check",
+        &format!("{}/creatures/walker.ins", root),
+        &format!("{}/creatures/walker.ins", root),
+    ]);
+    assert_eq!(
+        code, 2,
+        "check con dos archivos debe salir con 2, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+}

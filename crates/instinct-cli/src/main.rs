@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::exit;
 
 use instinct_core::actions::Catalog;
@@ -11,7 +12,44 @@ use instinct_core::world;
 /// Usage text of the program. Describes the `run` and `check` subcommands.
 const USAGE: &str = "Uso: instinct-cli <comando> [argumentos]\n\nComandos:\n  run --root <dir> --map <nombre> [--seed <n>] [--ticks <n>] [--every <n>] [--place <Especie>@<x>,<y>]\n  check <archivo.ins>\n\nEjecute `instinct-cli --help` para ver esta ayuda.";
 
-/// Arguments of the `run` subcommand.
+/// Common operation of every subcommand: returns the exit code.
+trait Command {
+    fn execute(&self) -> i32;
+}
+
+/// `run --root <dir> --map <nombre> [--seed <n>] [--ticks <n>] [--every <n>] [--place <Especie>@<x>,<y>]`
+struct Run {
+    args: RunArgs,
+}
+
+impl Command for Run {
+    fn execute(&self) -> i32 {
+        execute_run(&self.args)
+    }
+}
+
+/// `check <archivo.ins>`
+struct Check {
+    path: String,
+}
+
+impl Command for Check {
+    fn execute(&self) -> i32 {
+        execute_check(&self.path)
+    }
+}
+
+/// `--help` / `-h`: prints usage to stdout and exits 0.
+struct Help;
+
+impl Command for Help {
+    fn execute(&self) -> i32 {
+        println!("{USAGE}");
+        0
+    }
+}
+
+/// Arguments of the `run` subcommand, fully validated before construction.
 struct RunArgs {
     root: String,
     map_name: String,
@@ -31,42 +69,60 @@ struct Placement {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
+    // No arguments: usage to stderr, exit 2.
     if args.len() == 1 {
-        // No arguments: usage to stderr, exit 2.
         eprintln!("{USAGE}");
         exit(2);
     }
 
-    if args.len() == 2 && (args[1] == "--help" || args[1] == "-h") {
-        // --help: usage to stdout, exit 0.
-        println!("{USAGE}");
-        exit(0);
-    }
-
-    match args[1].as_str() {
-        "run" => exit(execute_run(&args[2..])),
-        "check" => exit(execute_check(&args[2..])),
-        _ => {
-            // Anything else: unknown subcommand.
+    let command = match build_command(&args[1..]) {
+        Ok(cmd) => cmd,
+        Err(e) => {
             eprintln!("{USAGE}");
-            eprintln!("error: subcomando o argumentos no reconocidos");
+            eprintln!("error: {e}");
             exit(2);
         }
+    };
+
+    exit(command.execute());
+}
+
+/// Builds the command object from the arguments after the program name.
+/// Rejects unknown subcommands and unknown flags (C1).
+fn build_command(args: &[String]) -> Result<Box<dyn Command>, String> {
+    if args.is_empty() {
+        return Err("se espera un subcomando: run o check".to_string());
+    }
+    match args[0].as_str() {
+        "run" => {
+            let run_args = parse_run(&args[1..])?;
+            Ok(Box::new(Run { args: run_args }))
+        }
+        "check" => {
+            if args.len() != 2 {
+                return Err("el subcomando 'check' requiere un archivo .ins".to_string());
+            }
+            Ok(Box::new(Check {
+                path: args[1].clone(),
+            }))
+        }
+        "--help" | "-h" => {
+            if args.len() != 1 {
+                return Err("--help no acepta argumentos".to_string());
+            }
+            Ok(Box::new(Help))
+        }
+        _ => Err(format!(
+            "subcomando o argumento no reconocido: '{}'",
+            args[0]
+        )),
     }
 }
 
 /// Executes the `run` subcommand. Returns the exit code.
-fn execute_run(args: &[String]) -> i32 {
-    let parsed = match parse_run(args) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("{USAGE}");
-            eprintln!("error: {e}");
-            return 2;
-        }
-    };
-
-    let root = std::path::Path::new(&parsed.root);
+/// The map and tick events go to stdout; diagnostics go to stderr (C5).
+fn execute_run(args: &RunArgs) -> i32 {
+    let root = Path::new(&args.root);
     let resources = resources::load_resources(root);
 
     // Load diagnostics are reported to stderr.
@@ -75,11 +131,11 @@ fn execute_run(args: &[String]) -> i32 {
     }
 
     // Find the map by name.
-    let map = resources.maps.iter().find(|m| m.name == parsed.map_name);
+    let map = resources.maps.iter().find(|m| m.name == args.map_name);
     let map = match map {
         Some(m) => m,
         None => {
-            eprintln!("mapa no encontrado: '{}'", parsed.map_name);
+            eprintln!("mapa no encontrado: '{}'", args.map_name);
             if !resources.maps.is_empty() {
                 eprint!("mapas disponibles: ");
                 for (i, m) in resources.maps.iter().enumerate() {
@@ -102,7 +158,7 @@ fn execute_run(args: &[String]) -> i32 {
     // Parse every --place value. A malformed placement or an unknown species
     // aborts with exit code 1 before simulating.
     let mut placements: Vec<(Placement, Species)> = Vec::new();
-    for place_str in &parsed.places {
+    for place_str in &args.places {
         let placement = match parse_place(place_str) {
             Ok(p) => p,
             Err(e) => {
@@ -143,10 +199,10 @@ fn execute_run(args: &[String]) -> i32 {
     // Create the simulation and seed its generator. El mundo ya es el único
     // dueño de los catálogos de terrenos y objetos.
     let mut sim = Simulation::new(world);
-    sim.set_rng_seed(parsed.seed);
+    sim.set_rng_seed(args.seed);
 
-    let ticks = parsed.ticks;
-    let every = parsed.every;
+    let ticks = args.ticks;
+    let every = args.every;
 
     // Map at tick 0 (initial state).
     println!("== tick 0 ==");
@@ -214,7 +270,9 @@ fn parse_place(value: &str) -> Result<Placement, String> {
     Ok(Placement { species, x, y })
 }
 
-/// Parses the arguments of the `run` subcommand (after the `run` name).
+/// Builds and validates the arguments of the `run` subcommand (after the `run`
+/// name). Rejects unknown flags (C1), validates `--ticks >= 0` (C2),
+/// `--every >= 1` and that `--root` exists (C3).
 fn parse_run(args: &[String]) -> Result<RunArgs, String> {
     let mut root: Option<String> = None;
     let mut map_name: Option<String> = None;
@@ -242,10 +300,15 @@ fn parse_run(args: &[String]) -> Result<RunArgs, String> {
             }
             "--ticks" => {
                 let v = next_value(args, &mut i, "--ticks")?;
-                ticks = Some(
-                    v.parse::<i64>()
-                        .map_err(|_| format!("--ticks debe ser un entero, obtuvo '{v}'"))?,
-                );
+                let parsed = v
+                    .parse::<i64>()
+                    .map_err(|_| format!("--ticks debe ser un entero, obtuvo '{v}'"))?;
+                if parsed < 0 {
+                    return Err(format!(
+                        "--ticks debe ser mayor o igual a 0, obtuvo {parsed}"
+                    ));
+                }
+                ticks = Some(parsed);
             }
             "--every" => {
                 let v = next_value(args, &mut i, "--every")?;
@@ -263,12 +326,18 @@ fn parse_run(args: &[String]) -> Result<RunArgs, String> {
                 places.push(next_value(args, &mut i, "--place")?);
             }
             _ => {
-                i += 1;
+                return Err(format!("flag desconocido: '{token}'"));
             }
         }
     }
 
     let root = root.unwrap_or_else(|| "examples".to_string());
+
+    // C3: validate that the root directory exists, whether explicit or default.
+    if !Path::new(&root).is_dir() {
+        return Err(format!("el directorio --root no existe: '{root}'"));
+    }
+
     let map_name = map_name.ok_or_else(|| "falta el argumento obligatorio --map".to_string())?;
 
     Ok(RunArgs {
@@ -291,14 +360,7 @@ fn next_value(args: &[String], i: &mut usize, flag: &str) -> Result<String, Stri
 }
 
 /// Executes the `check` subcommand. Returns the exit code.
-fn execute_check(args: &[String]) -> i32 {
-    if args.len() != 1 {
-        eprintln!("{USAGE}");
-        eprintln!("error: el subcomando 'check' requiere un archivo .ins");
-        return 2;
-    }
-
-    let path = &args[0];
+fn execute_check(path: &str) -> i32 {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
