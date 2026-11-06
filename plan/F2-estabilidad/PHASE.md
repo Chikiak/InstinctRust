@@ -97,7 +97,7 @@ Salvo que un issue diga lo contrario, estos contratos son de cumplimiento obliga
 | F2-02 | Parser: argumentos propagados, asignación robusta y operadores sin comillas | — | M | F2-01, F2-06 | P2, P3, P4, P5, P7 (parcial) | done |
 | F2-03 | Errores unificados y cero `unwrap`/`expect` sobre datos de entrada | F2-02 | M | F2-06 | L1, P1, W1, I1, A1, A2, A3 | done |
 | F2-04 | Etiquetas deterministas y pruebas del núcleo de tipos | F2-02, F2-03 | M | F2-05, F2-06 | A4, A5, P7 (resto) | todo |
-| F2-05 | Intérprete: `pc` válido y límite de líneas sin off-by-one | F2-03 | M | F2-04, F2-06 | I2, I4, I5 | todo |
+| F2-05 | Intérprete: `pc` válido y límite de líneas sin off-by-one | F2-03 | M | F2-04, F2-06 | I2, I4, I5 | done |
 | F2-06 | Mundo y tick: aritmética comprobada y coordenadas sin envoltura | — | M | — | W3, W4, W6 | done |
 | F2-07 | Catálogos de terrenos y objetos con un solo dueño | F2-03, F2-06 | L | F2-04, F2-05 | W2 | todo |
 | F2-08 | CLI: validación de argumentos, separación de flujos y pruebas | F2-03, F2-07 | L | — | C1, C2, C3, C5, C4 | todo |

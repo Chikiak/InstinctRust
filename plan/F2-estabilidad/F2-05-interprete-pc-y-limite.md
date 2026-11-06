@@ -2,7 +2,7 @@
 id: F2-05
 title: Intérprete: pc válido y límite de líneas sin off-by-one
 phase: F2
-status: todo
+status: done
 depends_on: [F2-03]
 size: M
 ---
@@ -117,4 +117,12 @@ mover el sueño al intérprete (es F4-02) o emitir eventos desde aquí (es F4-01
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar las pruebas existentes ajustadas por el nuevo límite.)
+- AC1 PASS: `test_line_limit_executes_100_and_pc_valid` — programa de 152 líneas; el turno se detiene en `pc == 100` (primera línea no ejecutada, válida) con exactamente 100 líneas ejecutadas (`n == 4753`, 98 sumas). `cargo test -p instinct-core --test interp_tests` → ok.
+- AC2 PASS: `test_goto_out_of_range_errors` y `test_if_goto_out_of_range_errors` — destino fuera de rango devuelve `Err` nombrando la etiqueta (línea 2), sin pánico ni índice fuera de rango; `pc` se conserva en 1.
+- AC3 PASS: cobertura I5 — `test_if_goto_true_jumps`, `test_if_goto_false_falls_through`, `test_if_goto_eval_error_is_runtime_error`, `test_goto_unknown_label_is_runtime_error`, `test_action_argument_eval_error_is_runtime_error`, `test_multiple_says_in_one_turn`. `cargo test -p instinct-core --test interp_tests` → 17 passed, 0 failed.
+- AC4 PASS: `test_arithmetic_extremes_are_runtime_errors` — overflow (`i64::MAX + 1`), resto por cero (`7 % 0`), negación de `i64::MIN` (`m = i64::MIN`; `n = -m`) → errores de ejecución con línea (8), sin pánico en debug ni en release (`--test interp_tests --release` → ok).
+- AC5 PASS: contrato documentado en el doc comment de `LINE_LIMIT` y `execute_turn` en `crates/instinct-core/src/interp.rs`: el límite cuenta líneas ejecutadas, no intentos, y `pc` queda en una línea válida.
+- AC6 PASS: `cargo test --workspace` exit 0; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0.
+- Pruebas existentes ajustadas: ninguna. `test_line_limit_ends_turn` sigue pasando (`pc == 2`); no se modificó ninguna prueba existente, solo se añadieron 10 en `crates/instinct-core/tests/interp_tests.rs`.
+- Firmas cambiadas: ninguna. Se añadió la función privada `jump_target` en `crates/instinct-core/src/interp.rs`; `execute_line` y `execute_turn` conservan sus firmas. Sin cambios fuera de `interp.rs` y `interp_tests.rs` salvo este archivo y `PHASE.md`.
+- Rama: `feat/f2-05-interp-pc-limite`; `git merge develop` → "Already up to date", sin conflictos.
