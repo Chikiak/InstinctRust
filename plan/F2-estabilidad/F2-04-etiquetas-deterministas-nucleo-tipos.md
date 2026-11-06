@@ -2,7 +2,7 @@
 id: F2-04
 title: Etiquetas deterministas y pruebas del núcleo de tipos
 phase: F2
-status: todo
+status: done
 depends_on: [F2-02, F2-03]
 size: M
 ---
@@ -120,4 +120,17 @@ externo de mapas ordenados (el núcleo no tiene dependencias), o cambiar `resolv
 
 ### Notas de implementación
 
-- (Rellenar al implementar.)
+Evidencia AC por AC (todas las puertas desde la raíz del worktree, exit 0):
+
+- AC1 PASS: `cargo test -p instinct-core --test compile_tests` → `test_labels_iteration_deterministic` pasa. `Program::labels` es ahora `BTreeMap<String, usize>` (`program.rs` línea 74; `compile.rs` local en línea 61 y construcción `Program { lines, labels }` en línea 392 sin cambio de comportamiento). Tres compilaciones del mismo texto dan iguales claves ordenadas alfabéticamente y `resolve_label` estable (start→0, zeta→1, alpha→3, beta→5, no_existe→None).
+- AC2 PASS: `cargo test -p instinct-core --test program_tests` → `test_resolve_label_known_and_unknown` pasa (conocida resuelve al índice correcta; desconocida → `None`; `Program::new()` y `default()` → `None`).
+- AC3 PASS: mismo comando → `test_line_clone_all_variants` pasa para las cinco variantes (Label, Goto, IfGoto, Assign, Action); el clon conserva nombre/etiqueta, expresión (`operator` y evaluación con `FakeContext`), argumentos y línea de origen. Se corrigió el acceso al campo `line` de `Line` (enum: no se lee directamente sobre el valor, se desestructura la original y el clon).
+- AC4 PASS: `cargo test -p instinct-core --test value_tests` → todas pasan, incluidas `test_to_bool_int` (Int/Text → 0/1) y `test_integer_order_comparisons` (`<`, `<=`, `>`, `>=` con enteros, negativos y cero, sin floats).
+- AC5 PASS: `cargo test -p instinct-core --test event_tests` → todas pasan; `Display` fijado por variante: Said, Died, RuntimeError, Damaged, Roared (formato sin cambios, solo pruebas).
+- AC6 PASS: `cargo test --workspace` exit 0 (sin regresiones); `cargo clippy --workspace --all-targets -- -D warnings` exit 0 (se eludió la lifetime needless de `find_line` en `program_tests.rs`, sin `#[allow]`); `cargo fmt --all --check` exit 0 (tras `cargo fmt --all`).
+
+Adaptaciones reportadas:
+- `interp_tests.rs` no estaba en los archivos previstos pero es sitio de llamada obligado por el cambio de tipo: `Program { labels: ... }` pasó de `HashMap` a `BTreeMap` (línea 267 en mi base).
+- Integración de develop: `git merge develop` (fast-forward a4d354d → 49a9804, F2-05 intérprete) tras `git stash -u`; `git stash pop` restauró mi trabajo sin conflictos. `interp_tests.rs` quedó a favor de develop (versión F2-05); sus 4 sitios `labels: HashMap::from(...)` se adaptaron a `std::collections::BTreeMap::from(...)` para compilar contra `labels: BTreeMap<String, usize>` (el de mi stash en la línea 268 + los 3 de develop en líneas 345, 387, 508). Ningún `#[allow]`; cero `unwrap`/`expect` sobre datos de usuario; sin dependencias externas (rand prohibido); sin `println!` en `instinct-core`; sin `f32`/`f64`.
+
+Archivos tocados: `crates/instinct-core/src/program.rs`, `crates/instinct-core/src/compile.rs`, `crates/instinct-core/tests/compile_tests.rs`, `crates/instinct-core/tests/event_tests.rs`, `crates/instinct-core/tests/value_tests.rs`, `crates/instinct-core/tests/interp_tests.rs`, nuevo `crates/instinct-core/tests/program_tests.rs`; plan/F2-estabilidad/F2-04-...md (status done + notas) y plan/F2-estabilidad/PHASE.md (fila done).

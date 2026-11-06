@@ -531,3 +531,44 @@ fn test_multiple_errors_ordered_by_line_with_header_and_body() {
         "diagnostics should be ordered by line, got: {lines:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// P7 (resto): determinismo de la tabla de etiquetas (A4)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_labels_iteration_deterministic() {
+    // Índices esperados de `lines`: 0=start, 1=zeta, 2=goto alpha,
+    // 3=alpha, 4=if goto beta, 5=beta, 6=wait(1).
+    let text = "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nzeta:\ngoto alpha\nalpha:\nif health > 0 goto beta\nbeta:\nwait(1)\n";
+    let (cat, pc) = default_catalogs();
+    let mut previous: Option<Vec<String>> = None;
+    for _ in 0..3 {
+        let result = compile::compile(text, &cat, &pc, "test.ins");
+        assert!(
+            result.diagnostics.is_empty(),
+            "diagnósticos inesperados: {:?}",
+            result.diagnostics
+        );
+        let keys: Vec<String> = result.program.labels.keys().cloned().collect();
+        // BTreeMap itera ordenado por nombre de etiqueta.
+        assert!(
+            keys.windows(2).all(|w| w[0] < w[1]),
+            "las etiquetas deben iterar en orden, got: {keys:?}"
+        );
+        if let Some(prev) = &previous {
+            assert_eq!(
+                keys.as_slice(),
+                prev.as_slice(),
+                "el orden de etiquetas debe ser determinista entre compilaciones"
+            );
+        }
+        previous = Some(keys.clone());
+        // resolve_label estable entre compilaciones.
+        assert_eq!(result.program.resolve_label("start"), Some(0));
+        assert_eq!(result.program.resolve_label("zeta"), Some(1));
+        assert_eq!(result.program.resolve_label("alpha"), Some(3));
+        assert_eq!(result.program.resolve_label("beta"), Some(5));
+        assert_eq!(result.program.resolve_label("no_existe"), None);
+    }
+}
