@@ -89,7 +89,7 @@ fn test_death_by_health_and_by_age() {
     let sp_a = species_no_program("A", 10, 100);
     let id_a = world.place_creature(sp_a, 0, 0).expect("place A");
 
-    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+    let mut sim = Simulation::new(world);
 
     // 9 ticks: alive, health goes 10 -> 1.
     for _ in 0..9 {
@@ -134,7 +134,7 @@ fn test_death_by_health_and_by_age() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp_b = species_no_program("B", 100, 5);
     let id_b = world.place_creature(sp_b, 0, 0).expect("place B");
-    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+    let mut sim = Simulation::new(world);
 
     for _ in 0..4 {
         let events = sim.step_tick();
@@ -186,18 +186,72 @@ fn test_terrain_regenerates_and_empty_objects_vanish() {
     let world = build_world(&map, &[grass_terrain()], std::slice::from_ref(&rock));
     assert!(matches!(world.content[2][2], CellContent::Object(0)));
 
-    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![rock]);
-    // Set object reserve to 0 so it vanishes.
-    sim.objects[0].reserve = 0;
-    // Drain terrain reserve to 0.
-    sim.terrains[0].reserve = 0;
+    let mut sim = Simulation::new(world);
+    // Agota el objeto y drena el terreno sobre la reserva del mundo.
+    sim.world.objects[0].reserve = 0;
+    sim.world.terrains[0].reserve = 0;
 
-    let _events = sim.step_tick();
+    let _ = sim.step_tick();
 
-    // Terrain at (0,0) had reserve 0, regen 2 -> now 2 (capped at 100).
-    assert_eq!(sim.terrains[0].reserve, 2);
-    // Object at (2,2) had reserve 0 -> vanished.
+    // Terreno en (0,0) con reserve 0, regen 2 -> ahora 2 (capped at 100).
+    assert_eq!(sim.world.terrains[0].reserve, 2);
+    // Objeto en (2,2) con reserve 0 -> desaparecido al final del tick.
     assert!(matches!(sim.world.content[2][2], CellContent::Empty));
+}
+
+/// AC2: el daño y la regeneración de fin de tick leen y escriben la misma
+/// reserva; regenerar sobre una copia intacta restauraría el valor original.
+#[test]
+fn test_terrain_damage_then_regen_consistent() {
+    let map = empty_map();
+    let world = build_world(&map, &[grass_terrain()], &[]);
+    let mut sim = Simulation::new(world);
+
+    // Daña el terreno de (2,2): 100 -> 70.
+    sim.world
+        .damage_cell_content(2, 2, 30)
+        .expect("daña terreno de (2,2)");
+    assert_eq!(sim.world.terrains[0].reserve, 70);
+
+    // Fin de tick: regenera +2 sobre la reserva dañada: 72 (no 100).
+    let _ = sim.step_tick();
+    assert_eq!(
+        sim.world.terrains[0].reserve, 72,
+        "la regeneración parte de la reserva dañada"
+    );
+
+    // Segunda vuelta: daña de nuevo la misma reserva y regenera sobre ella.
+    sim.world
+        .damage_cell_content(2, 2, 30)
+        .expect("daña terreno de (2,2) de nuevo");
+    assert_eq!(sim.world.terrains[0].reserve, 42);
+    let _ = sim.step_tick();
+    assert_eq!(sim.world.terrains[0].reserve, 44);
+}
+
+/// AC3: un objeto dañado hasta 0 o menos desaparece al final del tick y
+/// libera su casilla.
+#[test]
+fn test_object_exhausted_still_removed() {
+    let mut map = empty_map();
+    map.rows[2][2] = '#';
+    let rock = rock_object();
+    let world = build_world(&map, &[grass_terrain()], std::slice::from_ref(&rock));
+    assert!(matches!(world.content[2][2], CellContent::Object(0)));
+    let mut sim = Simulation::new(world);
+
+    // Agota el objeto de (2,2) sobre la reserva del mundo: 100 -> 0.
+    sim.world
+        .damage_cell_content(2, 2, 100)
+        .expect("agota objeto de (2,2)");
+    assert_eq!(sim.world.objects[0].reserve, 0);
+
+    let _ = sim.step_tick();
+
+    assert!(
+        matches!(sim.world.content[2][2], CellContent::Empty),
+        "el objeto agotado desaparece y libera su casilla"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +267,7 @@ fn walker_species() -> Species {
     )
 }
 
-fn two_walker_world() -> (World, Vec<Terrain>, Vec<Object>) {
+fn two_walker_world() -> World {
     // 5x3 map, all grass. Walker A at (0,0), Walker B at (1,0).
     let map = Map {
         name: "test".to_string(),
@@ -224,7 +278,7 @@ fn two_walker_world() -> (World, Vec<Terrain>, Vec<Object>) {
     let id_a = world.place_creature(sp.clone(), 0, 0).expect("place A");
     let id_b = world.place_creature(sp, 1, 0).expect("place B");
     assert_ne!(id_a, id_b);
-    (world, vec![grass_terrain()], vec![])
+    world
 }
 
 fn run_ticks(sim: &mut Simulation, n: u64) -> Vec<Event> {
@@ -237,16 +291,16 @@ fn run_ticks(sim: &mut Simulation, n: u64) -> Vec<Event> {
 
 #[test]
 fn test_same_seed_same_history() {
-    let (world, terrains, objects) = two_walker_world();
-    let mut sim1 = Simulation::new(world.clone(), terrains.clone(), objects.clone());
+    let world = two_walker_world();
+    let mut sim1 = Simulation::new(world.clone());
     sim1.set_rng_seed(42);
     let events1 = run_ticks(&mut sim1, 50);
-    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects).unwrap();
+    let map1 = sim1.world.draw().unwrap();
 
-    let mut sim2 = Simulation::new(world, terrains, objects);
+    let mut sim2 = Simulation::new(world);
     sim2.set_rng_seed(42);
     let events2 = run_ticks(&mut sim2, 50);
-    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects).unwrap();
+    let map2 = sim2.world.draw().unwrap();
 
     assert_eq!(events1, events2, "same seed must produce same events");
     assert_eq!(map1, map2, "same seed must produce same map");
@@ -264,7 +318,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
     let mother = world
         .place_creature(sp.clone(), 1, 1)
         .expect("place mother");
-    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+    let mut sim = Simulation::new(world);
 
     // Tick 0: la madre paría; la cría nace en (1,2) pero el snapshot de
     // step_tick la excluye de este tick: pc sigue en 0.
@@ -326,16 +380,16 @@ fn test_seed_changes_turn_order() {
     // If B moves first, (1,0) frees up and A can move there next turn.
     // If A moves first, A is blocked, B moves to (2,0).
 
-    let (world, terrains, objects) = two_walker_world();
-    let mut sim1 = Simulation::new(world.clone(), terrains.clone(), objects.clone());
+    let world = two_walker_world();
+    let mut sim1 = Simulation::new(world.clone());
     sim1.set_rng_seed(42);
     let events1 = run_ticks(&mut sim1, 50);
-    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects).unwrap();
+    let map1 = sim1.world.draw().unwrap();
 
-    let mut sim2 = Simulation::new(world, terrains, objects);
+    let mut sim2 = Simulation::new(world);
     sim2.set_rng_seed(99);
     let events2 = run_ticks(&mut sim2, 50);
-    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects).unwrap();
+    let map2 = sim2.world.draw().unwrap();
 
     // The maps should differ after 50 ticks with different seeds.
     assert!(
@@ -352,7 +406,7 @@ fn test_roar_rotates_to_previous_tick() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp = species_no_program("Walker", 100, 1000);
     let _id = world.place_creature(sp, 1, 1).expect("place walker");
-    let mut sim = Simulation::new(world, vec![grass_terrain()], vec![]);
+    let mut sim = Simulation::new(world);
 
     sim.world
         .add_roar("Walker".to_string(), Pos { x: 1, y: 1 }, "hola".to_string());

@@ -26,7 +26,7 @@ fn object_rock() -> Object {
     }
 }
 
-fn empty_world() -> (World, Vec<Terrain>, Vec<Object>) {
+fn empty_world() -> World {
     let map = Map {
         name: "test".to_string(),
         rows: vec![vec!['.'; 3], vec!['.'; 3], vec!['.'; 3]],
@@ -35,7 +35,7 @@ fn empty_world() -> (World, Vec<Terrain>, Vec<Object>) {
     let objects = vec![object_rock()];
     let world = World::from_map(&map, &terrains, &objects);
     assert!(world.diagnostics.is_empty(), "{:?}", world.diagnostics);
-    (world, terrains, objects)
+    world
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn test_draw_example_map() {
     let objects = vec![object_rock()];
     let world = World::from_map(&map, &terrains, &objects);
     assert!(world.diagnostics.is_empty(), "{:?}", world.diagnostics);
-    let drawing = world.draw(&terrains, &objects).unwrap();
+    let drawing = world.draw().unwrap();
     let lines: Vec<&str> = drawing.lines().collect();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0], "....................");
@@ -83,7 +83,7 @@ fn test_unknown_character_generates_diagnostic() {
 
 #[test]
 fn test_place_rejects_invalid_cells() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let species = Species::new("Walker");
 
     // Outside the map.
@@ -115,12 +115,11 @@ fn test_place_rejects_invalid_cells() {
         world.creature_position(id1).unwrap(),
         instinct_core::event::Pos { x: 1, y: 1 }
     );
-    let _ = (&terrains, &objects);
 }
 
 #[test]
 fn test_place_creature_returns_stable_id() {
-    let (mut world, _, _) = empty_world();
+    let mut world = empty_world();
     let id1 = world
         .place_creature(Species::new("A"), 0, 0)
         .expect("place A");
@@ -145,11 +144,11 @@ fn test_place_creature_returns_stable_id() {
 
 #[test]
 fn test_render_shows_creature() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     world
         .place_creature(Species::new("Walker"), 1, 1)
         .expect("place Walker");
-    let drawing = world.draw(&terrains, &objects).unwrap();
+    let drawing = world.draw().unwrap();
     let lines: Vec<&str> = drawing.lines().collect();
     assert_eq!(lines.len(), 3);
     assert_eq!(lines[0], "...");
@@ -157,21 +156,20 @@ fn test_render_shows_creature() {
     assert_eq!(lines[2], "...");
 
     // Object still draws its character.
-    let (mut world2, terrains2, objects2) = empty_world();
-    // cell (0,0) is grass; override to rock by placing rock? The object catalog
-    // has rock but the grid has no rock. Just confirm creature overrides terrain.
-    let _ = objects2;
+    let mut world2 = empty_world();
+    // El catálogo del mundo tiene roca, pero la rejilla no tiene objetos:
+    // solo confirma que la criatura dibuja sobre el terreno.
     world2
         .place_creature(Species::new("Ent"), 0, 0)
         .expect("place Ent");
-    let drawing2 = world2.draw(&terrains2, &objects2).unwrap();
+    let drawing2 = world2.draw().unwrap();
     let lines2: Vec<&str> = drawing2.lines().collect();
     assert_eq!(lines2[0], "E..");
 }
 
 #[test]
 fn test_remove_creature_frees_cell() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let id = world
         .place_creature(Species::new("Walker"), 1, 1)
         .expect("place");
@@ -182,7 +180,6 @@ fn test_remove_creature_frees_cell() {
     world.remove_creature(id).expect("remove");
     assert!(matches!(world.content[1][1], CellContent::Empty));
     assert!(world.creatures.is_empty());
-    let _ = (&terrains, &objects);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +189,7 @@ fn test_remove_creature_frees_cell() {
 #[test]
 fn test_end_of_tick_min_health_no_panic() {
     // Vida en i64::MIN: health - 1 desborda; no debe pánico, la criatura muere.
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let species = Species::new("Walker");
     let id = world.place_creature(species, 0, 0).expect("place");
     for c in world.creatures.iter_mut() {
@@ -208,12 +205,11 @@ fn test_end_of_tick_min_health_no_panic() {
         "la criatura con vida i64::MIN debe morir, got {events:?}"
     );
     assert!(world.creatures.is_empty(), "criatura removida del mapa");
-    let _ = (&terrains, &objects);
 }
 
 #[test]
 fn test_damage_cell_overflow_and_out_of_map() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     // Terreno (0,0) con reserve 100. Daño i64::MIN -> 100 - i64::MIN desborda.
     let err = world.damage_cell_content(0, 0, i64::MIN).unwrap_err();
     assert!(
@@ -227,12 +223,11 @@ fn test_damage_cell_overflow_and_out_of_map() {
     let ok = world.damage_cell_content(999, 999, 100);
     assert!(ok.is_ok(), "fuera del mapa es no-op");
     assert_eq!(world.terrains[0].reserve, 100);
-    let _ = (&terrains, &objects);
 }
 
 #[test]
 fn test_move_creature_invalid_inputs_error() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let species = Species::new("Walker");
     let id = world.place_creature(species, 1, 1).expect("place");
 
@@ -254,12 +249,11 @@ fn test_move_creature_invalid_inputs_error() {
         world.creature_position(id).unwrap(),
         instinct_core::event::Pos { x: 1, y: 1 }
     );
-    let _ = (&terrains, &objects);
 }
 
 #[test]
 fn test_world_setters_unknown_id_error() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let unknown = CreatureId(9999);
 
     let err = world
@@ -289,7 +283,6 @@ fn test_world_setters_unknown_id_error() {
         err.message.contains("unknown creature"),
         "set_variable id desconocido, got {err:?}"
     );
-    let _ = (&terrains, &objects);
 }
 
 // ---------------------------------------------------------------------------
@@ -298,7 +291,7 @@ fn test_world_setters_unknown_id_error() {
 
 #[test]
 fn test_draw_orphan_creature_errors() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     let id = world
         .place_creature(Species::new("Walker"), 1, 1)
         .expect("place Walker");
@@ -306,7 +299,7 @@ fn test_draw_orphan_creature_errors() {
     world.content[1][1] = CellContent::Creature(CreatureId(999));
     world.creatures.retain(|c| c.id != id);
 
-    let result = world.draw(&terrains, &objects);
+    let result = world.draw();
     assert!(result.is_err(), "draw debe fallar con criatura huérfana");
     let err = result.unwrap_err();
     assert_eq!(err.file, "world");
@@ -322,11 +315,11 @@ fn test_draw_orphan_creature_errors() {
 
 #[test]
 fn test_draw_short_catalog_errors() {
-    let (mut world, terrains, objects) = empty_world();
+    let mut world = empty_world();
     // content[0][0] referencia al objeto 5, pero el catálogo solo tiene 1 objeto.
     world.content[0][0] = CellContent::Object(5);
 
-    let result = world.draw(&terrains, &objects);
+    let result = world.draw();
     assert!(
         result.is_err(),
         "draw debe fallar con catálogo de objetos corto"
@@ -334,10 +327,10 @@ fn test_draw_short_catalog_errors() {
     let err = result.unwrap_err();
     assert!(err.message.contains("5"), "error nombra el índice: {err:?}");
 
-    // Catálogo de terrenos corto: el terreno de la celda no existe.
-    let (mut world2, _, objects2) = empty_world();
+    // Catálogo de terrenos corto: el terreno de la celda no existe (el mundo tiene 1 terreno).
+    let mut world2 = empty_world();
     world2.terrain[0][0] = 9;
-    let result2 = world2.draw(&terrains[..0], &objects2);
+    let result2 = world2.draw();
     assert!(
         result2.is_err(),
         "draw debe fallar con catálogo de terrenos corto"
