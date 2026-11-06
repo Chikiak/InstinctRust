@@ -140,8 +140,9 @@ fn execute_run(args: &[String]) -> i32 {
         }
     }
 
-    // Create the simulation and seed its generator.
-    let mut sim = Simulation::new(world, resources.terrains, resources.objects);
+    // Create the simulation and seed its generator. El mundo ya es el único
+    // dueño de los catálogos de terrenos y objetos.
+    let mut sim = Simulation::new(world);
     sim.set_rng_seed(parsed.seed);
 
     let ticks = parsed.ticks;
@@ -149,7 +150,7 @@ fn execute_run(args: &[String]) -> i32 {
 
     // Map at tick 0 (initial state).
     println!("== tick 0 ==");
-    match sim.world().draw(&sim.terrains, &sim.objects) {
+    match sim.world().draw() {
         Ok(drawing) => print!("{drawing}"),
         Err(d) => {
             eprintln!("{d}");
@@ -174,7 +175,7 @@ fn execute_run(args: &[String]) -> i32 {
             every > 0 && (next_tick.is_multiple_of(every as u64) || next_tick == ticks as u64);
         if should_print {
             println!("== tick {next_tick} ==");
-            match sim.world().draw(&sim.terrains, &sim.objects) {
+            match sim.world().draw() {
                 Ok(drawing) => print!("{drawing}"),
                 Err(d) => {
                     eprintln!("{d}");

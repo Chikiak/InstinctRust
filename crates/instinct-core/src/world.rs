@@ -566,15 +566,15 @@ impl World {
 
     /// Regenerates terrain reserves up to `resource_max` and removes objects
     /// whose reserve is 0 or less, freeing their cells.
-    pub fn end_of_tick_terrain_and_objects(
-        &mut self,
-        terrains: &mut [Terrain],
-        objects: &[Object],
-    ) -> Vec<Pos> {
+    ///
+    /// Opera sobre los catálogos propios del mundo (dueño único): es la misma
+    /// reserva que `damage_cell_content` muta, no una copia, de modo que daño
+    /// y regeneración nunca trabajan sobre reservas distintas.
+    pub fn end_of_tick_terrain_and_objects(&mut self) -> Vec<Pos> {
         let mut freed: Vec<Pos> = Vec::new();
 
         // Regenerate each terrain once per tick (not once per cell).
-        for terrain in terrains.iter_mut() {
+        for terrain in self.terrains.iter_mut() {
             if terrain.reserve < terrain.resource_max {
                 let new_reserve = terrain.reserve + terrain.regen;
                 terrain.reserve = new_reserve.min(terrain.resource_max);
@@ -585,7 +585,7 @@ impl World {
         for y in 0..self.rows {
             for x in 0..self.columns {
                 if let CellContent::Object(obj_idx) = &self.content[y][x] {
-                    if objects[*obj_idx].reserve <= 0 {
+                    if self.objects[*obj_idx].reserve <= 0 {
                         self.content[y][x] = CellContent::Empty;
                         freed.push(Pos { x, y });
                     }
@@ -603,10 +603,13 @@ impl World {
     /// if there is one, otherwise the object's character if there is one,
     /// otherwise the terrain's character.
     ///
+    /// Valida contra los catálogos propios del mundo (dueño único), por lo que
+    /// no recibe catálogos como argumentos.
+    ///
     /// Returns a `Diagnostic` when the grid references a creature that does
     /// not exist, or when an object/terrain index in the grid is not covered
-    /// by the catalogs received.
-    pub fn draw(&self, terrains: &[Terrain], objects: &[Object]) -> Result<String, Diagnostic> {
+    /// by the world's catalogs.
+    pub fn draw(&self) -> Result<String, Diagnostic> {
         let mut output = String::new();
         for row in 0..self.rows {
             for column in 0..self.columns {
@@ -629,31 +632,31 @@ impl World {
                         })?
                     }
                     CellContent::Object(idx) => {
-                        if *idx >= objects.len() {
+                        if *idx >= self.objects.len() {
                             return Err(Diagnostic::new(
                                 "world",
                                 0,
                                 format!(
                                     "grid references object index {idx} but the object catalog has {} entries",
-                                    objects.len()
+                                    self.objects.len()
                                 ),
                             ));
                         }
-                        objects[*idx].character
+                        self.objects[*idx].character
                     }
                     CellContent::Empty => {
                         let t_idx = self.terrain[row][column];
-                        if t_idx >= terrains.len() {
+                        if t_idx >= self.terrains.len() {
                             return Err(Diagnostic::new(
                                 "world",
                                 0,
                                 format!(
                                     "grid references terrain index {t_idx} but the terrain catalog has {} entries",
-                                    terrains.len()
+                                    self.terrains.len()
                                 ),
                             ));
                         }
-                        terrains[t_idx].character
+                        self.terrains[t_idx].character
                     }
                 };
                 output.push(c);

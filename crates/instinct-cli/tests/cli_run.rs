@@ -1,5 +1,5 @@
 use instinct_core::actions::{Action, Consume};
-use instinct_core::resources::{Map, Object, Terrain};
+use instinct_core::resources::{Map, Terrain};
 use instinct_core::value::Value;
 use instinct_core::world::World;
 use std::process::{Command, Stdio};
@@ -123,7 +123,8 @@ fn rows_after_tick(stdout: &str, tick: u64) -> Vec<String> {
 }
 
 /// Mundo mínimo de hierba (5x5) con el que se construye el World a mano.
-fn grass_world() -> (World, Vec<Terrain>, Vec<Object>) {
+/// El mundo se queda con los catálogos (dueño único).
+fn grass_world() -> World {
     let map = Map {
         name: "test".to_string(),
         rows: vec![
@@ -144,7 +145,7 @@ fn grass_world() -> (World, Vec<Terrain>, Vec<Object>) {
     let objects = vec![];
     let world = World::from_map(&map, &terrains, &objects);
     assert!(world.diagnostics.is_empty(), "{:?}", world.diagnostics);
-    (world, terrains, objects)
+    world
 }
 
 /// Coloca una criatura con la salud indicada (Species::new tiene health 0).
@@ -432,7 +433,7 @@ fn test_cli_f0_walker_no_regression() {
 #[test]
 fn test_core_consume_heals_without_cap() {
     // AC2 de F1-02: heal se acumula sin tope (10 + 7 = 17).
-    let (mut world, _, _) = grass_world();
+    let mut world = grass_world();
     let attacker = place_with_health(&mut world, 0, 0, 10);
     let victim = place_with_health(&mut world, 1, 0, 10);
 

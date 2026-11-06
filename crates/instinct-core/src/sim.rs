@@ -8,28 +8,23 @@
 use crate::event::{Event, Pos};
 use crate::interp::{execute_turn, CreatureTurnState};
 use crate::program::Program;
-use crate::resources::{Object, Terrain};
 use crate::world::{CreatureContext, CreatureId, World};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// A simulation: the world, its terrain and object catalogs, and its turn
-/// rules. The seeded generator lives inside the world and is shared by
-/// `random` and the turn-order shuffle.
+/// A simulation: a world and its turn rules. The world is the single owner of
+/// the terrain and object catalogs, so damage and end-of-tick regeneration
+/// read and write the same reserve. The seeded generator lives inside the
+/// world and is shared by `random` and the turn-order shuffle.
 pub struct Simulation {
     pub world: World,
-    pub terrains: Vec<Terrain>,
-    pub objects: Vec<Object>,
 }
 
 impl Simulation {
-    /// Creates a simulation from a world and its resource catalogs.
-    pub fn new(world: World, terrains: Vec<Terrain>, objects: Vec<Object>) -> Self {
-        Simulation {
-            world,
-            terrains,
-            objects,
-        }
+    /// Creates a simulation from a world that already owns its resource
+    /// catalogs. `Simulation` no guarda copias propias de los catálogos.
+    pub fn new(world: World) -> Self {
+        Simulation { world }
     }
 
     /// Seeds the generator. Two simulations with the same seed and the same
@@ -68,9 +63,9 @@ impl Simulation {
             self.world.emit_event(event);
         }
 
-        // 4. End of tick: terrain regeneration and object removal.
-        self.world
-            .end_of_tick_terrain_and_objects(&mut self.terrains, &self.objects);
+        // 4. End of tick: terrain regeneration and object removal sobre los
+        //    catálogos del mundo (misma reserva que el daño mutó).
+        self.world.end_of_tick_terrain_and_objects();
 
         // 5. Rotar rugidos: los del tick actual pasan a ser "del tick
         //    anterior" para el siguiente (F2 los lee con roars_near/last_roar

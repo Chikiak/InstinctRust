@@ -2,7 +2,7 @@
 id: F2-07
 title: Catálogos de terrenos y objetos con un solo dueño
 phase: F2
-status: todo
+status: done
 depends_on: [F2-03, F2-06]
 size: L
 ---
@@ -125,4 +125,34 @@ consistencia.
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar la firma final de `draw` y de `Simulation::new`.)
+Dueño único: `World` es el único dueño de `terrains` y `objects` (clonados en
+`World::from_map`, que conserva su firma). `Simulation` ya no almacena copias;
+su campo es solo `pub world: World`.
+
+Firmas finales:
+- `pub fn World::draw(&self) -> Result<String, Diagnostic>` (valida contra
+  `self.terrains` / `self.objects`; ya no recibe catálogos).
+- `pub fn World::end_of_tick_terrain_and_objects(&mut self) -> Vec<Pos>` (opera
+  sobre los catálogos del mundo: misma reserva que `damage_cell_content` muta).
+- `pub fn Simulation::new(world: World) -> Self`.
+
+Sitios cambiados:
+- `crates/instinct-core/src/world.rs` — `draw` y `end_of_tick_terrain_and_objects` sin parámetros de catálogo.
+- `crates/instinct-core/src/sim.rs` — `Simulation` sin campos `terrains`/`objects`; `Simulation::new(world)`; `step_tick` llama `self.world.end_of_tick_terrain_and_objects()`.
+- `crates/instinct-cli/src/main.rs` — `Simulation::new(world)` y `sim.world().draw()` (2 sitios); la CLI deja de pasar catálogos a `draw`.
+
+Evidencia por AC:
+- AC1 (único dueño): inspección de `Simulation` (solo `world`); `cargo test -p instinct-core --test sim_tests` → 8/8 ok.
+- AC2 (daño y regeneración sobre la misma reserva): `test_terrain_damage_then_regen_consistent` pasa (100 → daño 30 → 70 → tick 72 → daño 30 → 42 → tick 44).
+- AC3 (objeto agotado retirado y casilla liberada): `test_object_exhausted_still_removed` pasa (reserve 100 → daño 100 → 0 → tick casilla `Empty`).
+- AC4 (mismo ASCII): `cargo test -p instinct-core --test world_tests` → 12/12 ok (`test_draw_example_map`, `test_render_shows_creature`).
+- AC5 (CLI): `cargo run -p instinct-cli -- run --root examples --map "Plain with rocks" --seed 1 --ticks 10 --place Walker@0,0` → exit 0, mismo mapa que F1 (Walker muere por vida en tick 9).
+- AC6 (determinismo): `test_same_seed_same_history` pasa.
+- AC7 (suite): `cargo test --workspace` exit 0; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0.
+
+Pruebas existentes ajustadas por el cambio de contrato:
+- `sim_tests.rs`: `Simulation::new(world)` en 6 sitios, acceso a reservas vía `sim.world.terrains`/`sim.world.objects`, `draw()` sin args, `two_walker_world()` devuelve `World`.
+- `world_tests.rs`: `draw()` sin args (5 sitios), `empty_world()` devuelve `World`, `test_draw_short_catalog_errors` valida índices huérfanos contra los catálogos propios del mundo.
+- `cli_run.rs`: `grass_world()` devuelve `World`; se quitó import `Object` sin uso.
+
+Sin `Rc`/`RefCell` para catálogos, sin cambios a leyes de regeneración ni de objetos agotados, sin cambios al formato de mapa ni a recursos; zero `unwrap`/`expect` nuevos sobre datos de usuario.
