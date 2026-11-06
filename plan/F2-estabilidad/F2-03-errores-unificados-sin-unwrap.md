@@ -2,7 +2,7 @@
 id: F2-03
 title: Errores unificados y cero unwrap/expect sobre datos de entrada
 phase: F2
-status: todo
+status: done
 depends_on: [F2-02]
 size: M
 ---
@@ -139,4 +139,17 @@ en 0.
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar la firma final de `lex`, el nombre de la conversión y las pruebas ajustadas.)
+- Firma final de `lex`: `pub fn lex(text: &str, line: usize, file: &str) -> Result<Vec<SpannedToken>, LexError>`.
+- `LexError` lleva `file: String`, `message: String`, `line: usize`; `LexError::new(file, message, line)`.
+- Conversión: `impl From<LexError> for Diagnostic` (sin pérdida de `file`/`line`/`message`).
+- `expr::parse` usa `lex(text, line, file)` + `Diagnostic::from(err)` vía `match` (evita `redundant_closure` de clippy).
+- Eliminados los 3 `unwrap` de `advance` en `expr.rs` (`expect`, `parse_or`, `parse_and`): ahora consumen el token por `pos` o propagan `self.error(...)` sin asumir `Some`.
+- `World::draw` → `pub fn draw(&self, terrains: &[Terrain], objects: &[Object]) -> Result<String, Diagnostic>`; valida criatura huérfana (`ok_or_else`), objeto fuera de catálogo y terreno fuera de catálogo (error nombrando el índice), sin `expect` ni índice fuera de rango.
+- `execute_turn`: `program.resolve_label("start")` resuelto con `match`; ausencia devuelve `Err((Diagnostic, 0))` nombrando `'start'`; se eliminó `unwrap_or(0)`.
+- Call sites actualizados: `crates/instinct-cli/src/main.rs` (2 llamadas a `draw`, aborta con mensaje por stderr y `return 1`); `crates/instinct-core/tests/sim_tests.rs` (4 `.unwrap()` en `draw`).
+- Pruebas ajustadas/añadidas: `lexer_tests.rs` (todas las llamadas a `lex` pasan `"test.ins"`; nueva `test_lex_error_to_diagnostic` AC1); `world_tests.rs` (3 llamadas a `draw` con `.unwrap()`; nuevas `test_draw_orphan_creature_errors` AC3 y `test_draw_short_catalog_errors` AC4); `interp_tests.rs` (nueva `test_execute_turn_missing_start_errors` AC5 con `Program` construido a mano).
+- Comandos en verde desde la raíz del worktree:
+  - `cargo test --workspace`: 150 tests, todo ok, exit 0.
+  - `cargo clippy --workspace --all-targets -- -D warnings`: exit 0, sin warnings.
+  - `cargo fmt --all --check`: exit 0.
+- Sin `#[allow]`; sin dependencias externas; sin `rand`; sin `f32`/`f64`; sin `unwrap`/`expect`/`panic!` sobre datos de usuario o fichero en `instinct-core/src` y `instinct-cli/src` (salvo fallbacks internos documentados).

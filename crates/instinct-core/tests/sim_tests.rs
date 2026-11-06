@@ -241,12 +241,12 @@ fn test_same_seed_same_history() {
     let mut sim1 = Simulation::new(world.clone(), terrains.clone(), objects.clone());
     sim1.set_rng_seed(42);
     let events1 = run_ticks(&mut sim1, 50);
-    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects);
+    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects).unwrap();
 
     let mut sim2 = Simulation::new(world, terrains, objects);
     sim2.set_rng_seed(42);
     let events2 = run_ticks(&mut sim2, 50);
-    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects);
+    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects).unwrap();
 
     assert_eq!(events1, events2, "same seed must produce same events");
     assert_eq!(map1, map2, "same seed must produce same map");
@@ -330,12 +330,12 @@ fn test_seed_changes_turn_order() {
     let mut sim1 = Simulation::new(world.clone(), terrains.clone(), objects.clone());
     sim1.set_rng_seed(42);
     let events1 = run_ticks(&mut sim1, 50);
-    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects);
+    let map1 = sim1.world.draw(&sim1.terrains, &sim1.objects).unwrap();
 
     let mut sim2 = Simulation::new(world, terrains, objects);
     sim2.set_rng_seed(99);
     let events2 = run_ticks(&mut sim2, 50);
-    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects);
+    let map2 = sim2.world.draw(&sim2.terrains, &sim2.objects).unwrap();
 
     // The maps should differ after 50 ticks with different seeds.
     assert!(

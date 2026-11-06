@@ -149,7 +149,13 @@ fn execute_run(args: &[String]) -> i32 {
 
     // Map at tick 0 (initial state).
     println!("== tick 0 ==");
-    print!("{}", sim.world().draw(&sim.terrains, &sim.objects));
+    match sim.world().draw(&sim.terrains, &sim.objects) {
+        Ok(drawing) => print!("{drawing}"),
+        Err(d) => {
+            eprintln!("{d}");
+            return 1;
+        }
+    }
 
     for _ in 0..ticks {
         let events = sim.step_tick();
@@ -168,7 +174,13 @@ fn execute_run(args: &[String]) -> i32 {
             every > 0 && (next_tick.is_multiple_of(every as u64) || next_tick == ticks as u64);
         if should_print {
             println!("== tick {next_tick} ==");
-            print!("{}", sim.world().draw(&sim.terrains, &sim.objects));
+            match sim.world().draw(&sim.terrains, &sim.objects) {
+                Ok(drawing) => print!("{drawing}"),
+                Err(d) => {
+                    eprintln!("{d}");
+                    return 1;
+                }
+            }
         }
     }
 

@@ -602,27 +602,65 @@ impl World {
     /// Draws the world in ASCII: the creature (first letter of its species)
     /// if there is one, otherwise the object's character if there is one,
     /// otherwise the terrain's character.
-    pub fn draw(&self, terrains: &[Terrain], objects: &[Object]) -> String {
+    ///
+    /// Returns a `Diagnostic` when the grid references a creature that does
+    /// not exist, or when an object/terrain index in the grid is not covered
+    /// by the catalogs received.
+    pub fn draw(&self, terrains: &[Terrain], objects: &[Object]) -> Result<String, Diagnostic> {
         let mut output = String::new();
         for row in 0..self.rows {
             for column in 0..self.columns {
                 let c = match &self.content[row][column] {
                     CellContent::Creature(id) => {
-                        let creature = self
-                            .creatures
-                            .iter()
-                            .find(|c| c.id == *id)
-                            .expect("grid references a missing creature");
-                        creature.species.name.chars().next().unwrap_or('?')
+                        let creature =
+                            self.creatures.iter().find(|c| c.id == *id).ok_or_else(|| {
+                                Diagnostic::new(
+                                    "world",
+                                    0,
+                                    format!("grid references missing creature {id:?}"),
+                                )
+                            })?;
+                        creature.species.name.chars().next().ok_or_else(|| {
+                            Diagnostic::new(
+                                "world",
+                                0,
+                                format!("creature {id:?} has an empty species name"),
+                            )
+                        })?
                     }
-                    CellContent::Object(idx) => objects[*idx].character,
-                    CellContent::Empty => terrains[self.terrain[row][column]].character,
+                    CellContent::Object(idx) => {
+                        if *idx >= objects.len() {
+                            return Err(Diagnostic::new(
+                                "world",
+                                0,
+                                format!(
+                                    "grid references object index {idx} but the object catalog has {} entries",
+                                    objects.len()
+                                ),
+                            ));
+                        }
+                        objects[*idx].character
+                    }
+                    CellContent::Empty => {
+                        let t_idx = self.terrain[row][column];
+                        if t_idx >= terrains.len() {
+                            return Err(Diagnostic::new(
+                                "world",
+                                0,
+                                format!(
+                                    "grid references terrain index {t_idx} but the terrain catalog has {} entries",
+                                    terrains.len()
+                                ),
+                            ));
+                        }
+                        terrains[t_idx].character
+                    }
                 };
                 output.push(c);
             }
             output.push('\n');
         }
-        output
+        Ok(output)
     }
 }
 

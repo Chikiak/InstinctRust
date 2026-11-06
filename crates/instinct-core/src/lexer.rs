@@ -13,6 +13,8 @@
 //! - **Saltos de línea**: `\r\n`, `\n` y `\r` aislados cuentan exactamente
 //!   una vez como avance de línea.
 
+use crate::diagnostic::Diagnostic;
+
 /// A single token produced by the lexer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
@@ -45,19 +47,27 @@ pub struct SpannedToken {
     pub line: usize,
 }
 
-/// A lexing error with the line where it occurred.
+/// A lexing error with the file and line where it occurred.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LexError {
+    pub file: String,
     pub message: String,
     pub line: usize,
 }
 
 impl LexError {
-    pub fn new(message: impl Into<String>, line: usize) -> Self {
+    pub fn new(file: impl Into<String>, message: impl Into<String>, line: usize) -> Self {
         LexError {
+            file: file.into(),
             message: message.into(),
             line,
         }
+    }
+}
+
+impl From<LexError> for Diagnostic {
+    fn from(err: LexError) -> Self {
+        Diagnostic::new(err.file, err.line, err.message)
     }
 }
 
@@ -82,7 +92,8 @@ fn keyword(name: &str) -> Option<Token> {
 /// A text without a closing quote is an error `unterminated text literal`,
 /// and an unescaped newline inside a text is the same error. Only `i64`
 /// integers are supported; a literal outside `i64` range is an error.
-pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
+pub fn lex(text: &str, line: usize, file: &str) -> Result<Vec<SpannedToken>, LexError> {
+    let file = file.to_string();
     let mut tokens: Vec<SpannedToken> = Vec::new();
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
@@ -128,6 +139,7 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
                 }),
                 Err(_) => {
                     return Err(LexError::new(
+                        file.clone(),
                         "integer literal out of range".to_string(),
                         current_line,
                     ))
@@ -167,6 +179,7 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
                     // cierre; el valor de `i` ya no se usa tras el error.
                     current_line += 1;
                     return Err(LexError::new(
+                        file.clone(),
                         "unterminated text literal".to_string(),
                         current_line,
                     ));
@@ -176,6 +189,7 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
             }
             if !terminated {
                 return Err(LexError::new(
+                    file.clone(),
                     "unterminated text literal".to_string(),
                     current_line,
                 ));
@@ -242,6 +256,7 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
             ',' => Token::Comma,
             _ => {
                 return Err(LexError::new(
+                    file.clone(),
                     format!("unknown character '{ch}'"),
                     current_line,
                 ))

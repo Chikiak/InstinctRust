@@ -5,7 +5,7 @@ use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::interp::{execute_turn, CreatureTurnState, PendingAction};
 use instinct_core::perception::PerceptionCatalog;
-use instinct_core::program::Program;
+use instinct_core::program::{Line, Program};
 use instinct_core::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -250,4 +250,36 @@ fn test_unassigned_variable_is_runtime_error() {
 
     let result = execute_turn(&program, &ctx, &mut state);
     assert!(result.is_err());
+}
+
+// ---------------------------------------------------------------------------
+// AC5: execute_turn con un programa sin etiqueta `start` devuelve error.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_execute_turn_missing_start_errors() {
+    // Program construido a mano: una línea con la etiqueta "foo", sin "start".
+    let program = Program {
+        lines: vec![Line::Label {
+            name: "foo".to_string(),
+            line: 1,
+        }],
+        labels: std::collections::HashMap::from([("foo".to_string(), 0)]),
+    };
+    let ctx = FakeCtx {
+        vars: Rc::new(RefCell::new(HashMap::new())),
+    };
+    let mut state = CreatureTurnState {
+        pc: 0,
+        sleep_turns: 0,
+        variables: Rc::new(RefCell::new(HashMap::new())),
+    };
+
+    let result = execute_turn(&program, &ctx, &mut state);
+    assert!(result.is_err(), "execute_turn debe fallar sin start");
+    let (d, _line) = result.unwrap_err();
+    assert!(
+        d.message.contains("start"),
+        "error nombra la etiqueta que falta: {d:?}"
+    );
 }
