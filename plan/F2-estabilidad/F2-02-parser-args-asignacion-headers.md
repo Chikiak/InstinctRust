@@ -2,7 +2,7 @@
 id: F2-02
 title: Parser: argumentos propagados, asignación robusta y operadores sin comillas
 phase: F2
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -136,4 +136,28 @@ añadir recuperación de errores al parser (P6 queda como está), cambiar los me
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar aquí la decisión tomada sobre el retorno de `parse_action_call` y la lista de pruebas nuevas.)
+Rama usada: `feat/f2-02-parser-args` (desde `develop`).
+
+Decisión sobre el retorno de `parse_action_call`: se cambió de `Option<Line>` a un enum `ActionOutcome { NotAnAction, Resolved(Line), Failed }` para evitar que un error de argumento (diagnóstico ya pusheado) caiga después en `"unrecognized line"` y duplique el diagnóstico. `compile` hace `continue` en `Resolved` y `Failed`, y solo intenta otras formas de línea en `NotAnAction`.
+
+Cambios de firma (autorizados por el issue): `parse_action_call` retorna ahora `ActionOutcome` en lugar de `Option<Line>`; `validate_header_value` recibe el `Result<i64, ParseIntError>` ya parseado (una sola conversión) en lugar de reparsear.
+
+Archivos modificados:
+- `crates/instinct-core/src/compile.rs` — `parse_action_call` (propagación del error de argumento con línea/archivo), `looks_like_assignment` (nombre debe empezar por letra o `_`; `==` rechazado por ambos lados del `=`), ruta de header (parseo único + `validate_header_value` con `Result` previo).
+- `crates/instinct-core/src/expr.rs` — `operator_text` devuelve texto pelado (`+`, `==`, `and`, …) sin comillas para todos los tokens; se documentó que `Display for Token` es solo para mensajes de error; se añadió `Expr::operator()` (default `""`, sobrescrito en `Binary`) para permitir leer el operador desde pruebas.
+
+Pruebas nuevas en `crates\instinct-core\tests\compile_tests.rs` (32 totales, 0 fallos):
+- `test_action_arg_error_is_reported` (AC1): argumento roto reporta diagnóstico con la línea de la acción.
+- `test_action_arg_error_does_not_abort_file`: el resto del fichero sigue compilando tras un argumento malo.
+- `test_assignment_digit_name_rejected` (AC2): `1x = 5` se rechaza.
+- `test_double_equals_not_assignment` (AC3): `if x == 5 goto start` compila; `x == 5` no se trata como asignación.
+- `test_binary_op_text_has_no_quotes` (AC4): operador `+` almacenado sin comillas.
+- `test_header_invalid_value_single_diagnostic` (AC5): exactamente un diagnóstico en la línea del valor.
+- P7 (AC6): `test_header_negative_value_reports_on_its_line` (`health -5`), `test_header_lifespan_zero_reports_on_its_line` (`lifespan 0`), `test_header_uppercase_key_is_unknown` (`Health 10`), `test_goto_inside_text_is_not_a_statement` (`goto` dentro de texto), `test_action_with_empty_args_reports_arity` (`wait()`), `test_multiple_errors_ordered_by_line_with_header_and_body` (varios errores ordenados por línea).
+
+Pruebas existentes ajustadas: ninguna; todas las de `compile_tests.rs` siguen pasando sin cambios.
+
+Evidencia de comandos (exit 0):
+- `cargo test --workspace` → todo verde (32 pruebas en compile_tests; sin FAILED).
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings.
+- `cargo fmt --all --check` → exit 0.
