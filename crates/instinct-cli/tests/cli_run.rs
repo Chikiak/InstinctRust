@@ -427,6 +427,226 @@ fn test_cli_f0_walker_no_regression() {
 }
 
 // ---------------------------------------------------------------------------
+// Batería C4: casos de validación de argumentos de `run`.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cli_missing_map_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&["run", "--root", &root, "--ticks", "0"]);
+    assert_eq!(code, 2, "run sin --map debe salir con 2, stderr: {stderr}");
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar la falta de --map, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--map"),
+        "stderr debe nombrar --map, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_negative_ticks_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "-3",
+    ]);
+    assert_eq!(
+        code, 2,
+        "--ticks negativo debe salir con 2, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--ticks") || stderr.contains("ticks"),
+        "stderr debe nombrar --ticks, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_missing_root_errors() {
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        "no/existe/este/directorio",
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+    ]);
+    assert_eq!(
+        code, 2,
+        "--root inexistente debe salir con 2, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("no/existe/este/directorio"),
+        "stderr debe nombrar el directorio, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_every_zero_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "2",
+        "--every",
+        "0",
+    ]);
+    assert_eq!(code, 2, "--every 0 debe salir con 2, stderr: {stderr}");
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_malformed_place_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+        "--place",
+        "formato-mal",
+    ]);
+    assert_eq!(
+        code, 1,
+        "--place mal formado debe salir con 1, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_unknown_species_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+        "--place",
+        "NoExiste@0,0",
+    ]);
+    assert_eq!(
+        code, 1,
+        "especie desconocida debe salir con 1, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("NoExiste"),
+        "stderr debe nombrar la especie, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_place_out_of_bounds_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+        "--place",
+        "Walker@9999,9999",
+    ]);
+    assert_eq!(
+        code, 1,
+        "colocación fuera de límites debe salir con 1, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_cli_streams_separated() {
+    let root = examples_dir();
+    let (code, stdout, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+    ]);
+    assert_eq!(code, 0, "exit code 0, stderr: {stderr}");
+    // La simulación (mapa) va por stdout.
+    assert!(
+        stdout.contains("== tick 0 =="),
+        "stdout debe contener el mapa, got:\n{stdout}"
+    );
+    // Los diagnósticos de carga van por stderr; para un mapa válido está vacío.
+    assert!(
+        stderr.is_empty(),
+        "stderr debe estar vacío para corrida válida, got: {stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC1: flag desconocido (delegado a cli_usage.rs, pero se verifica aquí que no
+// se ignore silenciosamente).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cli_unknown_flag_errors() {
+    let root = examples_dir();
+    let (code, _, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--ticks",
+        "0",
+        "--bandera-inexistente",
+    ]);
+    assert_eq!(
+        code, 2,
+        "flag desconocido debe salir con 2, stderr: {stderr}"
+    );
+    assert!(
+        !stderr.is_empty(),
+        "stderr debe reportar el error, got: {stderr}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Core: consume cura al atacante sin tope (prueba de simulación directa).
 // ---------------------------------------------------------------------------
 
