@@ -2,7 +2,7 @@
 id: F2-06
 title: Mundo y tick: aritmética comprobada y coordenadas sin envoltura
 phase: F2
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -122,4 +122,31 @@ almacén de criaturas (F4-04).
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar la decisión tomada para el desbordamiento de fin de tick.)
+- Decisión de desbordamiento de fin de tick: `health - 1` y `age + 1` usan
+  `checked_sub`/`checked_add` en `end_of_tick_creatures`. Cuando desbordan
+  (`i64::MIN - 1` o `i64::MAX + 1`) la criatura muere con un evento `Died`
+  causa `"error"`; nunca hay pánico. La ley de -1 de vida y +1 de edad se
+  conserva para sobrevivientes.
+- AC1 (PASS): `pub fn index_from_i64(n: i64) -> Option<usize>` en
+  `crates/instinct-core/src/actions.rs`, usado por `Move::apply` antes de
+  convertir coordenadas a `usize`; prueba `test_index_from_i64_rejects_negative`
+  en `tests/actions_tests.rs` (`cargo test -p instinct-core --test actions_tests` → ok).
+- AC2 (PASS): `test_end_of_tick_min_health_no_panic` en `tests/world_tests.rs`
+  (`cargo test -p instinct-core --test world_tests` → ok).
+- AC3 (PASS): `test_damage_cell_overflow_and_out_of_map` en
+  `tests/world_tests.rs`; `damage_cell_content` visibilizado a `pub` para
+  poder probarlo desde la integración (`cargo test -p instinct-core --test world_tests` → ok).
+- AC4 (PASS): `test_move_creature_invalid_inputs_error` en `tests/world_tests.rs`;
+  `move_creature_to` rechaza destino fuera del mapa con `Err` en lugar de pánico
+  (`cargo test -p instinct-core --test world_tests` → ok).
+- AC5 (PASS): `test_world_setters_unknown_id_error` en `tests/world_tests.rs`
+  (`apply_action_result`, `set_creature_health`, `set_variable` con id desconocido
+  devuelven `Err`, sin pánico) (`cargo test -p instinct-core --test world_tests` → ok).
+- AC6 (PASS): `cargo test --workspace` → todo verde; `cargo clippy --workspace
+  --all-targets -- -D warnings` → exit 0 sin warnings; `cargo fmt --all --check`
+  → exit 0.
+- Rama: `feat/f2-06-mundo-aritmetica`. Merge `develop` fast-forward (sin
+  conflictos; ningún archivo de mi alcance fue tocado por F2-01/F2-02).
+- Pruebas existentes ajustadas: ninguna; solo se añadieron las 5 pruebas W6.
+- Firmas cambiadas: `damage_cell_content` de `pub(crate)` a `pub` (necesario
+  para la prueba AC3 desde `tests/`). Ninguna otra firma pública modificada.

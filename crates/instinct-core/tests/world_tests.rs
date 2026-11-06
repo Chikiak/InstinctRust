@@ -1,7 +1,10 @@
 //! Unit tests for the `world` module.
 
+use instinct_core::actions::ActionResult;
+use instinct_core::event::Event;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
+use instinct_core::value::Value;
 use instinct_core::world::{CellContent, CreatureId, World};
 
 fn terrain_grass() -> Terrain {
@@ -179,5 +182,112 @@ fn test_remove_creature_frees_cell() {
     world.remove_creature(id).expect("remove");
     assert!(matches!(world.content[1][1], CellContent::Empty));
     assert!(world.creatures.is_empty());
+    let _ = (&terrains, &objects);
+}
+
+// ---------------------------------------------------------------------------
+// W6: robustez de entradas y aritmética comprobada en fin de tick
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_end_of_tick_min_health_no_panic() {
+    // Vida en i64::MIN: health - 1 desborda; no debe pánico, la criatura muere.
+    let (mut world, terrains, objects) = empty_world();
+    let species = Species::new("Walker");
+    let id = world.place_creature(species, 0, 0).expect("place");
+    for c in world.creatures.iter_mut() {
+        if c.id == id {
+            c.health = i64::MIN;
+            c.age = 0;
+            c.lifespan = i64::MAX;
+        }
+    }
+    let events = world.end_of_tick_creatures();
+    assert!(
+        events.iter().any(|e| matches!(e, Event::Died { .. })),
+        "la criatura con vida i64::MIN debe morir, got {events:?}"
+    );
+    assert!(world.creatures.is_empty(), "criatura removida del mapa");
+    let _ = (&terrains, &objects);
+}
+
+#[test]
+fn test_damage_cell_overflow_and_out_of_map() {
+    let (mut world, terrains, objects) = empty_world();
+    // Terreno (0,0) con reserve 100. Daño i64::MIN -> 100 - i64::MIN desborda.
+    let err = world.damage_cell_content(0, 0, i64::MIN).unwrap_err();
+    assert!(
+        err.message.contains("overflow"),
+        "debe reportar overflow, got {err:?}"
+    );
+    // La reserva no cambió ante el overflow.
+    assert_eq!(world.terrains[0].reserve, 100);
+
+    // Fuera del mapa: no-op, sin error.
+    let ok = world.damage_cell_content(999, 999, 100);
+    assert!(ok.is_ok(), "fuera del mapa es no-op");
+    assert_eq!(world.terrains[0].reserve, 100);
+    let _ = (&terrains, &objects);
+}
+
+#[test]
+fn test_move_creature_invalid_inputs_error() {
+    let (mut world, terrains, objects) = empty_world();
+    let species = Species::new("Walker");
+    let id = world.place_creature(species, 1, 1).expect("place");
+
+    // Identificador inexistente.
+    let err = world.move_creature_to(CreatureId(9999), 1, 1).unwrap_err();
+    assert!(
+        err.message.contains("unknown creature"),
+        "error por id desconocido, got {err:?}"
+    );
+
+    // Destino fuera de rango: error controlado, sin pánico.
+    let err = world.move_creature_to(id, 999, 999).unwrap_err();
+    assert!(
+        err.message.contains("outside") || err.message.contains("fuera"),
+        "error por destino fuera de rango, got {err:?}"
+    );
+    // La criatura no se movió.
+    assert_eq!(
+        world.creature_position(id).unwrap(),
+        instinct_core::event::Pos { x: 1, y: 1 }
+    );
+    let _ = (&terrains, &objects);
+}
+
+#[test]
+fn test_world_setters_unknown_id_error() {
+    let (mut world, terrains, objects) = empty_world();
+    let unknown = CreatureId(9999);
+
+    let err = world
+        .apply_action_result(
+            unknown,
+            ActionResult {
+                sleep_turns: 0,
+                events: Vec::new(),
+            },
+        )
+        .unwrap_err();
+    assert!(
+        err.message.contains("unknown creature"),
+        "apply_action_result id desconocido, got {err:?}"
+    );
+
+    let err = world.set_creature_health(unknown, 10).unwrap_err();
+    assert!(
+        err.message.contains("unknown creature"),
+        "set_creature_health id desconocido, got {err:?}"
+    );
+
+    let err = world
+        .set_variable(unknown, "tesoro", Value::Int(1))
+        .unwrap_err();
+    assert!(
+        err.message.contains("unknown creature"),
+        "set_variable id desconocido, got {err:?}"
+    );
     let _ = (&terrains, &objects);
 }
