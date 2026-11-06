@@ -2,7 +2,7 @@
 id: F2-01
 title: Lexer: contrato de líneas, escapes en textos e identificadores ASCII
 phase: F2
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -127,4 +127,24 @@ acumular errores en el lexer.
 
 ### Notas de implementación
 
-- (Rellenar al implementar.)
+Rama: `feat/f2-01-lexer-contrato`, creada desde `develop` (38930a2); `git merge develop` → fast-forward a c9129ba sin conflictos en archivos de alcance (lexer.rs, lexer_tests.rs).
+
+Cambios (solo alcance permitido):
+- `crates/instinct-core/src/lexer.rs`:
+  - Rama de saltos unificada: `\r\n` consume ambas unidades y suma 1 a la línea; `\r` solo y `\n` solo suman 1 (fue 2 para CRLF). Idéntico dentro de textos para el error de unterminado.
+  - Textos delimitados por `"` con escapes `\"` → `"` y `\\` → `\`; barra + cualquier otro carácter se conserva literal. Sin comilla de cierre → `unterminated text literal` con la línea del salto/texto actual.
+  - Doc comment del módulo y de `lex`: contrato fail-fast (primer error detiene, sin acumulación), alfabeto ASCII (`is_ascii_*`, no ASCII = `unknown character`), conteo de saltos de línea.
+  - Sin cambio de firma de `lex` ni de `LexError` (reservado a F2-03).
+- `crates\instinct-core\tests\lexer_tests.rs`: 4 pruebas previas conservadas + 17 nuevas (21 en total). Lista L4 cubierta: `test_lex_number`, `test_lex_integer_out_of_range`, `test_lex_name`, `test_lex_keywords`, `test_lex_operators`, `test_lex_two_char_operators`, `test_lex_parens_and_comma`, `test_lex_empty_text`, `test_lex_text_with_hash`, `test_lex_crlf_counts_one_line`, `test_lex_lone_cr_counts_one_line`, `test_lex_multiple_lines_numbered_correctly`, `test_lex_empty_line_no_tokens`, `test_lex_text_escapes`, `test_lex_unterminated_text`, `test_lex_text_with_interior_newline_is_error`, `test_lex_non_ascii_name_errors`.
+
+Evidencia AC por AC:
+- AC1 PASS — `cargo test -p instinct-core --test lexer_tests`: `test_lex_crlf_counts_one_line` ok (líneas [1, 2], no [1, 3]).
+- AC2 PASS — `test_lex_text_escapes` ok: `\"` y `\\` interpretados, `\d` literal.
+- AC3 PASS — `test_lex_unterminated_text` y `test_lex_text_with_interior_newline_is_error` ok: `unterminated text literal`, línea correcta (2 tras salto interior).
+- AC4 PASS — `test_lex_non_ascii_name_errors` ok: `naïve` → `unknown character` con `ï`, línea 1.
+- AC5 PASS — 21 pruebas del fichero en verde; casos L4 todos citados arriba.
+- AC6 PASS — doc comment del módulo y de `lex` documentan fail-fast y ASCII (lectura de `lexer.rs`).
+- AC7 PASS — `cargo test --workspace`: 0 failed en todas las suites; `cargo clippy --workspace --all-targets -- -D warnings`: exit 0, sin warnings; `cargo fmt --all --check`: exit 0.
+
+Pruebas existentes ajustadas: ninguna (ninguna prueba afirmaba texto con barra; las 4 previas pasan sin cambios).
+Firmas cambiadas: ninguna (se respeta `lex(text, line)` y `LexError` sin archivo; F2-03 tocará eso).

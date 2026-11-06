@@ -3,6 +3,15 @@
 //! Produces tokens tagged with their line number. A `#` outside a quoted
 //! text starts a comment that runs to the end of the line; inside a text it
 //! is an ordinary character.
+//!
+//! Contrato del lexer:
+//! - **Fail-fast**: el primer error detiene el análisis y no se acumulan
+//!   diagnósticos.
+//! - **Alfabeto ASCII**: identificadores y dígitos se reconocen con
+//!   `is_ascii_*`; cualquier carácter fuera de ASCII es error
+//!   `unknown character`.
+//! - **Saltos de línea**: `\r\n`, `\n` y `\r` aislados cuentan exactamente
+//!   una vez como avance de línea.
 
 /// A single token produced by the lexer.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +74,14 @@ fn keyword(name: &str) -> Option<Token> {
 /// Lexes a single line of expression text into tokens.
 ///
 /// `line` is the source line number attributed to every token produced.
+///
+/// The lexer is **fail-fast**: on the first error it stops and returns that
+/// error; no further tokens or diagnostics are produced. Inside a quoted
+/// text (`"..."`) the escapes `\"` (double quote) and `\\` (backslash) are
+/// recognized; a backslash followed by any other character is kept literal.
+/// A text without a closing quote is an error `unterminated text literal`,
+/// and an unescaped newline inside a text is the same error. Only `i64`
+/// integers are supported; a literal outside `i64` range is an error.
 pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
     let mut tokens: Vec<SpannedToken> = Vec::new();
     let chars: Vec<char> = text.chars().collect();
@@ -75,12 +92,15 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
         let ch = chars[i];
 
         // Whitespace: spaces and tabs separate tokens; a newline bumps the
-        // line counter.
+        // line counter. `\r\n` is a single unit and counts exactly once.
         if ch == ' ' || ch == '\t' {
             i += 1;
             continue;
         }
         if ch == '\r' || ch == '\n' {
+            if ch == '\r' && i + 1 < chars.len() && chars[i + 1] == '\n' {
+                i += 1;
+            }
             current_line += 1;
             i += 1;
             continue;
@@ -116,27 +136,50 @@ pub fn lex(text: &str, line: usize) -> Result<Vec<SpannedToken>, LexError> {
             continue;
         }
 
-        // Text literal: no escape sequences; `#` inside is literal.
+        // Text literal: `\"` and `\\` are escapes; any other backslash
+        // sequence is kept literal; `#` inside is literal. A newline inside
+        // an unclosed text is the same unterminated error.
         if ch == '"' {
             i += 1;
-            let start = i;
-            while i < chars.len() && chars[i] != '"' {
-                if chars[i] == '\n' {
+            let mut value = String::new();
+            let mut terminated = false;
+            while i < chars.len() {
+                let c = chars[i];
+                if c == '"' {
+                    terminated = true;
+                    i += 1;
+                    break;
+                }
+                if c == '\\' && i + 1 < chars.len() {
+                    match chars[i + 1] {
+                        '"' => value.push('"'),
+                        '\\' => value.push('\\'),
+                        other => {
+                            value.push('\\');
+                            value.push(other);
+                        }
+                    }
+                    i += 2;
+                    continue;
+                }
+                if c == '\r' || c == '\n' {
+                    // El salto cuenta como línea aunque el texto nunca se
+                    // cierre; el valor de `i` ya no se usa tras el error.
+                    current_line += 1;
                     return Err(LexError::new(
                         "unterminated text literal".to_string(),
                         current_line,
                     ));
                 }
+                value.push(c);
                 i += 1;
             }
-            if i >= chars.len() {
+            if !terminated {
                 return Err(LexError::new(
                     "unterminated text literal".to_string(),
                     current_line,
                 ));
             }
-            let value: String = chars[start..i].iter().collect();
-            i += 1; // skip closing quote
             tokens.push(SpannedToken {
                 kind: Token::Text(value),
                 line: current_line,
