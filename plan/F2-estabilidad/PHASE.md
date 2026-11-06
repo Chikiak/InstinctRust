@@ -100,7 +100,7 @@ Salvo que un issue diga lo contrario, estos contratos son de cumplimiento obliga
 | F2-05 | Intérprete: `pc` válido y límite de líneas sin off-by-one | F2-03 | M | F2-04, F2-06 | I2, I4, I5 | done |
 | F2-06 | Mundo y tick: aritmética comprobada y coordenadas sin envoltura | — | M | — | W3, W4, W6 | done |
 | F2-07 | Catálogos de terrenos y objetos con un solo dueño | F2-03, F2-06 | L | F2-04, F2-05 | W2 | done |
-| F2-08 | CLI: validación de argumentos, separación de flujos y pruebas | F2-03, F2-07 | L | — | C1, C2, C3, C5, C4 | todo |
+| F2-08 | CLI: validación de argumentos, separación de flujos y pruebas | F2-03, F2-07 | L | — | C1, C2, C3, C5, C4 | done |
 
 ### Orden y dependencias
 

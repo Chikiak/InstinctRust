@@ -2,7 +2,7 @@
 id: F2-08
 title: CLI: validación de argumentos, separación de flujos y pruebas
 phase: F2
-status: todo
+status: done
 depends_on: [F2-03, F2-07]
 size: L
 ---
@@ -130,4 +130,27 @@ cambiar el formato del mapa o mover la impresión de eventos al núcleo.
 
 ### Notas de implementación
 
-- (Rellenar al implementar. Indicar las pruebas ajustadas por el cambio de flujos y la lista final de casos C4.)
+Cierre documental de sesión única; el código está en `feat/f2-08-cli-validacion`, commit `fcf4c1e` (árbol limpio). Ejecutado desde la raíz del worktree con PowerShell (sin `&&`).
+
+Puertas de calidad (todas exit 0):
+- `cargo test --workspace` → todo en verde: 28 pruebas de CLI (6 cli_check + 19 cli_run + 3 cli_usage) y todo el core; EXIT_CODE=0.
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings.
+- `cargo fmt --all --check` → exit 0.
+
+E2E runbook §12:
+- `cargo run -p instinct-cli -- run --root examples --map "Plain with rocks" --seed 1 --ticks 10 --place Walker@0,0` → EXIT_CODE=0; Walker recorre (0,0) a (10,0) tick a tick y muere por vida al final del tick 9 (`[tick 9] Walker@10,0 muere por vida`); stdout lleva mapa fila a fila y eventos; stderr vacío en corrida válida. Misma salida que F1 salvo la separación de flujos de F2-08.
+
+Cero `unwrap`/`expect`/`panic!` en `crates/instinct-cli/src` (`grep -rn "unwrap()\|expect(\|panic!" crates/instinct-cli/src` sin coincidencias); los únicos `unwrap`/`expect` del crate están en `tests/` (harness del binario y aserciones de prueba), fuera de la restricción del runbook.
+
+Evidencia AC por AC:
+- AC1 `test_cli_unknown_flag_errors` (cli_run.rs): `run --bandera-inexistente` → código 2, stderr no vacío → PASS (`cargo test -p instinct-cli --test cli_run test_cli_unknown_flag_errors` ok).
+- AC2 `test_cli_negative_ticks_errors` (cli_run.rs): `--ticks -3` → código 2, stderr nombra ticks; no se envuelve a u64 → PASS.
+- AC3 `test_cli_missing_root_errors` (cli_run.rs): `--root no/existe/este/directorio` → código 2, stderr nombra el directorio → PASS.
+- AC4 `test_cli_every_zero_errors` (cli_run.rs): `--every 0` → código 2 → PASS (validación previa mantenida).
+- AC5 `test_cli_streams_separated` (cli_run.rs): `== tick 0 ==` en stdout; stderr vacío para corrida válida → PASS.
+- AC6 batería C4 completa → PASS: `test_cli_missing_map_errors`, `test_cli_negative_ticks_errors`, `test_cli_missing_root_errors`, `test_cli_every_zero_errors`, `test_cli_malformed_place_errors`, `test_cli_unknown_species_errors`, `test_cli_place_out_of_bounds_errors` (cli_run.rs) y `test_cli_check_wrong_arg_count_errors` (cli_check.rs); `cargo test -p instinct-cli` → 28/28.
+- AC7 `test_cli_determinism_same_seed` y `test_cli_f0_walker_no_regression` (cli_run.rs) → PASS; misma semilla, stdout byte a byte idéntico; sin regresiones de F0/F1.
+- AC8 puertas anteriores → PASS (exit 0 en las tres).
+- Códigos de salida de `cli_usage.rs` sin cambios: 2 para uso incorrecto, 1 para error de dominio, 0 para éxito; todas las pruebas lo verifican.
+
+Pruebas ajustadas por cambio de flujos: `test_cli_prints_map`, `test_cli_streams_separated` y `test_cli_f0_walker_no_regression` asumen simulación/eventos en stdout y stderr vacío (C5); ninguna prueba compara salida combinada stdout+stderr.
