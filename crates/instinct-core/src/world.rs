@@ -413,6 +413,16 @@ impl World {
         x: usize,
         y: usize,
     ) -> Result<(), Diagnostic> {
+        if x >= self.columns || y >= self.rows {
+            return Err(Diagnostic::new(
+                "world",
+                0,
+                format!(
+                    "cannot move creature {creature_id:?} to ({x},{y}): outside the map ({}x{})",
+                    self.columns, self.rows
+                ),
+            ));
+        }
         let old = self.creature_position(creature_id)?;
         self.content[old.y][old.x] = CellContent::Empty;
         for creature in self.creatures.iter_mut() {
@@ -431,7 +441,7 @@ impl World {
     /// checked. Fuera del mapa es un no-op sin error. Las criaturas no se
     /// tocan aquí (su salud la gestiona el llamante). Un objeto cuyo reserve
     /// llega a 0 o menos es retirado por la ley de fin de tick existente.
-    pub(crate) fn damage_cell_content(
+    pub fn damage_cell_content(
         &mut self,
         x: usize,
         y: usize,
@@ -493,36 +503,61 @@ impl World {
     /// Applies the end-of-tick laws to every creature: -1 health, +1 age, and
     /// death when health <= 0 or age >= lifespan. Returns `Died` events for
     /// creatures that die and removes them from the map.
+    ///
+    /// La salud y la edad se calculan con aritmética comprobada. Si
+    /// `health - 1` o `age + 1` desborda (p. ej. vida en `i64::MIN` o edad en
+    /// `i64::MAX`) se trata como un error de ejecución: la criatura muere con
+    /// causa `"error"` sin provocar pánico en debug ni en release.
     pub fn end_of_tick_creatures(&mut self) -> Vec<Event> {
         let mut died: Vec<Event> = Vec::new();
         let mut dead_ids: Vec<CreatureId> = Vec::new();
+        // (id, next_health, next_age) de las criaturas que sobreviven, para
+        // aplicar el cambio tras el escaneo sin indexar dos veces.
+        let mut survivors: Vec<(CreatureId, i64, i64)> = Vec::new();
 
         for creature in self.creatures.iter() {
-            let next_health = creature.health - 1;
-            let next_age = creature.age + 1;
-            let dead = next_health <= 0 || next_age >= creature.lifespan;
-            if dead {
-                dead_ids.push(creature.id);
-                let cause = if next_health <= 0 { "vida" } else { "edad" };
-                died.push(Event::Died {
-                    tick: self.ticks,
-                    species: creature.species.name.clone(),
-                    pos: Pos {
-                        x: creature.x,
-                        y: creature.y,
-                    },
-                    cause: cause.to_string(),
-                });
+            match (creature.health.checked_sub(1), creature.age.checked_add(1)) {
+                (Some(next_health), Some(next_age)) => {
+                    if next_health <= 0 || next_age >= creature.lifespan {
+                        dead_ids.push(creature.id);
+                        let cause = if next_health <= 0 { "vida" } else { "edad" };
+                        died.push(Event::Died {
+                            tick: self.ticks,
+                            species: creature.species.name.clone(),
+                            pos: Pos {
+                                x: creature.x,
+                                y: creature.y,
+                            },
+                            cause: cause.to_string(),
+                        });
+                    } else {
+                        survivors.push((creature.id, next_health, next_age));
+                    }
+                }
+                _ => {
+                    // Desbordamiento: error de ejecución, la criatura muere.
+                    dead_ids.push(creature.id);
+                    died.push(Event::Died {
+                        tick: self.ticks,
+                        species: creature.species.name.clone(),
+                        pos: Pos {
+                            x: creature.x,
+                            y: creature.y,
+                        },
+                        cause: "error".to_string(),
+                    });
+                }
             }
         }
 
-        // Apply health/age changes (to survivors) and remove the dead.
-        for creature in self.creatures.iter_mut() {
-            if !dead_ids.contains(&creature.id) {
-                creature.health -= 1;
-                creature.age += 1;
+        // Aplica salud y edad a las sobrevivientes.
+        for (id, next_health, next_age) in survivors {
+            if let Some(creature) = self.creatures.iter_mut().find(|c| c.id == id) {
+                creature.health = next_health;
+                creature.age = next_age;
             }
         }
+        // Elimina las muertas (por vida, edad o error de ejecución).
         for id in &dead_ids {
             let _ = self.remove_creature(*id);
         }

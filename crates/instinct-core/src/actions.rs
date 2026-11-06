@@ -342,6 +342,18 @@ impl Action for Wait {
 // dx or dy outside {-1, 0, 1}, or text arguments: error naming the argument.
 // ---------------------------------------------------------------------------
 
+/// Convierte un entero en un índice de rejilla (`usize`). Rechaza los
+/// negativos para que nunca se envelopen a un índice enorme, y rechaza
+/// valores que no quepan en `usize`. Es defensivo en `Move::apply` porque
+/// `validate_direction` ya limita `dx`/`dy` a `{-1, 0, 1}`, pero evita cualquier
+/// conversión silenciosa de signo.
+pub fn index_from_i64(n: i64) -> Option<usize> {
+    if n < 0 {
+        return None;
+    }
+    usize::try_from(n).ok()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Move;
 
@@ -405,14 +417,33 @@ impl Action for Move {
         for _ in 0..speed {
             let nx = x + dx;
             let ny = y + dy;
-            if !world.cell_is_free(nx as usize, ny as usize) {
+            // Rechaza coordenadas negativas: nunca se convierten a usize.
+            let Some(nxi) = index_from_i64(nx) else { break };
+            let Some(nyi) = index_from_i64(ny) else { break };
+            if !world.cell_is_free(nxi, nyi) {
                 break;
             }
             x = nx;
             y = ny;
         }
 
-        let _ = world.move_creature_to(creature_id, x as usize, y as usize);
+        // Destino final: coordenadas no negativas (x/y nunca se vuelven
+        // negativas por el break anterior, pero se valida por defensa).
+        let Some(xi) = index_from_i64(x) else {
+            return Err(Diagnostic::new(
+                "move",
+                1,
+                "coordenada de destino fuera de la rejilla".to_string(),
+            ));
+        };
+        let Some(yi) = index_from_i64(y) else {
+            return Err(Diagnostic::new(
+                "move",
+                1,
+                "coordenada de destino fuera de la rejilla".to_string(),
+            ));
+        };
+        let _ = world.move_creature_to(creature_id, xi, yi);
         Ok(ActionResult {
             sleep_turns: 0,
             events: Vec::new(),
