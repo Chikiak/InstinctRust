@@ -37,13 +37,14 @@
 - **Diagnóstico único**: mensaje, archivo y línea (desde 1), usado en compilación, carga y ejecución.
 - **El mundo no imprime**: emite eventos y registro que consumen CLI y GUI.
 - **Ninguna entrada puede provocar un pánico** en el núcleo.
+- **Los patrones de arquitectura se aplican cuando el juego de características que tocan está completo** (F4), salvo los que arreglan comportamiento incorrecto o son prerrequisito de la siguiente fase (F2). Nada de refactors especulativos sobre código que aún va a crecer; cada patrón se aplica una vez.
 
 ## Atajos asumidos
 | # | Atajo (qué se simplifica) | Riesgo | Fase que lo salda |
 |---|---------------------------|--------|-------------------|
 | 1 | F0 solo implementa las acciones wait, move y say | Criaturas del anexo aún no corren | F1 |
 | 2 | F0 solo tiene siete percepciones básicas, pero ya dentro del catálogo | Ejemplos con percepciones de cercanía no compilan | F2 |
-| 3 | Errores de F0 como mensajes simples con línea; solo los de ejecución que evitan abortar | Mensajes poco uniformes | F3 |
+| 3 | Errores de F0 como mensajes simples con línea; solo los de ejecución que evitan abortar | Mensajes poco uniformes | F2 (diagnóstico unificado) y F5 (catálogo completo) |
 | 4 | Salida solo en ASCII y las dependencias de la ventana sin descargar | Descubrir tarde que no compila sin conexión | F5 (descargarlas en la primera conexión antes de empezar) |
 
 ## Contratos entre fases
@@ -51,6 +52,7 @@
 - **Catálogo de nombres**: resuelve acciones, funciones, percepciones y constantes.
 - **Turno**: percepciones refrescadas al empezar, ejecución hasta la primera acción distinta de say, máximo 100 líneas, reanudación donde quedó.
 - **Fin de tick**: -1 de vida, +1 de edad, muertes, regeneración de terrenos, retirada de objetos agotados.
+- **Errores**: un solo tipo de diagnóstico con archivo y línea desde 1 para toda la pila (lexer, parser, intérprete, mundo); conversiones explícitas en los bordes, sin `unwrap` ni valores por defecto silenciosos sobre datos de entrada.
 
 ## Verificación global
 - `cargo test --workspace` — pruebas unitarias e integración.
@@ -70,15 +72,19 @@
 |------|-------|----------|-----------------------|------------|------------------|
 | F0 | Esqueleto | Camino feliz de punta a punta por terminal | Simulación ASCII de una criatura mínima en un mapa con rocas | — | 6–8 |
 | F1 | Completar | Acciones y leyes del mundo completas | Cada acción probada contra criatura, objeto, terreno y borde | F0 | 4–6 |
-| F2 | Completar | Percepciones, see/name y texto | Hobbit, Ent, Dwarf y Uruk corren y se comportan como describe el enunciado | F1 | 4–6 |
-| F3 | Completar | Errores y carga resiliente | Batería de archivos inválidos con mensaje y línea esperados | F2 | 3–5 |
-| F4 | Completar | Banco de criaturas de prueba | Colección de criaturas y mapas, cada una probando una regla, con resultado esperado documentado | F3 | 4–6 |
-| F5 | Completar | Ventana | Cargar, elegir mapa, colocar, play/pausa/paso/velocidades, reiniciar, registro | F3 | 5–7 |
-| F6 | Endurecer | Conformidad y robustez | Una prueba por afirmación del enunciado; cero pánicos en simulaciones largas; misma semilla, misma historia | F4 | 3–4 |
-| F7 | Endurecer | Rendimiento (si hace falta) | Tick fluido con muchas criaturas, con línea base medida primero | F5 | 2–3 |
-| F8+ | Extensiones | Opcionales | Se decide después | F6 | por definir |
+| F2 | Endurecer | Estabilidad: bugs, contratos y pruebas | Cero pánicos con entrada inválida, un solo tipo de diagnóstico y contratos probados en toda la pila | F1 | 8 |
+| F3 | Completar | Percepciones, see/name y texto | Hobbit, Ent, Dwarf y Uruk corren y se comportan como describe el enunciado | F2 | 4–6 |
+| F4 | Endurecer | Arquitectura y patrones de diseño | Los patrones del documento aplicados sin cambio de comportamiento: misma semilla, misma historia | F3 | 8 |
+| F5 | Completar | Errores y carga resiliente | Batería de archivos inválidos con mensaje y línea esperados | F4 | 3–5 |
+| F6 | Completar | Banco de criaturas de prueba | Colección de criaturas y mapas, cada una probando una regla, con resultado esperado documentado | F5 | 4–6 |
+| F7 | Completar | Ventana | Cargar, elegir mapa, colocar, play/pausa/paso/velocidades, reiniciar, registro | F5 | 5–7 |
+| F8 | Endurecer | Conformidad y robustez | Una prueba por afirmación del enunciado; cero pánicos en simulaciones largas; misma semilla, misma historia | F6 | 3–4 |
+| F9 | Endurecer | Rendimiento (si hace falta) | Tick fluido con muchas criaturas, con línea base medida primero | F7 | 2–3 |
+| F10+ | Extensiones | Opcionales | Se decide después | F8 | por definir |
 
-F4 va antes que la ventana porque es lo que cubre el primer objetivo (probar proyectos de estudiantes) y solo necesita la terminal. F5 sirve sobre todo para ver las criaturas en acción y para aprender; si el tiempo escasea, es la primera candidata a recortar.
+F6 va antes que la ventana porque es lo que cubre el primer objetivo (probar proyectos de estudiantes) y solo necesita la terminal. F7 sirve sobre todo para ver las criaturas en acción y para aprender; si el tiempo escasea, es la primera candidata a recortar.
+
+F2 y F4 salen del cierre de F1 y de la auditoría recogida en `docs/PROBLEMAS_Y_SOLUCIONES.md` y `docs/PATRONES_DISENO_ARQUITECTURA.md`. F2 va **antes** de las percepciones porque sus problemas se pagan con intereses: los bugs de robustez están en el camino de compilación y de lectura del mundo que F3 amplía mucho, y cada percepción nueva multiplica la superficie que hay que corregir. F4 va **después** de F3 porque sus patrones reestructuran código correcto: aplicarlos una sola vez sobre el juego de características completo es más barato que hacerlo antes y retocarlo después. Orden interno de F2: primero lo que cambia comportamiento o contrato (y por tanto puede romper lo existente), después lo que solo añade pruebas.
 
 ### F0 · Esqueleto andante
 - **Objetivo**: tener el camino feliz corriendo con piezas reales y con el diseño final, aunque estrecho.
@@ -98,44 +104,61 @@ F4 va antes que la ventana porque es lo que cubre el primer objetivo (probar pro
 - **Criterios de salida**: cada caso anterior tiene una prueba con resultado observable; las pruebas de F0 siguen en verde.
 - **Decisiones abiertas para el plan específico**: representación interna de los rugidos y de la cola de eventos, cómo comparten código attack y consume.
 
-### F2 · Percepciones, funciones y texto
+### F2 · Estabilidad: bugs, contratos y pruebas
+- **Objetivo**: cerrar los problemas de `docs/PROBLEMAS_Y_SOLUCIONES.md` que no se resuelven con patrones de diseño (correcciones, una feature y pruebas) más los que, aunque su solución sea un patrón, arreglan comportamiento incorrecto o son prerrequisito de la fase siguiente. Al terminar, ninguna entrada inválida provoca un pánico ni un fallo silencioso, y cada contrato de la pila tiene prueba.
+- **Entregable observable**: una suite que incluye los casos que hoy faltan (lexer, parser, intérprete, mundo, CLI) y errores uniformes con archivo y línea; `check` y `run` rechazan argumentos inválidos que hoy se aceptan o se envuelven.
+- **Incluye**: contrato del lexer (saltos de línea, escapes en textos, ASCII) y sus pruebas; parser sin errores descartados, asignación robusta, operadores sin comillas, header con un solo diagnóstico; errores unificados bajo `Diagnostic` y cero `unwrap`/`expect` sobre datos de entrada (lexer, parser, `World::draw`, arranque del intérprete); `pc` siempre válido y límite de líneas sin off-by-one; aritmética comprobada en fin de tick y coordenadas sin envoltura a `usize`; catálogos de terrenos y objetos con un solo dueño; CLI con flags desconocidos rechazados, rangos validados y flujos separados.
+- **Excluye**: patrones que solo reestructuran código correcto (ECS, Flyweight, State, Memento, Visitor, bus de eventos formal, puertos y adaptadores): es F4. Catálogo completo de errores y validación acumulativa: es F5.
+- **Riesgos y mitigación**: el cambio de firma de `World::draw` y de la propiedad de los catálogos toca CLI y pruebas existentes, mitigado con la suite completa y los escenarios E2E de F1 como red de seguridad; que un issue toque el mismo fichero que otro, mitigado con el grafo de dependencias explícito.
+- **Criterios de salida**: `cargo test --workspace`, clippy y fmt en verde; cero `unwrap`/`expect`/`panic!` sobre datos de usuario o fichero en `crates/instinct-core` y `crates/instinct-cli`; las pruebas de F0 y F1 siguen pasando sin cambios salvo los que los issues indican; los escenarios E2E de terminal dan la misma salida para la misma semilla.
+- **Decisiones abiertas para el plan específico**: ninguna; las decisiones de contrato están en `plan/F2-estabilidad/PHASE.md`.
+
+### F3 · Percepciones, funciones y texto
 - **Objetivo**: catálogo completo de percepciones, see y name, constantes y operaciones con texto.
 - **Entregable observable**: los cuatro ejemplos del anexo corren en la terminal y muestran los comportamientos descritos.
 - **Riesgos**: elegir el "más cercano" de forma estable cuando hay empates (mitigación: orden de recorrido fijo).
 - **Criterios de salida**: pruebas por percepción y por función; los cuatro ejemplos compilan y ejecutan; resolver las treinta percepciones no usa una cadena de `if` por nombre.
 
-### F3 · Errores y carga resiliente
+### F4 · Arquitectura y patrones de diseño
+- **Objetivo**: aplicar los patrones de `docs/PATRONES_DISENO_ARQUITECTURA.md` que no arreglan bugs, sobre el juego de características completo (F0 a F3), sin cambiar comportamiento observable.
+- **Entregable observable**: el núcleo desacoplado de la E/S mediante puertos, criaturas en almacenes indexados por identificador, estado de turno modelado, AST con operaciones separadas de los nodos, y la misma semilla produciendo exactamente la misma historia que antes de la fase.
+- **Riesgos y mitigación**: que un patrón sea refactor especulativo (ECS y Flyweight no tienen medición que los exija), mitigado dejando escrito en el issue el motivo y el coste asumido, y con F9 como fase que mide después; que un patrón arrastre cambio de comportamiento, mitigado con el criterio de salida de determinismo.
+- **Criterios de salida**: patrón por patrón aplicado con su issue; suite completa en verde; dos corridas con la misma semilla dan la misma historia; el consumo de memoria y el tiempo por tick no empeoran (medido antes y después en el propio issue).
+
+### F5 · Errores y carga resiliente
 - **Objetivo**: catálogo completo de errores de compilación y de ejecución, con línea.
 - **Entregable observable**: una carpeta de archivos inválidos (uno por error de la sección 2.8) con el mensaje y línea esperados, y una carga que sigue funcionando con los demás recursos.
 - **Criterios de salida**: todos los errores de la sección 2.8 cubiertos; mapa con carácter desconocido rechazado con carácter y línea; un error de ejecución mata solo a esa criatura y queda en el registro.
 
-### F4 · Banco de criaturas de prueba
+### F6 · Banco de criaturas de prueba
 - **Objetivo**: tener un paquete que se pueda llevar a cualquier proyecto de estudiante y que permita decir, regla por regla, si lo cumple.
 - **Entregable observable**: una carpeta con criaturas, terrenos, objetos y mapas, y un documento con, por cada escenario, qué regla prueba y qué debe verse (estado final, eventos o mensajes), obtenido de esta implementación de referencia.
 - **Incluye**: un escenario por regla de las secciones 2.4 a 3.4 (movimiento y bloqueos, golpes a cada tipo de objetivo, reproducción y aborto, sueño de wait, límite de 100 líneas, orden de turnos y nacimientos, leyes de fin de tick, precedencia y tipos, see y name con borde y visión, percepciones de cercanía); criaturas "trampa" que deben fallar de forma controlada (archivos con error de compilación, división por cero, mezcla de tipos); mapas con carácter desconocido.
 - **Riesgos**: diferencias legítimas por aleatoriedad, mitigadas con criaturas deterministas que no leen `random`, o con escenarios cuyo resultado es un rango.
 - **Criterios de salida**: cada escenario tiene resultado esperado verificado por una prueba automática en esta implementación; el documento se puede seguir sin leer el código.
 
-### F5 · Ventana
+### F7 · Ventana
 - **Objetivo**: cumplir la sección 4.1 con una ventana.
 - **Entregable observable**: arrancar, ver errores de carga en el registro, elegir mapa, colocar y quitar criaturas en la preparación, play, pausa, avanzar un tick, al menos tres velocidades y reiniciar.
 - **Riesgos**: la biblioteca gráfica y su compilación sin internet. Su primer issue es un spike que compila sin conexión, dibuja la rejilla y recibe un clic; en ese issue se elige la biblioteca (decisión abierta con dueño: F5).
 - **Criterios de salida**: flujo completo de la sección 4.1 demostrado a mano y con el núcleo sin cambios de API.
 
-### F6 · Conformidad y robustez (endurecer)
+### F8 · Conformidad y robustez (endurecer)
 - **Atributo**: corrección frente al enunciado.
-- **Criterio de salida**: una prueba por cada afirmación de las secciones 2 a 4 (las que F4 no cubrió); simulaciones largas (decenas de miles de ticks) con los cuatro ejemplos y mapas variados sin un solo pánico; misma semilla produce la misma historia comparando el estado tick a tick.
+- **Criterio de salida**: una prueba por cada afirmación de las secciones 2 a 4 (las que F6 no cubrió); simulaciones largas (decenas de miles de ticks) con los cuatro ejemplos y mapas variados sin un solo pánico; misma semilla produce la misma historia comparando el estado tick a tick.
 
-### F7 · Rendimiento (endurecer)
+### F9 · Rendimiento (endurecer)
 - **Atributo**: fluidez de la simulación.
 - **Criterio de salida**: su primer issue mide la línea base con un mapa grande y muchas criaturas; la cifra objetivo se confirma entonces (decisión abierta con dueño: esta fase). Si la base ya es fluida a la velocidad más alta de la ventana, la fase se elimina.
 
-### F8+ · Extensiones (opcionales)
-Candidatas si interesan: estructuras de control de alto nivel traducidas a saltos, terrenos y objetos con comportamiento propio, inspector de criatura, gráficas de población. Se deciden después de F6.
+### F10+ · Extensiones (opcionales)
+Candidatas si interesan: estructuras de control de alto nivel traducidas a saltos, terrenos y objetos con comportamiento propio, inspector de criatura, gráficas de población. Se deciden después de F8.
 
 ## Señales de replanificación
 - F0 pasa de 8 issues: estrechar el camino feliz.
 - Una fase tiene más de 8 issues: dividirla.
+- Un patrón de F4 cambia comportamiento observable (no solo estructura): sale de F4 y se trata como bug en la siguiente fase de estabilidad.
+- F2 deja `cargo test --workspace` en rojo por un contrato mal decidido (firma de `draw`, dueño de los catálogos): parar y revisar la decisión antes de seguir.
 - Un profesor o un proyecto de estudiante contradice un criterio de la referencia: corregir la referencia y rehacer los resultados esperados de F4.
 - El spike de F5 no compila sin conexión: cambiar de biblioteca o resolver la descarga antes de seguir.
 - La línea base de F7 ya cumple el objetivo: eliminar la fase.
@@ -146,3 +169,4 @@ Candidatas si interesan: estructuras de control de alto nivel traducidas a salto
 |-------|--------|--------|
 | 2026-11-01 | Versión inicial | — |
 | 2026-11-01 | Objetivo reorientado a referencia de pruebas y aprendizaje; se añade F4 (banco de criaturas), la ventana pasa a F5, se elimina la fase de defensa, dial conservador | El autor es Alumno Ayudante y el proyecto no se evalúa |
+| 2026-11-05 | Cierra F1 (5/5 issues) y se replanifica: se inserta F2 (estabilidad) y F4 (arquitectura y patrones) desde `docs/PROBLEMAS_Y_SOLUCIONES.md` y `docs/PATRONES_DISENO_ARQUITECTURA.md`; las fases antiguas F2..F8+ pasan a F3..F10+; atajo 3 aplazado a F2 y F5 | Los bugs y prerequisitos se pagan con intereses si llegan después de las features; los patrones salen más baratos aplicados una sola vez sobre el feature set completo. Nota: en los documentos cerrados de F0 y F1, las menciones a "F2" significan la fase de Percepciones, ahora F3 |
