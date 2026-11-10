@@ -153,7 +153,7 @@ nuevo y se cita en las notas del issue.
 | ID | Título | Depende de | Tamaño | Paralelizable con | Estado |
 |----|--------|------------|--------|-------------------|--------|
 | F3-01 | Percepciones sobre sí misma y sobre el mundo | — | M | — | done |
-| F3-02 | Percepciones de cercanía: conteos, más cercano estable y rugidos | F3-01 | L | — | todo |
+| F3-02 | Percepciones de cercanía: conteos, más cercano estable y rugidos | F3-01 | L | — | done |
 | F3-03 | `see` y `name` con las cinco constantes | F3-02 | L | — | todo |
 | F3-04 | Los cuatro ejemplos del anexo | F3-03 | M | — | todo |
 

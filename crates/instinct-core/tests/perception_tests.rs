@@ -42,6 +42,14 @@ fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world:
         .expect("creature exists")
 }
 
+fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
+    for c in world.creatures.iter_mut() {
+        if c.id == id {
+            c.species.vision = vision;
+        }
+    }
+}
+
 fn eval(world: &World, id: CreatureId, text: &str) -> Result<Value, String> {
     let expr = parse(text, 1, "test.ins").expect("parse");
     let ctx = CreatureContext::new(world, id);
@@ -299,6 +307,9 @@ fn test_catalog_accepts_extra_perception() {
         fn total_enemies(&self) -> i64 {
             0
         }
+        fn nearby(&self) -> instinct_core::perception::Nearby {
+            instinct_core::perception::Nearby::empty()
+        }
     }
 
     let mut cat = Catalog::default();
@@ -446,6 +457,250 @@ fn test_default_catalogs_resolve_self_and_world_perceptions() {
         "total_allies",
         "total_enemies",
     ] {
+        assert!(
+            cat.resolve_perception(name).is_some(),
+            "Catalog::default() debe registrar {name}"
+        );
+        assert!(
+            pc.resolve(name).is_some(),
+            "PerceptionCatalog::default() debe registrar {name}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AC1: near counts exclude own cell
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_near_counts_exclude_own_cell() {
+    let mut world = empty_world(); // 5x5 grass
+    let id = place_walker(&mut world); // (4, 2)
+    set_vision(&mut world, id, 2);
+
+    // Two allies at (3, 2) and (2, 2) — both distance <= 2
+    let _id_ally1 = world
+        .place_creature(Species::new("Ally1"), 3, 2)
+        .expect("place ally 1");
+    let _id_ally2 = world
+        .place_creature(Species::new("Ally2"), 2, 2)
+        .expect("place ally 2");
+
+    // One enemy at (1, 2) — distance 3 from (4, 2), out of vision 2
+    // Let me use distance 2 instead: (2, 2) is distance 2, but that's where ally2 is.
+    // Place enemy at (0, 2): distance = max(4, 0) = 4 > 2, out of range.
+    // Place enemy at (3, 0): distance = max(1, 2) = 2 <= 2, in range.
+    let mut sp_e = Species::new("Enemy");
+    sp_e.faction = "B".to_string();
+    let _id_enemy = world
+        .place_creature(sp_e, 3, 0)
+        .expect("place enemy at distance 2");
+
+    // One object: empty_world has no objects on grid. Place one manually.
+    // content[row][col]: row=1, col=3 => position (3, 1). Distance from (4,2): max(1, 1) = 1 <= 2.
+    world.content[1][3] = instinct_core::world::CellContent::Object(0);
+
+    assert_eq!(
+        unwrap_int(eval(&world, id, "allies_near").unwrap()),
+        2,
+        "two allies within vision, self excluded"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemies_near").unwrap()),
+        1,
+        "one enemy within vision"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "objects_near").unwrap()),
+        1,
+        "one object within vision"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC3: nearest target reports distance and direction
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_nearest_target_reports_direction() {
+    let mut world = empty_world(); // 5x5 grass
+    let id = place_walker(&mut world); // (4, 2)
+    set_vision(&mut world, id, 3);
+
+    // Enemy at (1, 2): distance = max(3, 0) = 3 = vision, IN
+    // dx = 1-4 = -3 -> signum -1, dy = 0
+    let mut sp_e = Species::new("Enemy");
+    sp_e.faction = "B".to_string();
+    let _id_enemy = world
+        .place_creature(sp_e, 1, 2)
+        .expect("place enemy at distance 3");
+
+    // Ally at (3, 2): distance = max(1, 0) = 1
+    // dx = -1, dy = 0
+    let _id_ally = world
+        .place_creature(Species::new("Ally"), 3, 2)
+        .expect("place ally at distance 1");
+
+    // Object at (4, 0): distance = max(0, 2) = 2
+    // content[row][col]: row=0, col=4 => position (4, 0). Distance from (4,2): max(0, 2) = 2.
+    // dx = 0, dy = -2 -> signum -1
+    world.content[0][4] = instinct_core::world::CellContent::Object(0);
+
+    // Enemy: dist 3, dx -1, dy 0
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dist").unwrap()),
+        3,
+        "enemy distance"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dx").unwrap()),
+        -1,
+        "enemy dx"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dy").unwrap()),
+        0,
+        "enemy dy"
+    );
+
+    // Ally: dist 1, dx -1, dy 0
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dist").unwrap()),
+        1,
+        "ally distance"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dx").unwrap()),
+        -1,
+        "ally dx"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dy").unwrap()),
+        0,
+        "ally dy"
+    );
+
+    // Object: dist 2, dx 0, dy -1
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dist").unwrap()),
+        2,
+        "object distance"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dx").unwrap()),
+        0,
+        "object dx"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dy").unwrap()),
+        -1,
+        "object dy"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// No visible target: dist -1, directions 0
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_nearest_target_none_visible() {
+    let mut world = empty_world(); // 5x5 grass, no other creatures
+    let id = place_walker(&mut world); // (4, 2)
+    set_vision(&mut world, id, 1);
+
+    // No allies, enemies, or objects within vision 1
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dist").unwrap()),
+        -1,
+        "no enemy: dist -1"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dx").unwrap()),
+        0,
+        "no enemy: dx 0"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "enemy_dy").unwrap()),
+        0,
+        "no enemy: dy 0"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dist").unwrap()),
+        -1,
+        "no ally: dist -1"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dx").unwrap()),
+        0,
+        "no ally: dx 0"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "ally_dy").unwrap()),
+        0,
+        "no ally: dy 0"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dist").unwrap()),
+        -1,
+        "no object: dist -1"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dx").unwrap()),
+        0,
+        "no object: dx 0"
+    );
+    assert_eq!(
+        unwrap_int(eval(&world, id, "object_dy").unwrap()),
+        0,
+        "no object: dy 0"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC7: all 31 perceptions resolve in both default catalogs
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_default_catalogs_resolve_all_31_perceptions() {
+    let cat = Catalog::default();
+    let pc = PerceptionCatalog::default();
+    let all_31 = [
+        // 7 original (F0)
+        "health",
+        "age",
+        "lifespan",
+        "x",
+        "y",
+        "tick",
+        "random",
+        // 10 self/world (F3-01)
+        "vision",
+        "species",
+        "faction",
+        "terrain_here",
+        "reserve_here",
+        "width",
+        "height",
+        "total_creatures",
+        "total_allies",
+        "total_enemies",
+        // 14 nearby (F3-02)
+        "allies_near",
+        "enemies_near",
+        "objects_near",
+        "enemy_dist",
+        "enemy_dx",
+        "enemy_dy",
+        "ally_dist",
+        "ally_dx",
+        "ally_dy",
+        "object_dist",
+        "object_dx",
+        "object_dy",
+        "roars_near",
+        "last_roar",
+    ];
+    for name in all_31 {
         assert!(
             cat.resolve_perception(name).is_some(),
             "Catalog::default() debe registrar {name}"

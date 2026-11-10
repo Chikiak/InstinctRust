@@ -8,7 +8,7 @@ use crate::actions::{ActionResult, Catalog};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
 use crate::expr::EvalContext;
-use crate::perception::CreatureView;
+use crate::perception::{CreatureView, Nearby, Nearest};
 use crate::resources::{Map, Object, Terrain};
 use crate::rng::Rng;
 use crate::species::Species;
@@ -35,10 +35,12 @@ pub enum CellContent {
 /// Un rugido emitido por una criatura en un tick, asociado a su especie,
 /// posición y texto. Se guarda con su tick para que, en el siguiente tick,
 /// F2 pueda leer los rugidos del tick anterior con `roars_near`/`last_roar`
-/// dentro del radio de visión.
+/// dentro del radio de visión. `creature_id` identifica al emisor para que
+/// una criatura no cuente ni lea su propio rugido.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roar {
     pub tick: u64,
+    pub creature_id: CreatureId,
     pub species: String,
     pub pos: Pos,
     pub text: String,
@@ -370,13 +372,14 @@ impl World {
         std::mem::take(&mut self.events)
     }
 
-    /// Registra un rugido emitido por `species` desde `pos` con el texto
-    /// `text` en el tick actual. `roar` no mata ni daña: solo deja constancia
-    /// del mensaje para que F2 lo lea el tick siguiente con
+    /// Registra un rugido emitido por la criatura `creature_id` desde `pos`
+    /// con el texto `text` en el tick actual. `roar` no mata ni daña: solo
+    /// deja constancia del mensaje para que F2 lo lea el tick siguiente con
     /// `roars_near`/`last_roar`.
-    pub fn add_roar(&mut self, species: String, pos: Pos, text: String) {
+    pub fn add_roar(&mut self, creature_id: CreatureId, species: String, pos: Pos, text: String) {
         self.roars_current.push(Roar {
             tick: self.ticks,
+            creature_id,
             species,
             pos,
             text,
@@ -422,6 +425,113 @@ impl World {
             .iter()
             .filter(|c| c.id != exclude && c.species.faction == faction)
             .count()
+    }
+
+    /// Calcula la estructura `Nearby` para la criatura dada con un solo
+    /// recorrido determinista del mundo: criaturas por id ascendente, rejilla
+    /// por filas y columnas ascendentes, rugidos del tick anterior en orden
+    /// de vector. Distancia de Chebyshev; radio <= vision; casilla propia
+    /// excluida de conteos y de "más cercanos".
+    pub fn nearby(&self, creature_id: CreatureId) -> Nearby {
+        let self_pos = match self.creature_position(creature_id) {
+            Ok(p) => p,
+            Err(_) => return Nearby::empty(),
+        };
+        let self_creature = match self.creature(creature_id) {
+            Some(c) => c,
+            None => return Nearby::empty(),
+        };
+        let self_faction = self_creature.species.faction.as_str();
+        let vision = self_creature.species.vision;
+
+        let mut allies = 0i64;
+        let mut enemies = 0i64;
+        let mut objects = 0i64;
+        let mut nearest_ally: Option<Nearest> = None;
+        let mut nearest_enemy: Option<Nearest> = None;
+        let mut nearest_object: Option<Nearest> = None;
+
+        // Pass 1: criaturas vivas por id ascendente (excluida la propia).
+        for c in self.creatures.iter() {
+            if c.id == creature_id {
+                continue;
+            }
+            let dx = c.x as i64 - self_pos.x as i64;
+            let dy = c.y as i64 - self_pos.y as i64;
+            let dist = dx.abs().max(dy.abs());
+            if dist > vision {
+                continue;
+            }
+            if c.species.faction == self_faction {
+                allies += 1;
+                if nearest_ally.is_none() || dist < nearest_ally.unwrap().dist {
+                    nearest_ally = Some(Nearest {
+                        dist,
+                        dx: dx.signum(),
+                        dy: dy.signum(),
+                    });
+                }
+            } else {
+                enemies += 1;
+                if nearest_enemy.is_none() || dist < nearest_enemy.unwrap().dist {
+                    nearest_enemy = Some(Nearest {
+                        dist,
+                        dx: dx.signum(),
+                        dy: dy.signum(),
+                    });
+                }
+            }
+        }
+
+        // Pass 2: rejilla por filas ascendentes, columnas ascendentes, para objetos.
+        for y in 0..self.rows {
+            for x in 0..self.columns {
+                if let CellContent::Object(_) = &self.content[y][x] {
+                    let dx = x as i64 - self_pos.x as i64;
+                    let dy = y as i64 - self_pos.y as i64;
+                    let dist = dx.abs().max(dy.abs());
+                    if dist > vision {
+                        continue;
+                    }
+                    objects += 1;
+                    if nearest_object.is_none() || dist < nearest_object.unwrap().dist {
+                        nearest_object = Some(Nearest {
+                            dist,
+                            dx: dx.signum(),
+                            dy: dy.signum(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Pass 3: rugidos del tick anterior en orden del vector.
+        let mut roars = 0i64;
+        let mut last_roar = String::new();
+        for roar in self.roars_previous.iter() {
+            if roar.creature_id == creature_id {
+                continue;
+            }
+            let dx = roar.pos.x as i64 - self_pos.x as i64;
+            let dy = roar.pos.y as i64 - self_pos.y as i64;
+            let dist = dx.abs().max(dy.abs());
+            if dist > vision {
+                continue;
+            }
+            roars += 1;
+            last_roar = roar.text.clone();
+        }
+
+        Nearby {
+            allies,
+            enemies,
+            objects,
+            ally: nearest_ally,
+            enemy: nearest_enemy,
+            object: nearest_object,
+            roars,
+            last_roar,
+        }
     }
 
     /// Marca los rugidos del tick actual como "del tick anterior" y limpia los
@@ -818,6 +928,10 @@ impl CreatureView for CreatureSnapshot<'_> {
     fn total_enemies(&self) -> i64 {
         // Todo lo que no es aliado (y no es la propia criatura) es enemigo.
         self.total_creatures() - self.total_allies()
+    }
+
+    fn nearby(&self) -> Nearby {
+        self.world.nearby(self.creature_id)
     }
 }
 

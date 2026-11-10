@@ -47,6 +47,49 @@ pub trait CreatureView: std::fmt::Debug {
     fn total_allies(&self) -> i64;
     /// Living enemies (other faction).
     fn total_enemies(&self) -> i64;
+
+    /// Nearby creatures, objects, and roars within the creature's vision radius.
+    /// Recalculated on every read; no caching.
+    fn nearby(&self) -> Nearby;
+}
+
+/// The nearest target of a given class: Chebyshev distance and normalized
+/// direction (dx, dy in {-1, 0, 1}).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Nearest {
+    pub dist: i64,
+    pub dx: i64,
+    pub dy: i64,
+}
+
+/// Aggregated nearby information for a creature: counts, nearest of each
+/// class, and roar data from the previous tick.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Nearby {
+    pub allies: i64,
+    pub enemies: i64,
+    pub objects: i64,
+    pub ally: Option<Nearest>,
+    pub enemy: Option<Nearest>,
+    pub object: Option<Nearest>,
+    pub roars: i64,
+    pub last_roar: String,
+}
+
+impl Nearby {
+    /// Empty nearby: no allies, enemies, objects, or roars within radius.
+    pub fn empty() -> Self {
+        Nearby {
+            allies: 0,
+            enemies: 0,
+            objects: 0,
+            ally: None,
+            enemy: None,
+            object: None,
+            roars: 0,
+            last_roar: String::new(),
+        }
+    }
 }
 
 /// Trait every perception type implements.
@@ -331,6 +374,257 @@ impl Perception for TotalEnemies {
     }
 }
 
+/// Number of allied creatures within vision radius, excluding the creature itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AlliesNear;
+
+impl Perception for AlliesNear {
+    fn name(&self) -> &str {
+        "allies_near"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.nearby().allies)
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Number of enemy creatures within vision radius.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnemiesNear;
+
+impl Perception for EnemiesNear {
+    fn name(&self) -> &str {
+        "enemies_near"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.nearby().enemies)
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Number of objects within vision radius.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectsNear;
+
+impl Perception for ObjectsNear {
+    fn name(&self) -> &str {
+        "objects_near"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.nearby().objects)
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Chebyshev distance to the nearest enemy, or -1 if none visible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnemyDist;
+
+impl Perception for EnemyDist {
+    fn name(&self) -> &str {
+        "enemy_dist"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().enemy {
+            Some(n) => Value::Int(n.dist),
+            None => Value::Int(-1),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized x direction (-1, 0, 1) toward the nearest enemy, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnemyDx;
+
+impl Perception for EnemyDx {
+    fn name(&self) -> &str {
+        "enemy_dx"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().enemy {
+            Some(n) => Value::Int(n.dx),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized y direction (-1, 0, 1) toward the nearest enemy, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnemyDy;
+
+impl Perception for EnemyDy {
+    fn name(&self) -> &str {
+        "enemy_dy"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().enemy {
+            Some(n) => Value::Int(n.dy),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Chebyshev distance to the nearest ally, or -1 if none visible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllyDist;
+
+impl Perception for AllyDist {
+    fn name(&self) -> &str {
+        "ally_dist"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().ally {
+            Some(n) => Value::Int(n.dist),
+            None => Value::Int(-1),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized x direction (-1, 0, 1) toward the nearest ally, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllyDx;
+
+impl Perception for AllyDx {
+    fn name(&self) -> &str {
+        "ally_dx"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().ally {
+            Some(n) => Value::Int(n.dx),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized y direction (-1, 0, 1) toward the nearest ally, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllyDy;
+
+impl Perception for AllyDy {
+    fn name(&self) -> &str {
+        "ally_dy"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().ally {
+            Some(n) => Value::Int(n.dy),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Chebyshev distance to the nearest object, or -1 if none visible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectDist;
+
+impl Perception for ObjectDist {
+    fn name(&self) -> &str {
+        "object_dist"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().object {
+            Some(n) => Value::Int(n.dist),
+            None => Value::Int(-1),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized x direction (-1, 0, 1) toward the nearest object, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectDx;
+
+impl Perception for ObjectDx {
+    fn name(&self) -> &str {
+        "object_dx"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().object {
+            Some(n) => Value::Int(n.dx),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Normalized y direction (-1, 0, 1) toward the nearest object, or 0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectDy;
+
+impl Perception for ObjectDy {
+    fn name(&self) -> &str {
+        "object_dy"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        match view.nearby().object {
+            Some(n) => Value::Int(n.dy),
+            None => Value::Int(0),
+        }
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Number of roars heard from other creatures in the previous tick within vision radius.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RoarsNear;
+
+impl Perception for RoarsNear {
+    fn name(&self) -> &str {
+        "roars_near"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.nearby().roars)
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Text of the last roar heard from another creature in the previous tick, or empty text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LastRoar;
+
+impl Perception for LastRoar {
+    fn name(&self) -> &str {
+        "last_roar"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Text(view.nearby().last_roar.clone())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
 /// Catalog of perceptions by name. Resolves a perception name without arity
 /// validation (perceptions take no arguments).
 #[derive(Debug)]
@@ -405,6 +699,20 @@ impl Default for PerceptionCatalog {
         let _ = c.register(Box::new(TotalCreatures));
         let _ = c.register(Box::new(TotalAllies));
         let _ = c.register(Box::new(TotalEnemies));
+        let _ = c.register(Box::new(AlliesNear));
+        let _ = c.register(Box::new(EnemiesNear));
+        let _ = c.register(Box::new(ObjectsNear));
+        let _ = c.register(Box::new(EnemyDist));
+        let _ = c.register(Box::new(EnemyDx));
+        let _ = c.register(Box::new(EnemyDy));
+        let _ = c.register(Box::new(AllyDist));
+        let _ = c.register(Box::new(AllyDx));
+        let _ = c.register(Box::new(AllyDy));
+        let _ = c.register(Box::new(ObjectDist));
+        let _ = c.register(Box::new(ObjectDx));
+        let _ = c.register(Box::new(ObjectDy));
+        let _ = c.register(Box::new(RoarsNear));
+        let _ = c.register(Box::new(LastRoar));
         c
     }
 }
@@ -467,6 +775,10 @@ mod tests {
         }
         fn total_enemies(&self) -> i64 {
             2
+        }
+
+        fn nearby(&self) -> Nearby {
+            Nearby::empty()
         }
     }
 
