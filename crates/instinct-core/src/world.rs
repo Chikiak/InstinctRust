@@ -47,6 +47,15 @@ pub struct Roar {
     pub text: String,
 }
 
+/// State of a creature's turn cycle (pattern State).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CreatureState {
+    /// The creature is awake and executes its program normally.
+    Awake,
+    /// The creature is asleep for `n` more ticks; it does not execute.
+    Sleeping(u32),
+}
+
 /// A living creature placed on the map.
 #[derive(Debug, Clone)]
 pub struct Creature {
@@ -60,8 +69,9 @@ pub struct Creature {
     pub age: i64,
     /// Maximum lifespan.
     pub lifespan: i64,
-    /// Turns of sleep remaining (from `wait`). Zero means awake.
-    pub sleep_turns: i64,
+    /// Turn cycle state: Awake or Sleeping(n). Replaces the external
+    /// `sleep_turns` counter; the state is managed internally.
+    pub state: CreatureState,
     /// Next line index to execute at the start of the next turn.
     pub pc: usize,
     /// Variables owned by this creature, separate from other creatures.
@@ -247,7 +257,7 @@ impl World {
             health,
             age: 0,
             lifespan,
-            sleep_turns: 0,
+            state: CreatureState::Awake,
             pc: 0,
             variables: HashMap::new(),
         };
@@ -672,14 +682,20 @@ impl World {
         Ok(())
     }
 
-    /// Applies the result of an action: sets sleep turns and appends events.
+    /// Applies the result of an action: sets the creature's turn state and
+    /// appends events. `sleep_turns > 0` means `Sleeping(sleep_turns)`;
+    /// zero means `Awake`.
     pub fn apply_action_result(
         &mut self,
         creature_id: CreatureId,
         result: ActionResult,
     ) -> Result<(), Diagnostic> {
         if let Some(creature) = self.creatures.iter_mut().find(|c| c.id == creature_id) {
-            creature.sleep_turns = result.sleep_turns;
+            creature.state = if result.sleep_turns > 0 {
+                CreatureState::Sleeping(result.sleep_turns)
+            } else {
+                CreatureState::Awake
+            };
         } else {
             return Err(Diagnostic::new(
                 "world",

@@ -12,6 +12,7 @@ use instinct_core::resources::{Map, Terrain};
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
 use instinct_core::value::Value;
+use instinct_core::world::CreatureState;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -102,7 +103,7 @@ fn test_turn_resumes_after_action() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -135,7 +136,7 @@ fn test_line_limit_ends_turn() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&ctx.vars),
     };
 
@@ -161,7 +162,7 @@ fn test_end_of_program_restarts_at_start() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&ctx.vars),
     };
 
@@ -196,34 +197,34 @@ fn test_wait_skips_turns() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&ctx.vars),
     };
 
-    // Turn 1: wait(3) -> pending action. Sleep turns set by applying the action.
+    // Turn 1: wait(3) -> pending action. Sleep state set by applying the action.
     let pending = run_turn_full(&program, &ctx, &mut state);
     let pa = pending.expect("expected a pending action");
     assert_eq!(pa.action.name(), "wait");
     assert_eq!(pa.args, vec![Value::Int(3)]);
-    state.sleep_turns = 2; // simulate apply_action_result setting sleep_turns
-    assert_eq!(state.sleep_turns, 2);
+    state.state = CreatureState::Sleeping(2); // simulate apply_action_result setting sleep
+    assert_eq!(state.state, CreatureState::Sleeping(2));
 
     // Turn 2: sleep 2 -> decrement to 1, no action.
     let pending = run_once(&program, &ctx, &mut state);
     assert!(pending.is_none());
-    assert_eq!(state.sleep_turns, 1);
+    assert_eq!(state.state, CreatureState::Sleeping(1));
 
     // Turn 3: sleep 1 -> decrement to 0, no action.
     let pending = run_once(&program, &ctx, &mut state);
     assert!(pending.is_none());
-    assert_eq!(state.sleep_turns, 0);
+    assert_eq!(state.state, CreatureState::Awake);
 
     // Turn 4: awake. pc = 2 (goto start) -> goto sets pc to 0, then wait(3) -> sleep 2.
     let pending = run_turn_full(&program, &ctx, &mut state);
     let pa = pending.expect("expected a pending action");
     assert_eq!(pa.action.name(), "wait");
-    state.sleep_turns = 2; // simulate apply_action_result
-    assert_eq!(state.sleep_turns, 2);
+    state.state = CreatureState::Sleeping(2); // simulate apply_action_result
+    assert_eq!(state.state, CreatureState::Sleeping(2));
 }
 
 // ---------------------------------------------------------------------------
@@ -239,7 +240,7 @@ fn test_division_by_zero_is_runtime_error() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&ctx.vars),
     };
 
@@ -261,7 +262,7 @@ fn test_unassigned_variable_is_runtime_error() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&ctx.vars),
     };
 
@@ -288,7 +289,7 @@ fn test_execute_turn_missing_start_errors() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::new(RefCell::new(HashMap::new())),
     };
 
@@ -322,7 +323,7 @@ fn test_line_limit_executes_100_and_pc_valid() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -369,7 +370,7 @@ fn test_goto_out_of_range_errors() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -414,7 +415,7 @@ fn test_if_goto_out_of_range_errors() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -446,7 +447,7 @@ fn test_if_goto_true_jumps() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -475,7 +476,7 @@ fn test_if_goto_false_falls_through() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -501,7 +502,7 @@ fn test_if_goto_eval_error_is_runtime_error() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -535,7 +536,7 @@ fn test_goto_unknown_label_is_runtime_error() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -564,7 +565,7 @@ fn test_action_argument_eval_error_is_runtime_error() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -590,7 +591,7 @@ fn test_multiple_says_in_one_turn() {
     };
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
 
@@ -630,7 +631,7 @@ fn test_arithmetic_extremes_are_runtime_errors() {
     let (program, _cat) = compile_body("n = 9223372036854775807 + 1\n");
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
     let (d, _line) = execute_turn(&program, &ctx, &mut state).unwrap_err();
@@ -644,7 +645,7 @@ fn test_arithmetic_extremes_are_runtime_errors() {
     let (program, _cat) = compile_body("n = 7 % 0\n");
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
     let (d, _line) = execute_turn(&program, &ctx, &mut state).unwrap_err();
@@ -659,7 +660,7 @@ fn test_arithmetic_extremes_are_runtime_errors() {
     let (program, _cat) = compile_body("m = -9223372036854775807 - 1\nn = -m\n");
     let mut state = CreatureTurnState {
         pc: 0,
-        sleep_turns: 0,
+        state: CreatureState::Awake,
         variables: Rc::clone(&vars),
     };
     let (d, line) = execute_turn(&program, &ctx, &mut state).unwrap_err();

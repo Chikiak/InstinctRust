@@ -11,6 +11,7 @@ use crate::diagnostic::Diagnostic;
 use crate::expr::EvalContext;
 use crate::program::{Line, Program};
 use crate::value::Value;
+use crate::world::CreatureState;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -28,8 +29,8 @@ const LINE_LIMIT: usize = 100;
 pub struct CreatureTurnState {
     /// Next line index to execute.
     pub pc: usize,
-    /// Turns of sleep remaining.
-    pub sleep_turns: u32,
+    /// Turn cycle state: Awake or Sleeping(n). Replaces `sleep_turns`.
+    pub state: CreatureState,
     /// Variables owned by this creature. Shared via `Rc<RefCell>` so the
     /// evaluation context can see assignments made during the same turn.
     pub variables: Rc<RefCell<HashMap<String, Value>>>,
@@ -39,7 +40,7 @@ impl CreatureTurnState {
     pub fn new() -> Self {
         CreatureTurnState {
             pc: 0,
-            sleep_turns: 0,
+            state: CreatureState::Awake,
             variables: Rc::new(RefCell::new(HashMap::new())),
         }
     }
@@ -167,12 +168,23 @@ pub fn execute_turn(
 ) -> Result<TurnResult, (Diagnostic, usize)> {
     // Sleep: decrement and skip execution this turn. pc is unchanged so the
     // creature resumes at the same instruction when it wakes.
-    if state.sleep_turns > 0 {
-        state.sleep_turns -= 1;
-        return Ok(TurnResult {
-            pending: None,
-            state: state.clone(),
-        });
+    match &state.state {
+        CreatureState::Sleeping(n) => {
+            if *n > 0 {
+                state.state = if *n == 1 {
+                    CreatureState::Awake
+                } else {
+                    CreatureState::Sleeping(n - 1)
+                };
+                return Ok(TurnResult {
+                    pending: None,
+                    state: state.clone(),
+                });
+            } else {
+                state.state = CreatureState::Awake;
+            }
+        }
+        CreatureState::Awake => {}
     }
 
     let mut lines_executed = 0usize;
@@ -218,7 +230,7 @@ pub fn execute_turn(
         pending: None,
         state: CreatureTurnState {
             pc: next_pc,
-            sleep_turns: state.sleep_turns,
+            state: state.state.clone(),
             variables: state.variables.clone(),
         },
     })

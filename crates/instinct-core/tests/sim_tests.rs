@@ -8,7 +8,7 @@ use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
-use instinct_core::world::{CellContent, World};
+use instinct_core::world::{CellContent, CreatureState, World};
 use std::rc::Rc;
 
 fn grass_terrain() -> Terrain {
@@ -367,7 +367,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
     assert_eq!((child.x, child.y), (1, 2));
     assert_eq!(child.health, 4, "vida = health (5) menos 1 por fin de tick");
     assert_eq!(child.age, 1, "edad 0 al nacer, +1 al final del tick");
-    assert_eq!(child.sleep_turns, 0);
+    assert_eq!(child.state, CreatureState::Awake);
     assert_eq!(
         child.pc, 0,
         "aún no ha ejecutado: arranca en start: el tick siguiente"
@@ -641,7 +641,7 @@ fn test_roars_near_and_last_roar() {
         "A",
         100,
         1000,
-        "roar(\"hola mundo\")\nwait(1)\ngoto start\n",
+        "roar(\"hola mundo\")\nwait(100)\ngoto start\n",
     );
     let _id_e = world.place_creature(sp_e, 0, 0).expect("place emitter");
 
@@ -650,7 +650,7 @@ fn test_roars_near_and_last_roar() {
         "A", // same faction so E is an ally, but we test roars not faction
         100,
         1000,
-        "say(roars_near)\nsay(last_roar)\nwait(1)\ngoto start\n",
+        "say(roars_near)\nsay(last_roar)\nmove(0, 0, 0)\ngoto start\n",
     );
     let _id_l = world
         .place_creature(sp_l, 1, 0)

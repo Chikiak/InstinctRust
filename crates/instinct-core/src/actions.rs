@@ -170,11 +170,11 @@ fn heal_attacker(world: &mut World, creature_id: CreatureId, heal: i64) -> Resul
     Ok(())
 }
 
-/// Result of applying an action: the number of sleep turns (0 = none) and
+/// Result of applying an action: the number of sleep turns (0 = awake) and
 /// any events to append to the world's event log.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionResult {
-    pub sleep_turns: i64,
+    pub sleep_turns: u32,
     pub events: Vec<Event>,
 }
 
@@ -398,7 +398,7 @@ impl Action for Wait {
                 ));
             }
         };
-        let sleep_turns = if n < 1 { 0 } else { n - 1 };
+        let sleep_turns = n.max(1) as u32;
         Ok(ActionResult {
             sleep_turns,
             events: Vec::new(),

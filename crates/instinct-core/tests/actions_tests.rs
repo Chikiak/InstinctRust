@@ -9,7 +9,7 @@ use instinct_core::event::{Event, Pos};
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
-use instinct_core::world::{CellContent, CreatureId, World};
+use instinct_core::world::{CellContent, CreatureId, CreatureState, World};
 use std::rc::Rc;
 
 fn world_with_grass() -> (World, Vec<Terrain>, Vec<Object>) {
@@ -122,29 +122,29 @@ fn test_wait_sleep_turns() {
     let (mut world, _, _) = world_with_grass();
     let id = place_walker(&mut world);
 
-    // wait 3 -> sleep 2 turns.
+    // wait 3 -> Sleeping(3).
     let r = wait
         .apply(&mut world, id, &[Value::Int(3)])
         .expect("wait 3");
-    assert_eq!(r.sleep_turns, 2);
+    assert_eq!(r.sleep_turns, 3);
     assert!(r.events.is_empty());
     assert!(wait.consumes_turn());
 
-    // wait 1 -> sleep 0.
+    // wait 1 -> Sleeping(1).
     let r = wait
         .apply(&mut world, id, &[Value::Int(1)])
         .expect("wait 1");
-    assert_eq!(r.sleep_turns, 0);
+    assert_eq!(r.sleep_turns, 1);
 
-    // wait 0 (and negative) counts as 1 -> sleep 0.
+    // wait 0 and negative -> Sleeping(1).
     let r = wait
         .apply(&mut world, id, &[Value::Int(0)])
         .expect("wait 0");
-    assert_eq!(r.sleep_turns, 0);
+    assert_eq!(r.sleep_turns, 1);
     let r = wait
         .apply(&mut world, id, &[Value::Int(-5)])
         .expect("wait -5");
-    assert_eq!(r.sleep_turns, 0);
+    assert_eq!(r.sleep_turns, 1);
 }
 
 #[test]
@@ -980,7 +980,7 @@ fn test_reproduce_creates_offspring() {
     assert_eq!((child.x, child.y), (1, 2), "cría en la casilla objetivo");
     assert_eq!(child.health, 5, "vida de la cría = health");
     assert_eq!(child.age, 0, "edad 0 al nacer");
-    assert_eq!(child.sleep_turns, 0, "sin turnos de sueño");
+    assert_eq!(child.state, CreatureState::Awake, "sin turnos de sueño");
     assert_eq!(child.pc, 0, "puntero de ejecución al inicio (start:)");
     assert!(
         child.variables.is_empty(),
