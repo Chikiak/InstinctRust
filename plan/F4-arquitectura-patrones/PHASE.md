@@ -95,7 +95,7 @@ ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial
 | ID | Título | Problema / patrón que cubre | Depende de | Tamaño | Estado | Archivo de issue |
 |----|--------|-----------------------------|------------|--------|--------|------------------|
 | F4-01 | Bus de eventos formal y puerto de salida del mundo | I6 (Observer / bus), 1.2 y 4.3 del documento | F3 | M | done | F4-01-bus-eventos-puerto-salida.md |
-| F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M | todo | F4-02-estado-turno-creatura-state.md |
+| F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M | done | F4-02-estado-turno-creatura-state.md |
 | F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S | todo | F4-03-prng-inyectable-strategy.md |
 | F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L | todo | F4-04-almacenes-criaturas-ecs.md |
 | F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | todo | F4-05-flyweight-especies.md |
@@ -181,7 +181,7 @@ en lugar de improvisar.
 | Issue | Patrón | Motivación | Coste asumido | Estado | Medición (memoria / tick) |
 |-------|--------|------------|---------------|--------|---------------------------|
 | F4-01 | Observer / bus + puertos y adaptadores | I6: intérprete emite eventos; 1.2/4.3: desacoplar E/S para F7 | Nuevo trait `WorldOutput`; cambio de firma de `World` | pendiente | — |
-| F4-02 | State | I3: `sleep_turns` gestionado externamente rompe encapsulación | `Creature` gana `CreatureState`; `interp` delega | pendiente | — |
+| F4-02 | State | I3: `sleep_turns` gestionado externamente rompe encapsulación | `Creature` gana `CreatureState`; `interp` delega | done | — |
 | F4-03 | Strategy (PRNG) | 8.1: tests de simulación sin estado global del mundo | `Rng` → `Box<dyn RngSource>` en `World`/`sim` | pendiente | — |
 | F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | pendiente | — |
 | F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |

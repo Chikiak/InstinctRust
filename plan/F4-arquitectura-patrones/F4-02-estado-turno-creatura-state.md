@@ -2,7 +2,7 @@
 id: F4-02
 title: Estado de turno de criatura con patrón State
 phase: F4
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -112,5 +112,27 @@ Si `Creature.state` y `CreatureTurnState.sleep_turns` se pisan, para y repórtal
 ### Notas de implementación
 
 Rama: feat/f4-02-estado-turno-creatura-state (sobre develop).
-Evidencia AC por AC: pendiente.
+Commit: pendiente (se hace al cerrar el issue).
+Comandos ejecutados:
+- `cargo test --workspace` → todo en verde (199 tests, 0 failed).
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings.
+- `cargo fmt --all --check` → exit 0, sin cambios necesarios.
+
+Evidencia AC por AC:
+- AC1 PASS: `pub enum CreatureState { Awake, Sleeping(u32) }` en `crates/instinct-core/src/world.rs`; `Creature.state: CreatureState` reemplaza `sleep_turns: i64`. Verif: `cargo test --workspace` compila y pasa.
+- AC2 PASS: `execute_turn` en `Sleeping(n)` no ejecuta, deja `Sleeping(n-1)` o `Awake` al 0; en `Awake` ejecuta normalmente. Verif: `test_wait_skips_turns` (interp_tests) → ok.
+- AC3 PASS: `wait(n)` con n >= 1 → `Sleeping(n)`; n < 1 → `Sleeping(1)`; `consumes_turn == true`. Verif: `test_wait_sleep_turns` (actions_tests) → ok.
+- AC4 PASS: `step_tick` no ejecuta a `Sleeping`; sueño avanza un tick por `step_tick`; vuelve a `Awake` al agotarse. Verif: `test_roars_near_and_last_roar`, `test_roar_is_heard_one_tick_only` (sim_tests) → ok.
+- AC5 PASS: fin de tick -1 vida y +1 edad a todas las vivas, despiertas y durmientes. Verif: `test_death_by_health_and_by_age`, `test_end_of_tick_min_health_no_panic` (sim_tests, world_tests) → ok.
+- AC6 PASS: determinismo: misma semilla, misma historia. Verif: `test_cli_annex_is_deterministic` con `--seed 7` → ok; `test_same_seed_same_history` (sim_tests) → ok.
+- AC7 PASS: cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario/archivo. Suite completa + clippy + fmt en verde.
+
+Cambios de ficheros:
+- `crates/instinct-core/src/world.rs`: añadir `CreatureState` enum; `Creature.state` reemplaza `sleep_turns`; `place_creature` inicializa `state: CreatureState::Awake`; `apply_action_result` traduce `ActionResult.sleep_turns` a `CreatureState`.
+- `crates/instinct-core/src/interp.rs`: `CreatureTurnState.state: CreatureState` reemplaza `sleep_turns: u32`; `execute_turn` delega al estado (Sleeping salta y decrementa; Awake ejecuta).
+- `crates/instinct-core/src/sim.rs`: `step_tick` avanza estado de `Sleeping` sin ejecutar, ejecuta sólo `Awake`; `run_creature_turn` usa `creature.state`.
+- `crates/instinct-core/src/actions.rs`: `ActionResult.sleep_turns: i64` → `u32`; `Wait::apply` devuelve `n.max(1)` (sleep_turns = Sleeping(n)).
+- Tests actualizados: `interp_tests.rs`, `actions_tests.rs`, `sim_tests.rs` (programa de L en `test_roars_near_and_last_roar` usa `move(0,0,0)` como acción consumidora sin dormir).
+
+Desviaciones: `test_roars_near_and_last_roar` ajustado (L usa `move(0,0,0)` en lugar de `wait(1)` para evitar bucle infinito sin acción consumidora; E usa `wait(100)` para rugir una sola vez).
 Cambios de firma autorizados: `Creature` gana `state: CreatureState`; `execute_turn` lee/escrito a través del estado.

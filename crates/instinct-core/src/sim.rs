@@ -8,7 +8,7 @@
 use crate::event::{Event, Pos};
 use crate::interp::{execute_turn, CreatureTurnState};
 use crate::program::Program;
-use crate::world::{CreatureContext, CreatureId, World};
+use crate::world::{CreatureContext, CreatureId, CreatureState, World};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -52,9 +52,29 @@ impl Simulation {
         let mut ids: Vec<CreatureId> = self.world.creatures.iter().map(|c| c.id).collect();
         self.world.rng.borrow_mut().shuffle(&mut ids);
 
-        // 2. Run each creature's turn.
+        // 2. Run each creature's turn. Awake creatures execute; Sleeping
+        //    creatures have their sleep decremented without executing.
         for id in ids {
-            self.run_creature_turn(id);
+            let creature = match self.world.creatures.iter().find(|c| c.id == id) {
+                Some(c) => c.clone(),
+                None => continue, // died earlier this tick
+            };
+
+            match creature.state {
+                CreatureState::Awake => {
+                    self.run_creature_turn(id);
+                }
+                CreatureState::Sleeping(n) => {
+                    // Advance sleep by one tick without executing lines.
+                    if let Some(c) = self.world.creatures.iter_mut().find(|c| c.id == id) {
+                        c.state = if n == 1 {
+                            CreatureState::Awake
+                        } else {
+                            CreatureState::Sleeping(n - 1)
+                        };
+                    }
+                }
+            }
         }
 
         // 3. End of tick: creature deaths (-1 health, +1 age, death check).
@@ -99,7 +119,7 @@ impl Simulation {
 
         let mut state = CreatureTurnState {
             pc: creature.pc,
-            sleep_turns: creature.sleep_turns as u32,
+            state: creature.state.clone(),
             variables: Rc::new(RefCell::new(creature.variables.clone())),
         };
 
@@ -116,7 +136,7 @@ impl Simulation {
             // Persist the updated turn state back to the creature.
             if let Some(c) = self.world.creatures.iter_mut().find(|c| c.id == id) {
                 c.pc = result.state.pc;
-                c.sleep_turns = result.state.sleep_turns as i64;
+                c.state = result.state.state.clone();
                 c.variables = state.variables.borrow().clone();
             } else {
                 return;
