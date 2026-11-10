@@ -20,3 +20,6 @@ profesores. La columna "confirmar con profesores" empieza vacía.
 | A11 | Errores por ausencia | Línea 1 | Línea de la clave faltante | |
 | A12 | Comentarios en `.te`, `.ob`, mapas | Solo línea completa en `.te` y `.ob`; ninguno en mapas | Comentarios al final de línea también | |
 | A13 | `move` con speed menor o igual que 0 | No se mueve, sin error | Error de ejecución | |
+| A14 | Rugidos propios en `roars_near`/`last_roar` | Excluidos por `creature_id` del emisor; una criatura no oye su propio rugido | Incluirlos si coinciden especie/posición | |
+| A15 | Empate en "más cercano" a misma distancia | Gana el primero del recorrido fijo (criaturas por id ascendente, objetos por filas/columnas ascendentes) | Orden aleatorio o por semilla | |
+| A16 | Casilla propia en conteos de cercanía | Fuera de todos los conteos y de "más cercanos" por simetría con `total_*` | Incluirla si hay aliado/enemigo/objeto en la casilla | |

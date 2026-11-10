@@ -8,8 +8,10 @@
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
 use crate::perception::{
-    Age, Faction, Health, Height, Lifespan, Perception, PerceptionCatalog, Random, ReserveHere,
-    Species, TerrainHere, Tick, TotalAllies, TotalCreatures, TotalEnemies, Vision, Width, X, Y,
+    Age, AlliesNear, AllyDist, AllyDx, AllyDy, EnemiesNear, EnemyDist, EnemyDx, EnemyDy, Faction,
+    Health, Height, LastRoar, Lifespan, ObjectDist, ObjectDx, ObjectDy, ObjectsNear, Perception,
+    PerceptionCatalog, Random, ReserveHere, RoarsNear, Species, TerrainHere, Tick, TotalAllies,
+    TotalCreatures, TotalEnemies, Vision, Width, X, Y,
 };
 use crate::value::Value;
 use crate::world::{CellContent, CreatureId, World};
@@ -303,6 +305,20 @@ impl Default for Catalog {
         let _ = c.register_perception(Box::new(TotalCreatures));
         let _ = c.register_perception(Box::new(TotalAllies));
         let _ = c.register_perception(Box::new(TotalEnemies));
+        let _ = c.register_perception(Box::new(AlliesNear));
+        let _ = c.register_perception(Box::new(EnemiesNear));
+        let _ = c.register_perception(Box::new(ObjectsNear));
+        let _ = c.register_perception(Box::new(EnemyDist));
+        let _ = c.register_perception(Box::new(EnemyDx));
+        let _ = c.register_perception(Box::new(EnemyDy));
+        let _ = c.register_perception(Box::new(AllyDist));
+        let _ = c.register_perception(Box::new(AllyDx));
+        let _ = c.register_perception(Box::new(AllyDy));
+        let _ = c.register_perception(Box::new(ObjectDist));
+        let _ = c.register_perception(Box::new(ObjectDx));
+        let _ = c.register_perception(Box::new(ObjectDy));
+        let _ = c.register_perception(Box::new(RoarsNear));
+        let _ = c.register_perception(Box::new(LastRoar));
         c
     }
 }
@@ -775,7 +791,7 @@ impl Action for Roar {
         let pos = world.creature_position(creature_id)?;
         let species = world.creature_species(creature_id)?;
         let tick = world.tick();
-        world.add_roar(species.clone(), pos, text.clone());
+        world.add_roar(creature_id, species.clone(), pos, text.clone());
         Ok(ActionResult {
             sleep_turns: 0,
             events: vec![Event::Roared {

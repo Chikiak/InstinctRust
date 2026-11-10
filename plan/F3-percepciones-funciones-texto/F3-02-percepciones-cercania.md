@@ -2,7 +2,7 @@
 id: F3-02
 title: Percepciones de cercanía, más cercano estable y rugidos
 phase: F3
-status: todo
+status: done
 depends_on: [F3-01]
 size: L
 ---
@@ -162,5 +162,32 @@ un tick.
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, nombres reales creados (para que F3-03 los cite),
-hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+
+Rama: feat/f3-02-percepciones-cercania (sobre develop). Commit pendiente.
+
+Evidencia AC por AC:
+- AC1 PASS: `test_near_counts_exclude_own_cell` en `tests/perception_tests.rs` — `allies_near`/`enemies_near`/`objects_near` excluyen la casilla propia. `cargo test -p instinct-core --test perception_tests` verde.
+- AC2 PASS: `test_vision_radius_is_chebyshev` en `tests/world_tests.rs` — 8 vecinas a distancia 1, casilla a distancia == vision entra, vision+1 queda fuera. `cargo test -p instinct-core --test world_tests` verde.
+- AC3 PASS: `test_nearest_target_reports_direction` y `test_nearest_target_none_visible` en `tests/perception_tests.rs` — `*_dist` devuelve -1 y direcciones 0 cuando no hay objetivo; dx/dy en {-1,0,1} cuando lo hay. `cargo test -p instinct-core --test perception_tests` verde.
+- AC4 PASS: `test_nearest_tie_break_is_stable` en `tests/world_tests.rs` — empate resuelto por primer candidato del recorrido fijo; estable entre lecturas. `cargo test -p instinct-core --test world_tests` verde.
+- AC5 PASS: `test_roars_near_and_last_roar` en `tests/sim_tests.rs` — `roars_near` cuenta rugidos ajenos, `last_roar` devuelve texto del último. `cargo test -p instinct-core --test sim_tests` verde.
+- AC6 PASS: `test_roar_is_heard_one_tick_only` en `tests/sim_tests.rs` — rugido en tick N se lee en N+1, no en N+2; propio excluido por `creature_id`. `cargo test -p instinct-core --test sim_tests` verde.
+- AC7 PASS: `test_default_catalogs_resolve_all_31_perceptions` en `tests/perception_tests.rs` — las 31 percepciones resuelven en ambos catálogos por defecto. `cargo test -p instinct-core --test perception_tests` verde.
+- AC8 PASS: `test_near_perceptions_are_deterministic` en `tests/sim_tests.rs` — misma semilla, misma historia de dichos. `cargo test -p instinct-core --test sim_tests` verde.
+- AC9 PASS: filas A14, A15, A16 anotadas en `docs/ambiguedades.md`.
+- AC10 PASS: `cargo test --workspace` (284 tests ok), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0), `cargo fmt --all --check` (exit 0).
+
+Cambios de firma autorizados aplicados (según PHASE.md#cambios-de-firma):
+- `CreatureView`: añade `nearby(&self) -> Nearby`. Propagado a `FixedView` (pruebas de src/perception.rs), `EmptyView` (tests/perception_tests.rs) y `CreatureSnapshot` (world.rs).
+- `Roar` y `add_roar`: añaden `creature_id: CreatureId`. Propagado a `Roar::apply` (actions.rs) y a la prueba `test_roar_rotates_to_previous_tick` (tests/sim_tests.rs).
+- No se tocó `expr::parse` ni `EvalContext` (quedan para F3-03). `World::set_variable` no se cambió (funciones y constantes no existen aún; F3-03 las añade).
+
+Nuevos tipos en `perception.rs`: `Nearest` (`dist`, `dx`, `dy`), `Nearby` (`allies`, `enemies`, `objects`, `ally`, `enemy`, `object`, `roars`, `last_roar`), y 14 percepciones (`AlliesNear`, `EnemiesNear`, `ObjectsNear`, `EnemyDist`, `EnemyDx`, `EnemyDy`, `AllyDist`, `AllyDx`, `AllyDy`, `ObjectDist`, `ObjectDx`, `ObjectDy`, `RoarsNear`, `LastRoar`). Registro doble en `PerceptionCatalog::default()` y `Catalog::default()`.
+
+Cálculo de `Nearby` en `World::nearby()` (world.rs): un solo recorrido — criaturas por id ascendente, rejilla por filas/columnas ascendentes para objetos, rugidos de `roars_previous` en orden del vector. Distancia de Chebyshev; radio <= vision; casilla propia excluida; `dx`/`dy` normalizados con `signum()`.
+
+Pruebas existentes ajustadas: `EmptyView` en `tests/perception_tests.rs` implementa `nearby()`; `add_roar` llamada en `tests/sim_tests.rs` pasa `creature_id`. Ninguna aserción suavizada.
+
+Desviaciones: ninguna. Todo dentro del alcance de F3-02.
+
+Hechos para F3-03: `nearby` y `Nearby`/`Nearest` están listos para que `see`/`name` reutilicen el radio y las reglas de empate. `Roar` ya tiene `creature_id`.
