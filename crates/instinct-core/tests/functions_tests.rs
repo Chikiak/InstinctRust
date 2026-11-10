@@ -11,6 +11,8 @@ use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
 use instinct_core::value::Value;
 use instinct_core::world::{CellContent, World};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 fn grass_terrain() -> Terrain {
     Terrain {
@@ -133,7 +135,11 @@ fn see_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) -
         Catalog::default().functions(),
     )
     .expect("parse see");
-    let ctx = instinct_core::world::CreatureContext::new(world, id);
+    let ctx = instinct_core::world::CreatureContext::new(
+        world,
+        id,
+        Rc::new(RefCell::new(HashMap::new())),
+    );
     expr.eval(&ctx).expect("eval see")
 }
 
@@ -221,7 +227,11 @@ fn name_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) 
         Catalog::default().functions(),
     )
     .expect("parse name");
-    let ctx = instinct_core::world::CreatureContext::new(world, id);
+    let ctx = instinct_core::world::CreatureContext::new(
+        world,
+        id,
+        Rc::new(RefCell::new(HashMap::new())),
+    );
     expr.eval(&ctx).expect("eval name")
 }
 
@@ -252,7 +262,11 @@ fn test_constants_compare_with_see() {
         Catalog::default().functions(),
     )
     .expect("parse");
-    let ctx = instinct_core::world::CreatureContext::new(&world, id);
+    let ctx = instinct_core::world::CreatureContext::new(
+        &world,
+        id,
+        Rc::new(RefCell::new(HashMap::new())),
+    );
     assert_eq!(expr.eval(&ctx).unwrap(), Value::Int(1));
 
     // see(4, 2) == OBJECT -> 0

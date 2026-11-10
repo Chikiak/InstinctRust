@@ -9,6 +9,9 @@ use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
 use instinct_core::world::{CreatureContext, CreatureId, World};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 fn empty_world() -> World {
     let map = Map {
@@ -52,7 +55,7 @@ fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
 
 fn eval(world: &World, id: CreatureId, text: &str) -> Result<Value, String> {
     let expr = parse(text, 1, "test.ins", Catalog::default().functions()).expect("parse");
-    let ctx = CreatureContext::new(world, id);
+    let ctx = CreatureContext::new(world, id, Rc::new(RefCell::new(HashMap::new())));
     expr.eval(&ctx)
 }
 

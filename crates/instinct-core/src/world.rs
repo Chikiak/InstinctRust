@@ -15,6 +15,7 @@ use crate::species::Species;
 use crate::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Stable identifier of a creature. The world owns creatures by id, never by
 /// reference; actions receive an id, not a borrow of the creature.
@@ -1041,20 +1042,28 @@ impl CreatureView for CreatureSnapshot<'_> {
 
 /// Evaluation context for a single creature. Resolves perceptions first, then
 /// variables. Execution reads the world immutably; the world applies actions
-/// afterward. Holds a snapshot of the creature for function calls.
+/// afterward. Holds a snapshot of the creature for function calls and a handle
+/// to the turn-state variables so assignments made during the same turn are
+/// visible to subsequent expressions.
 pub struct CreatureContext<'a> {
     world: &'a World,
     creature_id: CreatureId,
     snapshot: CreatureSnapshot<'a>,
+    variables: Rc<RefCell<HashMap<String, Value>>>,
 }
 
 impl<'a> CreatureContext<'a> {
-    pub fn new(world: &'a World, creature_id: CreatureId) -> Self {
+    pub fn new(
+        world: &'a World,
+        creature_id: CreatureId,
+        variables: Rc<RefCell<HashMap<String, Value>>>,
+    ) -> Self {
         let snapshot = CreatureSnapshot { world, creature_id };
         CreatureContext {
             world,
             creature_id,
             snapshot,
+            variables,
         }
     }
 }
@@ -1069,7 +1078,13 @@ impl<'a> EvalContext for CreatureContext<'a> {
         if let Some(value) = self.world.catalog.resolve_constant(name) {
             return Some(Value::Int(value));
         }
-        self.world.variable(self.creature_id, name)
+        // Turn-state variables (assignments made this turn) shadow persisted
+        // variables stored on the creature in the world.
+        self.variables
+            .borrow()
+            .get(name)
+            .cloned()
+            .or_else(|| self.world.variable(self.creature_id, name))
     }
 
     fn view(&self) -> Option<&dyn CreatureView> {

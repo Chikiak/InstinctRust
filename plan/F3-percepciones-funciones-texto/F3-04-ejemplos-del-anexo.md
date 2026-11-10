@@ -2,7 +2,7 @@
 id: F3-04
 title: Los cuatro ejemplos del anexo
 phase: F3
-status: todo
+status: done
 depends_on: [F3-03]
 size: M
 ---
@@ -144,5 +144,32 @@ hasta que la prueba pase, o modificar la semántica del mundo.
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos, resultado de los escenarios y
-cualquier f detectado en F3-01 a F3-03. -->
+
+Commit: pendiente (rama feat/f3-04-ejemplos-anexo, sin push).
+
+Cambios de firma no autorizados en PHASE.md (corrección de integración de F3-03):
+- `CreatureContext::new(world, id)` → `CreatureContext::new(world, id, variables)` donde `variables: Rc<RefCell<HashMap<String, Value>>>` es el estado de turno. Propagado a `sim.rs::run_creature_turn` (pasa `state.variables.clone()`), `tests/perception_tests.rs::eval` y `tests/functions_tests.rs` (3 sitios, con `HashMap::new()` vacío). Razón: `CreatureContext::resolve` leía las variables del mundo (`c.variables`), que solo se persisten al final del turno, así que una asignación (`home_x = x`) no era visible para el resto del mismo turno, impidiendo que el Ent funcionara. El comentario de `CreatureTurnState` ya prescribía que el contexto de evaluación viera las asignaciones del mismo turno. No se cambió `CreatureView`, `expr::parse`, `EvalContext`, `Roar` ni `World::set_variable`.
+
+Nuevos archivos:
+- `examples/creatures/hobbit.ins`, `ent.ins`, `dwarf.ins`, `uruk.ins` — literales del anexo (§2.1 para Uruk), comentarios incluidos.
+- `crates/instinct-core/tests/annex_examples_tests.rs` — compilación y 4 escenarios por criatura.
+- `crates/instinct-cli/tests/cli_annex.rs` — E2E de terminal con las 4 especies y determinismo.
+
+Evidencia AC por AC:
+- AC1 PASS: `test_annex_creatures_compile` — los 4 archivos compilan sin diagnostics. `cargo test -p instinct-core --test annex_examples_tests` 5/5.
+- AC2 PASS: `test_hobbit_flees_and_speaks` — Hobbit dice "they are taking us to Isengard" y se aleja del enemigo (2,2)->(0,2, distancia 1->3). Mismo comando.
+- AC3 PASS: `test_ent_feeds_and_stays` — Ent consume 3 de su terreno (evento Damaged amount 3 en su casilla) y no se mueve (sigue en (2,2)). Mismo comando.
+- AC4 PASS: `test_dwarf_mines_adjacent_rock` — Enano mina roca adyacente (evento Damaged amount 20 en (1,0)) y la casilla queda libre al agotarse la reserva (20). Mismo comando.
+- AC5 PASS: `test_uruk_hunts_and_breeds` — Uruk consume al enemigo adyacente (daño 15, muere), se reproduce (cría debajo), y 30 ticks sin RuntimeError. Mismo comando.
+- AC6 PASS: `test_cli_runs_all_annex_examples` — `cargo test -p instinct-cli --test cli_annex` 2/2, exit 0, stderr vacío, las 4 especies presentes en tick 0.
+- AC7 PASS: `test_cli_annex_is_deterministic` — dos corridas misma semilla (7), stdout byte a byte idéntico. Mismo comando.
+- AC8 PASS: `cargo run -p instinct-cli -- check examples/creatures/{hobbit,ent,dwarf,uruk}.ins` → imprime `OK` y exit 0 para los 4.
+- AC9 PASS: `cargo test --workspace` (0 fallos), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0, sin warnings), `cargo fmt --all --check` (exit 0).
+
+Pruebas existentes ajustadas (propagación de la firma `CreatureContext::new`):
+- `crates/instinct-core/tests/perception_tests.rs::eval` — pasa `Rc::new(RefCell::new(HashMap::new()))`.
+- `crates/instinct-core/tests/functions_tests.rs` — 3 sitios pasan `Rc::new(RefCell::new(HashMap::new()))`.
+
+No hubo cambios de semántica del mundo, ni ajustes de semilla, ni cambios al contenido de los archivos respecto al anexo.
+
+Bug de F3-03 corregido: las variables asignadas durante un turno no eran visibles para expresiones posteriores del mismo turno (`resolve` leía solo `c.variables` del mundo). Ahora `resolve` consulta primero el estado de turno.
