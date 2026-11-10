@@ -3,6 +3,7 @@ use std::process::exit;
 
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
+use instinct_core::event::WorldOutput;
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources;
 use instinct_core::sim::Simulation;
@@ -64,6 +65,16 @@ struct Placement {
     species: String,
     x: usize,
     y: usize,
+}
+
+/// Puerto de salida del mundo para la CLI: imprime cada evento a stdout.
+/// Los diagnósticos de carga siguen yendo a stderr por caminos separados.
+struct CliOutput;
+
+impl WorldOutput for CliOutput {
+    fn emit(&mut self, event: &instinct_core::event::Event) {
+        println!("{event}");
+    }
 }
 
 fn main() {
@@ -199,6 +210,8 @@ fn execute_run(args: &RunArgs) -> i32 {
     // Create the simulation and seed its generator. El mundo ya es el único
     // dueño de los catálogos de terrenos y objetos.
     let mut sim = Simulation::new(world);
+    // Conecta el puerto de salida: los eventos van a stdout vía CliOutput.
+    sim.world.set_output(Box::new(CliOutput));
     sim.set_rng_seed(args.seed);
 
     let ticks = args.ticks;
@@ -215,13 +228,10 @@ fn execute_run(args: &RunArgs) -> i32 {
     }
 
     for _ in 0..ticks {
-        let events = sim.step_tick();
-
-        // Events from the tick that just ran (they carry the pre-increment
-        // tick number) are printed after that tick's map.
-        for event in &events {
-            println!("{event}");
-        }
+        // step_tick avanza el tick y los eventos se imprimen vía el puerto
+        // de salida (CliOutput). Se descarta el valor de retorno; la API
+        // sigue devolviendo Vec<Event> para compatibilidad.
+        let _ = sim.step_tick();
 
         let next_tick = sim.tick();
 

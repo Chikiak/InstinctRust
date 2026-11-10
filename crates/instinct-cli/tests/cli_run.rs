@@ -358,6 +358,46 @@ fn test_cli_e2e_roar_emits_event() {
 // AC5: determinismo — dos corridas misma semilla, salida byte a byte idéntica.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// AC4: eventos por stdout vía CliOutput, diagnósticos de carga por stderr.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cli_events_stdout_diagnostics_stderr() {
+    let root = examples_dir();
+    // DivZero tiene `n = 1 / 0` -> error de ejecución en el primer turno.
+    let (code, stdout, stderr) = run_cli(&[
+        "run",
+        "--root",
+        &root,
+        "--map",
+        "Plain with rocks",
+        "--seed",
+        "7",
+        "--ticks",
+        "1",
+        "--place",
+        "DivZero@0,0",
+    ]);
+    assert_eq!(code, 0, "exit code 0, stderr: {stderr}");
+    // El evento RuntimeError debe salir por stdout (vía CliOutput).
+    assert!(
+        stdout.contains("error en línea") || stdout.contains("division by zero"),
+        "stdout debe contener el evento RuntimeError, got:\n{stdout}"
+    );
+    // Ningún diagnóstico de carga debe salir por stdout.
+    assert!(
+        !stdout.contains("diagnostic") && !stdout.contains("error:"),
+        "stdout no debe contener diagnósticos de carga, got:\n{stdout}"
+    );
+    // Los diagnósticos de carga (si los hubiera) van por stderr.
+    // Para una corrida válida no hay diagnósticos de carga.
+}
+
+// ---------------------------------------------------------------------------
+// AC5: determinismo — dos corridas misma semilla, salida byte a byte idéntica.
+// ---------------------------------------------------------------------------
+
 #[test]
 fn test_cli_determinism_same_seed() {
     let root = examples_dir();
