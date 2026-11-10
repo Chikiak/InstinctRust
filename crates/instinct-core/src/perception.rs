@@ -26,6 +26,27 @@ pub trait CreatureView: std::fmt::Debug {
     fn tick(&self) -> u64;
     /// A random integer between 0 and 99. May advance the generator.
     fn random(&self) -> i64;
+
+    /// Vision range of the creature's species (header attribute).
+    fn vision(&self) -> i64;
+    /// Name of the creature's species.
+    fn species_name(&self) -> &str;
+    /// Faction of the creature's species.
+    fn faction_name(&self) -> &str;
+    /// Name of the terrain under the creature.
+    fn terrain_here(&self) -> &str;
+    /// Current reserve of the terrain under the creature.
+    fn reserve_here(&self) -> i64;
+    /// Map width in columns.
+    fn width(&self) -> i64;
+    /// Map height in rows.
+    fn height(&self) -> i64;
+    /// Living creatures in the world except this one.
+    fn total_creatures(&self) -> i64;
+    /// Living allies (same faction) except this one.
+    fn total_allies(&self) -> i64;
+    /// Living enemies (other faction).
+    fn total_enemies(&self) -> i64;
 }
 
 /// Trait every perception type implements.
@@ -150,6 +171,166 @@ impl Perception for Random {
     }
 }
 
+/// Vision range of the creature's species.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Vision;
+
+impl Perception for Vision {
+    fn name(&self) -> &str {
+        "vision"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.vision())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Name of the creature's species.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Species;
+
+impl Perception for Species {
+    fn name(&self) -> &str {
+        "species"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Text(view.species_name().to_string())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Faction of the creature's species.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Faction;
+
+impl Perception for Faction {
+    fn name(&self) -> &str {
+        "faction"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Text(view.faction_name().to_string())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Name of the terrain under the creature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TerrainHere;
+
+impl Perception for TerrainHere {
+    fn name(&self) -> &str {
+        "terrain_here"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Text(view.terrain_here().to_string())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Current reserve of the terrain under the creature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReserveHere;
+
+impl Perception for ReserveHere {
+    fn name(&self) -> &str {
+        "reserve_here"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.reserve_here())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Map width in columns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Width;
+
+impl Perception for Width {
+    fn name(&self) -> &str {
+        "width"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.width())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Map height in rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Height;
+
+impl Perception for Height {
+    fn name(&self) -> &str {
+        "height"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.height())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Living creatures in the world except this one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TotalCreatures;
+
+impl Perception for TotalCreatures {
+    fn name(&self) -> &str {
+        "total_creatures"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.total_creatures())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Living allies (same faction) except this one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TotalAllies;
+
+impl Perception for TotalAllies {
+    fn name(&self) -> &str {
+        "total_allies"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.total_allies())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
+/// Living enemies (other faction).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TotalEnemies;
+
+impl Perception for TotalEnemies {
+    fn name(&self) -> &str {
+        "total_enemies"
+    }
+    fn read(&self, view: &dyn CreatureView) -> Value {
+        Value::Int(view.total_enemies())
+    }
+    fn clone_box(&self) -> Box<dyn Perception> {
+        Box::new(*self)
+    }
+}
+
 /// Catalog of perceptions by name. Resolves a perception name without arity
 /// validation (perceptions take no arguments).
 #[derive(Debug)]
@@ -214,6 +395,16 @@ impl Default for PerceptionCatalog {
         let _ = c.register(Box::new(Y));
         let _ = c.register(Box::new(Tick));
         let _ = c.register(Box::new(Random));
+        let _ = c.register(Box::new(Vision));
+        let _ = c.register(Box::new(Species));
+        let _ = c.register(Box::new(Faction));
+        let _ = c.register(Box::new(TerrainHere));
+        let _ = c.register(Box::new(ReserveHere));
+        let _ = c.register(Box::new(Width));
+        let _ = c.register(Box::new(Height));
+        let _ = c.register(Box::new(TotalCreatures));
+        let _ = c.register(Box::new(TotalAllies));
+        let _ = c.register(Box::new(TotalEnemies));
         c
     }
 }
@@ -246,6 +437,36 @@ mod tests {
         }
         fn random(&self) -> i64 {
             5
+        }
+        fn vision(&self) -> i64 {
+            1
+        }
+        fn species_name(&self) -> &str {
+            "Fixed"
+        }
+        fn faction_name(&self) -> &str {
+            "Neutral"
+        }
+        fn terrain_here(&self) -> &str {
+            "Grass"
+        }
+        fn reserve_here(&self) -> i64 {
+            42
+        }
+        fn width(&self) -> i64 {
+            10
+        }
+        fn height(&self) -> i64 {
+            10
+        }
+        fn total_creatures(&self) -> i64 {
+            3
+        }
+        fn total_allies(&self) -> i64 {
+            1
+        }
+        fn total_enemies(&self) -> i64 {
+            2
         }
     }
 

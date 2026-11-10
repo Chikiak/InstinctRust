@@ -72,6 +72,37 @@ fn species_no_program(name: &str, health: i64, lifespan: i64) -> Species {
     }
 }
 
+/// Compila un `.ins` con la facción indicada y devuelve la `Species` con su
+/// programa. Sirve para probar percepciones que leen el mundo (facción, totales).
+fn species_with_program_and_faction(
+    name: &str,
+    faction: &str,
+    health: i64,
+    lifespan: i64,
+    body: &str,
+) -> Species {
+    let cat = Catalog::default();
+    let pc = PerceptionCatalog::default();
+    let text = format!(
+        "creature {name}\nfaction {faction}\nhealth {health}\nvision 3\nlifespan {lifespan}\nstart:\n{body}"
+    );
+    let result = compile::compile(&text, &cat, &pc, "test.ins");
+    assert!(
+        result.diagnostics.is_empty(),
+        "compile failed: {:?}",
+        result.diagnostics
+    );
+    let header = result.header.expect("header");
+    Species::with_program(
+        header.species_name,
+        header.faction,
+        header.health,
+        header.vision,
+        header.lifespan,
+        Rc::new(result.program),
+    )
+}
+
 fn build_world(map: &Map, terrains: &[Terrain], objects: &[Object]) -> World {
     let world = World::from_map(map, terrains, objects);
     assert!(world.diagnostics.is_empty(), "{:?}", world.diagnostics);
@@ -436,4 +467,157 @@ fn test_roar_rotates_to_previous_tick() {
         "sin rugidos del tick anterior"
     );
     assert!(sim.world.roars_current.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// AC6: una criatura compilada lee percepciones propias y del mundo y las dice
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_simulation_reads_self_and_world_perceptions() {
+    // X (facción A) dice su especie, su facción y cuántos enemigos ve.
+    // Dos criaturas de la facción B la rodean: total_enemies debe ser 2.
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp_x = species_with_program_and_faction(
+        "X",
+        "A",
+        100,
+        1000,
+        "say(species)\nsay(faction)\nsay(total_enemies)\nwait(1)\ngoto start\n",
+    );
+    let _id_x = world.place_creature(sp_x, 0, 0).expect("place X");
+    let sp_b = species_no_program("B", 100, 1000);
+    let _id_b1 = world.place_creature(sp_b.clone(), 1, 0).expect("place B 1");
+    let _id_b2 = world.place_creature(sp_b, 2, 0).expect("place B 2");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(7);
+    let events = sim.step_tick();
+
+    let said: Vec<&String> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Said { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        said.iter().any(|t| **t == "X"),
+        "dice su especie, got: {said:?}"
+    );
+    assert!(
+        said.iter().any(|t| **t == "A"),
+        "dice su facción, got: {said:?}"
+    );
+    assert!(
+        said.iter().any(|t| **t == "2"),
+        "dice total_enemies (2), got: {said:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC7: semántica de texto de punta a punta
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_text_semantics_kill_on_type_error() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+
+    // T: compara textos -> 1 y 0, sobrevive.
+    let sp_t = species_with_program_and_faction(
+        "T",
+        "A",
+        100,
+        1000,
+        "say(\"hola\" == \"hola\")\nsay(\"hola\" == \"mundo\")\nwait(1)\ngoto start\n",
+    );
+    let _id_t = world.place_creature(sp_t, 0, 1).expect("place T");
+
+    // D1: texto donde espera un entero (argumento de acción) -> muere en la línea 2.
+    let sp_d1 =
+        species_with_program_and_faction("D1", "A", 100, 1000, "wait(\"hola\")\ngoto start\n");
+    let _id_d1 = world.place_creature(sp_d1, 1, 1).expect("place D1");
+
+    // D2: texto + entero en aritmética -> muere en la línea 2.
+    let sp_d2 =
+        species_with_program_and_faction("D2", "A", 100, 1000, "say(1 + \"a\")\ngoto start\n");
+    let _id_d2 = world.place_creature(sp_d2, 2, 1).expect("place D2");
+
+    // D3: texto en comparación de orden -> muere en la línea 2.
+    let sp_d3 = species_with_program_and_faction(
+        "D3",
+        "A",
+        100,
+        1000,
+        "if \"a\" < 5 goto start\ngoto start\n",
+    );
+    let _id_d3 = world.place_creature(sp_d3, 3, 1).expect("place D3");
+
+    // D4: texto como argumento numérico de move -> muere en la línea 2.
+    let sp_d4 =
+        species_with_program_and_faction("D4", "A", 100, 1000, "move(\"a\", 0, 1)\ngoto start\n");
+    let _id_d4 = world.place_creature(sp_d4, 4, 1).expect("place D4");
+
+    // S: say(42) muestra el número como texto y sobrevive.
+    let sp_s =
+        species_with_program_and_faction("S", "A", 100, 1000, "say(42)\nwait(1)\ngoto start\n");
+    let _id_s = world.place_creature(sp_s, 0, 0).expect("place S");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(11);
+    let events = sim.step_tick();
+
+    // T dice "1" y "0": comparar dos textos da 1 o 0.
+    let said: Vec<&String> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Said { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        said.iter().any(|t| **t == "1"),
+        "texto == texto da 1, got: {said:?}"
+    );
+    assert!(
+        said.iter().any(|t| **t == "0"),
+        "texto != texto da 0, got: {said:?}"
+    );
+    assert!(
+        said.iter().any(|t| **t == "42"),
+        "say muestra el número como texto, got: {said:?}"
+    );
+
+    // D1..D4 mueren por error de ejecución con su línea.
+    let errors: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::RuntimeError { .. }))
+        .collect();
+    assert_eq!(
+        errors.len(),
+        4,
+        "cuatro errores de ejecución, got: {errors:?}"
+    );
+    for err in &errors {
+        if let Event::RuntimeError { line, .. } = err {
+            // Cuerpo: 6 líneas de cabecera + `start:` -> primera línea del
+            // cuerpo es la 7.
+            assert_eq!(*line, 7, "el error nombra su línea: {err:?}");
+        }
+    }
+
+    let died: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::Died { cause, .. } if cause == "error"))
+        .collect();
+    assert_eq!(died.len(), 4, "cuatro muertes por error, got: {died:?}");
+    for id in [_id_d1, _id_d2, _id_d3, _id_d4] {
+        assert!(
+            sim.world.creatures.iter().all(|c| c.id != id),
+            "{id:?} debe estar muerta"
+        );
+    }
+    // T y S siguen vivas.
+    assert!(sim.world.creatures.iter().any(|c| c.species.name == "T"));
+    assert!(sim.world.creatures.iter().any(|c| c.species.name == "S"));
 }

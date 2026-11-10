@@ -533,6 +533,36 @@ fn test_multiple_errors_ordered_by_line_with_header_and_body() {
 }
 
 // ---------------------------------------------------------------------------
+// AC8: asignar a cualquiera de los diez nombres nuevos es error de compilación
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_compile_rejects_assignment_to_new_perceptions() {
+    for name in [
+        "vision",
+        "species",
+        "faction",
+        "terrain_here",
+        "reserve_here",
+        "width",
+        "height",
+        "total_creatures",
+        "total_allies",
+        "total_enemies",
+    ] {
+        let (diags, _) = compile_src(&format!(
+            "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\n{name} = 5\n"
+        ));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains(name) && d.message.contains("perception")),
+            "assigning to {name} should be rejected as a perception, got: {diags:?}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // P7 (resto): determinismo de la tabla de etiquetas (A4)
 // ---------------------------------------------------------------------------
 
