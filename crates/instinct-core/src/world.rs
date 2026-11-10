@@ -6,7 +6,7 @@
 
 use crate::actions::{ActionResult, Catalog};
 use crate::diagnostic::Diagnostic;
-use crate::event::{Event, Pos};
+use crate::event::{Event, Pos, WorldOutput};
 use crate::expr::EvalContext;
 use crate::perception::{CreatureView, Nearby, Nearest};
 use crate::resources::{Map, Object, Terrain};
@@ -69,7 +69,9 @@ pub struct Creature {
 }
 
 /// The world: terrain grid, objects, creatures, tick counter, and event log.
-#[derive(Debug, Clone)]
+///
+/// `output` (puerto de salida) se excluye de `Clone` y se omite de `Debug`
+/// porque `Box<dyn WorldOutput>` no implementa esos traits.
 pub struct World {
     pub map_name: String,
     pub columns: usize,
@@ -102,6 +104,10 @@ pub struct World {
     /// Rugidos del tick anterior; legibles durante el tick actual (prepara
     /// `roars_near`/`last_roar` de F2).
     pub roars_previous: Vec<Roar>,
+    /// Puerto de salida opcional. Los eventos emitidos por `emit_event` se
+    /// reenvían aquí además de guardarse en `self.events`. `None` por defecto:
+    /// el mundo funciona igual que antes sin consumidor de eventos.
+    pub output: Option<Box<dyn WorldOutput>>,
 }
 
 impl World {
@@ -134,6 +140,7 @@ impl World {
                 rng: RefCell::new(Rng::new(0)),
                 roars_current: Vec::new(),
                 roars_previous: Vec::new(),
+                output: None,
             };
         }
 
@@ -193,6 +200,7 @@ impl World {
             rng: RefCell::new(Rng::new(0)),
             roars_current: Vec::new(),
             roars_previous: Vec::new(),
+            output: None,
         }
     }
 
@@ -357,6 +365,14 @@ impl World {
         self.rng.replace(Rng::new(seed));
     }
 
+    /// Conecta un puerto de salida al mundo. Los eventos emitidos por
+    /// `emit_event` se reenvían al puerto además de guardarse en `self.events`.
+    /// El puerto es opcional: si no se conecta nada, el mundo funciona como
+    /// antes. Nunca se propaga un error del puerto al tick.
+    pub fn set_output(&mut self, output: Box<dyn WorldOutput>) {
+        self.output = Some(output);
+    }
+
     /// Returns the current tick count.
     pub fn tick(&self) -> u64 {
         self.ticks
@@ -367,8 +383,15 @@ impl World {
         self.ticks += 1;
     }
 
-    /// Appends an event to the world's event log.
+    /// Appends an event to the world's event log and forwards it to the
+    /// output port if one is connected. A failure in the port never aborts
+    /// the tick.
     pub fn emit_event(&mut self, event: Event) {
+        // Reenvía al puerto antes de almacenar: el puerto toma prestada una
+        // referencia al evento, luego el evento se mueve al log.
+        if let Some(output) = self.output.as_mut() {
+            output.emit(&event);
+        }
         self.events.push(event);
     }
 
@@ -838,6 +861,55 @@ impl World {
             output.push('\n');
         }
         Ok(output)
+    }
+}
+
+impl Clone for World {
+    fn clone(&self) -> Self {
+        World {
+            map_name: self.map_name.clone(),
+            columns: self.columns,
+            rows: self.rows,
+            terrain: self.terrain.clone(),
+            terrains: self.terrains.clone(),
+            objects: self.objects.clone(),
+            content: self.content.clone(),
+            creatures: self.creatures.clone(),
+            next_creature_id: self.next_creature_id,
+            ticks: self.ticks,
+            events: self.events.clone(),
+            diagnostics: self.diagnostics.clone(),
+            catalog: self.catalog.clone(),
+            rng: RefCell::new(self.rng.borrow().clone()),
+            roars_current: self.roars_current.clone(),
+            roars_previous: self.roars_previous.clone(),
+            // El puerto de salida no se clona: el clonado empieza sin puerto.
+            output: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for World {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("World")
+            .field("map_name", &self.map_name)
+            .field("columns", &self.columns)
+            .field("rows", &self.rows)
+            .field("terrain", &self.terrain)
+            .field("terrains", &self.terrains)
+            .field("objects", &self.objects)
+            .field("content", &self.content)
+            .field("creatures", &self.creatures)
+            .field("next_creature_id", &self.next_creature_id)
+            .field("ticks", &self.ticks)
+            .field("events", &self.events)
+            .field("diagnostics", &self.diagnostics)
+            .field("catalog", &self.catalog)
+            .field("rng", &self.rng)
+            .field("roars_current", &self.roars_current)
+            .field("roars_previous", &self.roars_previous)
+            .field("output", &self.output.is_some())
+            .finish()
     }
 }
 

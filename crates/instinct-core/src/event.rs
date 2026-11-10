@@ -57,6 +57,15 @@ pub enum Event {
     },
 }
 
+/// Puerto de salida del mundo: consume eventos del bus sin que el núcleo sepa
+/// quién los imprime (CLI, mañana la GUI). Un puerto que falle al emitir no
+/// aborta el tick; el bus ignora el error del consumidor.
+pub trait WorldOutput {
+    /// Recibe un evento del bus del mundo. Implementadores típicos lo
+    /// imprimen, lo almacenan o lo envían a una ventana.
+    fn emit(&mut self, event: &Event);
+}
+
 impl std::fmt::Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

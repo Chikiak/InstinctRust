@@ -3,14 +3,30 @@
 
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
+use instinct_core::event::{Event, WorldOutput};
 use instinct_core::expr::LiteralInt;
 use instinct_core::interp::{execute_turn, CreatureTurnState, PendingAction};
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::program::{Line, Program};
+use instinct_core::resources::{Map, Terrain};
+use instinct_core::sim::Simulation;
+use instinct_core::species::Species;
 use instinct_core::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+/// Comparte un Vec de eventos entre el puerto de salida y el test mediante
+/// Rc<RefCell>, para poder comprobar que el puerto recibió el evento.
+struct SharedOutput {
+    events: std::rc::Rc<std::cell::RefCell<Vec<Event>>>,
+}
+
+impl WorldOutput for SharedOutput {
+    fn emit(&mut self, event: &Event) {
+        self.events.borrow_mut().push(event.clone());
+    }
+}
 
 /// Compiles a minimal `.ins` body (header + start:) with the given body lines.
 fn compile_body(body: &str) -> (Program, Catalog) {
@@ -653,4 +669,103 @@ fn test_arithmetic_extremes_are_runtime_errors() {
         "negación de i64::MIN: {:?}",
         d.message
     );
+}
+
+// ---------------------------------------------------------------------------
+// AC3: I6 - error de ejecución del intérprete produce RuntimeError en el bus
+// ---------------------------------------------------------------------------
+
+fn species_with_div_zero_program() -> Species {
+    let cat = Catalog::default();
+    let pc = PerceptionCatalog::default();
+    let text =
+        "creature DivZero\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nn = 1 / 0\n";
+    let result = compile::compile(text, &cat, &pc, "test.ins");
+    assert!(
+        result.diagnostics.is_empty(),
+        "compile failed: {:?}",
+        result.diagnostics
+    );
+    let header = result.header.expect("header");
+    Species::with_program(
+        header.species_name,
+        header.faction,
+        header.health,
+        header.vision,
+        header.lifespan,
+        Rc::new(result.program),
+    )
+}
+
+#[test]
+fn test_interpreter_emits_runtime_error_to_bus() {
+    use instinct_core::world::World;
+
+    let map = Map {
+        name: "test".to_string(),
+        rows: vec![vec!['.'; 5], vec!['.'; 5]],
+    };
+    let terrains = vec![Terrain {
+        name: "Grass".to_string(),
+        character: '.',
+        resource_max: 100,
+        regen: 1,
+        reserve: 100,
+    }];
+    let objects = vec![];
+
+    let captured = Rc::new(RefCell::new(Vec::<Event>::new()));
+    let captured_clone = Rc::clone(&captured);
+
+    let mut world = World::from_map(&map, &terrains, &objects);
+    world.set_output(Box::new(SharedOutput {
+        events: captured_clone,
+    }));
+
+    let species = species_with_div_zero_program();
+    let id = world.place_creature(species, 0, 0).expect("place creature");
+
+    // Verifica que la criatura está viva antes de crear la simulación.
+    assert!(world.creatures.iter().any(|c| c.id == id));
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(42);
+
+    // El primer tick ejecuta `n = 1 / 0`, lo que mata a la criatura con
+    // RuntimeError en el bus.
+    let _events = sim.step_tick();
+
+    let captured_events = captured.borrow().clone();
+    assert!(
+        captured_events
+            .iter()
+            .any(|e| matches!(e, Event::RuntimeError { .. })),
+        "se esperaba un RuntimeError en el bus, se obtuvieron: {captured_events:?}"
+    );
+
+    // El RuntimeError debe llevar tick, especie, posición, mensaje y línea.
+    let runtime_errors: Vec<&Event> = captured_events
+        .iter()
+        .filter(|e| matches!(e, Event::RuntimeError { .. }))
+        .collect();
+    assert!(!runtime_errors.is_empty());
+    match &runtime_errors[0] {
+        Event::RuntimeError {
+            tick,
+            species,
+            pos,
+            message,
+            line,
+        } => {
+            assert_eq!(*tick, 0, "tick del RuntimeError");
+            assert_eq!(species, "DivZero", "especie del RuntimeError");
+            assert_eq!(pos.x, 0, "posición x del RuntimeError");
+            assert_eq!(pos.y, 0, "posición y del RuntimeError");
+            assert!(!message.is_empty(), "mensaje del RuntimeError no vacío");
+            assert_eq!(*line, 7, "línea del error: n = 1 / 0 está en la línea 7");
+        }
+        _ => unreachable!(),
+    };
+    // La criatura debe estar muerta.
+    assert!(sim.world.creatures.iter().all(|c| c.id != id));
 }

@@ -2,7 +2,7 @@
 id: F4-01
 title: Bus de eventos formal y puerto de salida del mundo
 phase: F4
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -112,5 +112,31 @@ Si el intérprete no puede emitir al bus sin romper la regla "el intérprete lee
 ### Notas de implementación
 
 Rama: feat/f4-01-bus-eventos-puerto-salida (sobre develop).
-Evidencia AC por AC: pendiente.
+Commit: 4dbdbd9 + changes below.
+
+Evidencia AC por AC:
+- AC1 (PASS): `pub trait WorldOutput { fn emit(&mut self, event: &Event); }` definido en `crates/instinct-core/src/event.rs`. `World` gana `output: Option<Box<dyn WorldOutput>>` con setter `set_output` en `crates/instinct-core/src/world.rs`. Verif: `cargo test --workspace` (8/8 en event_tests, 18/18 en interp_tests).
+- AC2 (PASS): `emit_event` empuja a `self.events` y reenvía al puerto si existe; `drain_events` sigue funcionando. Verif: `test_world_output_forwards_to_bus` (cargo test -p instinct-core --test event_tests) → ok.
+- AC3 (PASS): error de ejecución del intérprete (división por cero) produce `RuntimeError` en el bus con tick=0, especie="DivZero", pos=(0,0), mensaje no vacío, línea=7. Verif: `test_interpreter_emits_runtime_error_to_bus` (cargo test -p instinct-core --test interp_tests) → ok.
+- AC4 (PASS): `CliOutput: WorldOutput` en `crates/instinct-cli/src/main.rs` imprime eventos a stdout; diagnósticos de carga siguen a stderr. Verif: `test_cli_events_stdout_diagnostics_stderr` (cargo test -p instinct-cli --test cli_run) → ok.
+- AC5 (PASS): dos corridas con `--seed 7` sobre "Plain with rocks" dan stdout byte a byte idéntico (SHA256 igual). Verif: ejecución manual del binario dos veces + comparación de hash.
+- AC6 (PASS): cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario o archivo. Verif: revisión de código + clippy en verde.
+- AC7 (PASS): `cargo test --workspace` (278 tests ok), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0, sin warnings), `cargo fmt --all --check` (exit 0).
+
+Cambios de firma autorizados:
+- `World` gana `output: Option<Box<dyn WorldOutput>>` y `set_output(Box<dyn WorldOutput>)`.
+- `emit_event` ahora reenvía al puerto además de guardar en `self.events`.
+- `World` deja de derivar `Debug`/`Clone` automáticamente; implementaciones manuales que excluyen `output` de `Clone` y lo omite de `Debug`.
+- CLI: `step_tick()` retorno se descarta (los eventos ya se imprimen vía el puerto); `println!` bucle de eventos eliminado de `execute_run`.
+
+Archivos modificados:
+- `crates/instinct-core/src/event.rs`: añade trait `WorldOutput`.
+- `crates/instinct-core/src/world.rs`: campo `output`, setter `set_output`, `emit_event` reenvía al puerto, `Debug`/`Clone` manuales.
+- `crates/instinct-cli/src/main.rs`: `CliOutput`, `set_output` en `execute_run`, bucle `println!` de eventos eliminado.
+- `crates/instinct-core/tests/event_tests.rs`: añade `test_world_output_forwards_to_bus` + `SharedOutput`.
+- `crates/instinct-core/tests/interp_tests.rs`: añade `test_interpreter_emits_runtime_error_to_bus` + `SharedOutput` + `species_with_div_zero_program`.
+- `crates/instinct-cli/tests/cli_run.rs`: añade `test_cli_events_stdout_diagnostics_stderr`.
+- `examples/creatures/divzero.ins`: nueva criatura con `n = 1 / 0` para prueba de error de ejecución en CLI.
+
+Desviaciones: ninguna. El alcance y los criterios de aceptación se respetan sin cambios.
 Cambios de firma autorizados: `World` gana `set_output` / puerto opcional; `TurnResult` puede ganar eventos de runtime. Decláralos en el cierre.
