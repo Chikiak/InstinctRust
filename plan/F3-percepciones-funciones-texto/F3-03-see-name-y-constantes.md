@@ -2,7 +2,7 @@
 id: F3-03
 title: see y name con las cinco constantes
 phase: F3
-status: todo
+status: done
 depends_on: [F3-02]
 size: L
 ---
@@ -179,5 +179,28 @@ percepción → constante → variable, o suavizar una prueba existente para que
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, nombres reales creados (para que F3-04 los cite),
-hechos descubiertos que afectan a issues siguientes, deuda consciente. -->
+
+Commit: 400dd61 (rama feat/f3-03-see-name-constantes, sin push). `plan/.../NOCHE_F3.md` dejado sin trackear/commit (rascacho fuera de alcance).
+
+Evidencia AC por AC:
+- AC1 PASS: `test_see_returns_constant_per_content` (functions_tests) — GROUND/OBJECT/ALLY/ENEMY por contenido; casilla propia ALLY. `cargo test -p instinct-core --test functions_tests` 5/5.
+- AC2 PASS: `test_see_outside_radius_and_map` — NONE (-1) fuera de radio (radio antes que todo), OBJECT fuera del mapa dentro del radio. Mismo comando.
+- AC3 PASS: `test_name_returns_element_name` — especie/objeto/terreno y texto vacío fuera de radio/mapa. Mismo comando.
+- AC4 PASS: `test_constants_compare_with_see` — NONE -1, GROUND 0, OBJECT 1, ALLY 2, ENEMY 3; `see(4, 2) == GROUND` → 1. Mismo comando.
+- AC5 PASS: `test_compile_rejects_unknown_function`, `test_compile_rejects_wrong_arity` (1, 0 args) con archivo/línea y mensaje que nombra la función. `cargo test -p instinct-core --test compile_tests` 37/37.
+- AC6 PASS: `test_call_arguments_are_expressions` (expr_tests) — `Call` guarda función resuelta; argumentos expresiones arbitrarias (`see(1 + 0, 2)`); aridad 0/1/3 errores de parseo. `cargo test -p instinct-core --test expr_tests` 10/10.
+- AC7 PASS: `test_compile_rejects_assignment_to_function_and_constant` — see/name/NONE/GROUND/OBJECT/ALLY/ENEMY rechazados en compile y en `World::set_variable` (API). Mismo comando compile_tests.
+- AC8 PASS: `test_see_with_text_argument_kills_creature` (RuntimeError línea 7, causa error) y `test_creature_uses_see_and_name` (sin errores, criatura viva). `cargo test -p instinct-core --test sim_tests` 15/15.
+- AC9 PASS: `test_function_in_expression_reports_on_its_line` usa `bogus` (ahora `see` es válido) con línea; `perception_tests.rs::eval` pasa `Catalog::default().functions()` a `expr::parse`; `EmptyView` implementa `see`/`name`.
+- AC10 PASS: `cargo test --workspace` todo verde; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0.
+
+Firmas cambiadas (autorizadas en PHASE.md#cambios-de-firma, propagadas en el mismo cambio):
+- `expr::parse(text, line, file, functions: &FunctionCatalog)` — 3 sitios en compile.rs (if-goto, assign, args de acción) + tests/perception_tests.rs.
+- `EvalContext`: gana `view() -> Option<&dyn CreatureView>` (default None). `CreatureContext` guarda `CreatureSnapshot` y lo devuelve; `FakeContext::view()` → None.
+- `CreatureView`: +`see(x, y) -> i64`, +`name(x, y) -> &str`; propagado a `CreatureSnapshot` (world.rs), `FixedView` (pruebas de src/perception.rs), `EmptyView` (tests/perception_tests.rs).
+- `Catalog`: +`functions: FunctionCatalog`, `resolve_function`, `is_function_name`, `resolve_constant`, `is_constant_name`, `functions()`; `Catalog::default()` registra `see`, `name` y las 5 constantes (doble registro con `FunctionCatalog::default()`).
+- `World::set_variable` rechaza también funciones y constantes.
+
+Nuevos archivos: `crates/instinct-core/src/functions.rs` (trait `Function`, `FunctionCatalog`, `See`, `Name`, `arg_as_int`) y `crates/instinct-core/tests/functions_tests.rs`. Nodo `expr::Call` (función resuelta + argumentos). `compile.rs` gana `split_action_args` (comas de nivel superior, consciente de paréntesis y textos) para permitir llamadas anidadas como argumentos de acción (p. ej. `say(see(1, 0))`).
+
+Hechos para F3-04: `see`/`name` y constantes resuelven por catálogo sin cadenas de `if` por nombre; orden de resolución de nombres: percepción → constante → variable.

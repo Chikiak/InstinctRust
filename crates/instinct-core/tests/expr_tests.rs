@@ -2,15 +2,16 @@
 
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::expr::{parse, FakeContext};
+use instinct_core::functions::FunctionCatalog;
 use instinct_core::value::Value;
 
 fn eval(text: &str, ctx: &FakeContext) -> Result<Value, String> {
-    let expr = parse(text, 1, "test.ins").unwrap();
+    let expr = parse(text, 1, "test.ins", &FunctionCatalog::default()).unwrap();
     expr.eval(ctx)
 }
 
 fn eval_diagnostic(text: &str) -> Diagnostic {
-    match parse(text, 1, "test.ins") {
+    match parse(text, 1, "test.ins", &FunctionCatalog::default()) {
         Err(d) => d,
         Ok(_) => panic!("expected a parse error"),
     }
@@ -65,7 +66,7 @@ fn test_expr_logic_truthiness_and_short_circuit() {
     assert_eq!(eval("not 0", &ctx).unwrap(), Value::Int(1));
     assert_eq!(eval("not 1", &ctx).unwrap(), Value::Int(0));
     assert_eq!(eval("not \"\"", &ctx).unwrap(), Value::Int(1));
-    assert_eq!(eval("not \"x\"", &ctx).unwrap(), Value::Int(0));
+    assert_eq!(eval(r#"not "x""#, &ctx).unwrap(), Value::Int(0));
 
     // Short-circuit: the right side divides by zero but is never reached.
     assert_eq!(eval("0 and 1 / 0", &ctx).unwrap(), Value::Int(0));
@@ -122,7 +123,7 @@ fn test_expr_syntax_errors_report_line() {
     let d = eval_diagnostic("99999999999999999999999");
     assert_eq!(d.line, 1);
     assert!(d.message.contains("out of range"));
-    // function call is a compile error
+    // unknown function is a compile error
     let d = eval_diagnostic("foo(1, 2)");
     assert_eq!(d.line, 1);
     assert!(d.message.contains("unknown function"));
@@ -142,4 +143,46 @@ fn test_expr_names_resolve_through_context() {
     let err = eval("undefined_var", &ctx).unwrap_err();
     assert!(err.contains("unknown variable"));
     assert!(err.contains("undefined_var"));
+}
+
+// ---------------------------------------------------------------------------
+// AC6: Call node — arguments are arbitrary expressions, function resolved by catalog
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_call_arguments_are_expressions() {
+    // `see(1 + 0, 2)` — argument is a binary expression, resolves to see(1, 2)
+    let ctx = FakeContext::new();
+    let cat = FunctionCatalog::default();
+    let expr = parse("see(1 + 0, 2)", 1, "test.ins", &cat).unwrap();
+    // FakeContext has no view, so call should fail at runtime with "no creature view"
+    let err = expr.eval(&ctx).unwrap_err();
+    assert!(err.contains("no creature view"), "error: {err}");
+
+    // Wrong arity: see with 1 argument
+    let d = eval_diagnostic("see(1)");
+    assert_eq!(d.line, 1);
+    assert!(d.message.contains("see"));
+    assert!(d.message.contains("arguments"));
+
+    // Wrong arity: see with 3 arguments
+    let d = eval_diagnostic("see(1, 2, 3)");
+    assert_eq!(d.line, 1);
+    assert!(d.message.contains("see"));
+    assert!(d.message.contains("arguments"));
+
+    // No arguments: see()
+    let d = eval_diagnostic("see()");
+    assert_eq!(d.line, 1);
+    assert!(d.message.contains("see"));
+    assert!(d.message.contains("arguments"));
+}
+
+#[test]
+fn test_function_in_expression_reports_on_its_line() {
+    // `see` is now a valid function, so use an unknown function name.
+    let d = eval_diagnostic("bogus(1, 2)");
+    assert_eq!(d.line, 1);
+    assert!(d.message.contains("unknown function"));
+    assert!(d.message.contains("bogus"));
 }

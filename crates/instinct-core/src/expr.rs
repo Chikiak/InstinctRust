@@ -1,20 +1,30 @@
 //! Expressions: a hierarchy of nodes that evaluate themselves.
 //!
 //! The parser turns a line of expression text into a tree of nodes, each
-//! implementing [`Expr`]. A function call in an expression is a compile-time
-//! error ("unknown function"), since no functions exist in this phase.
+//! implementing [`Expr`]. A function call in an expression is resolved at
+//! compile time against the function catalog; the resolved function is stored
+//! in a [`Call`] node, so evaluation never compares names.
 
 use crate::diagnostic::Diagnostic;
+use crate::functions::{Function, FunctionCatalog};
 use crate::lexer::{lex, Token};
+use crate::perception::CreatureView;
 use crate::value::Value;
+use std::rc::Rc;
 
 /// A context that resolves names to values during evaluation.
 ///
-/// The real implementation (later phases) resolves against perceptions and
+/// The real implementation resolves against perceptions, constants, and
 /// variables; tests use a fake context backed by a map.
 pub trait EvalContext {
     /// Returns the value bound to `name`, or `None` if it is unknown.
     fn resolve(&self, name: &str) -> Option<Value>;
+    /// Returns the creature's read-only view, or `None` when this context has
+    /// no associated creature (e.g. test doubles). Functions need the view.
+    fn view(&self) -> Option<&dyn CreatureView> {
+        let _ = self;
+        None
+    }
 }
 
 /// An expression node that evaluates itself against a context.
@@ -82,6 +92,46 @@ impl Expr for Name {
     fn clone_box(&self) -> Box<dyn Expr> {
         Box::new(Name {
             name: self.name.clone(),
+        })
+    }
+}
+
+/// A resolved function call: the function is already resolved against the
+/// catalog (validating name and arity at compile time) and the arguments are
+/// expression nodes evaluated at runtime.
+#[derive(Debug)]
+pub struct Call {
+    /// The resolved function (looked up by name at compile time).
+    pub function: Rc<dyn Function>,
+    /// The argument expressions, evaluated left to right at call time.
+    pub args: Vec<Box<dyn Expr>>,
+}
+
+impl Clone for Call {
+    fn clone(&self) -> Self {
+        Call {
+            function: self.function.clone_box(),
+            args: self.args.iter().map(|a| a.clone_box()).collect(),
+        }
+    }
+}
+
+impl Expr for Call {
+    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
+        let view = ctx
+            .view()
+            .ok_or_else(|| format!("function '{}' has no creature view", self.function.name()))?;
+        let mut evaluated = Vec::with_capacity(self.args.len());
+        for arg in &self.args {
+            evaluated.push(arg.eval(ctx)?);
+        }
+        self.function.call(view, &evaluated)
+    }
+
+    fn clone_box(&self) -> Box<dyn Expr> {
+        Box::new(Call {
+            function: self.function.clone_box(),
+            args: self.args.iter().map(|a| a.clone_box()).collect(),
         })
     }
 }
@@ -196,6 +246,10 @@ impl EvalContext for FakeContext {
             .find(|(n, _)| n == name)
             .map(|(_, v)| v.clone())
     }
+
+    fn view(&self) -> Option<&dyn CreatureView> {
+        None
+    }
 }
 
 /// A parsing error with file, line, and message.
@@ -220,20 +274,27 @@ impl ParseError {
 ///
 /// Precedence (high to low): parentheses; unary `-` and `not`; `*` `/` `%`;
 /// `+` `-`; comparisons (left to right); `and`; `or`.
-struct Parser {
+struct Parser<'a> {
     tokens: Vec<crate::lexer::SpannedToken>,
     pos: usize,
     file: String,
     line: usize,
+    functions: &'a FunctionCatalog,
 }
 
-impl Parser {
-    fn new(tokens: Vec<crate::lexer::SpannedToken>, file: String, line: usize) -> Self {
+impl<'a> Parser<'a> {
+    fn new(
+        tokens: Vec<crate::lexer::SpannedToken>,
+        file: String,
+        line: usize,
+        functions: &'a FunctionCatalog,
+    ) -> Self {
         Parser {
             tokens,
             pos: 0,
             file,
             line,
+            functions,
         }
     }
 
@@ -441,15 +502,37 @@ impl Parser {
             }
             Token::Name(name) => {
                 // A name immediately followed by `(` is a function call,
-                // which is a compile-time error in this phase.
+                // resolved against the function catalog at compile time.
                 if self
                     .tokens
                     .get(self.pos + 1)
                     .map(|t| t.kind == Token::LParen)
                     == Some(true)
                 {
-                    self.advance();
-                    return self.error(format!("unknown function '{name}'"));
+                    self.advance(); // consume the name
+                    self.expect(Token::LParen)?;
+                    let mut args: Vec<Box<dyn Expr>> = Vec::new();
+                    if self
+                        .peek()
+                        .map(|t| t.kind != Token::RParen)
+                        .unwrap_or(false)
+                    {
+                        loop {
+                            args.push(self.parse_or()?);
+                            match self.peek() {
+                                Some(tok) if tok.kind == Token::Comma => {
+                                    self.advance();
+                                }
+                                _ => break,
+                            }
+                        }
+                    }
+                    self.expect(Token::RParen)?;
+                    let function = self
+                        .functions
+                        .resolve_function(&name, args.len())
+                        .map_err(|d| ParseError::new(self.file.clone(), self.line, d.message))?;
+                    return Ok(Box::new(Call { function, args }));
                 }
                 self.advance();
                 Ok(Box::new(Name { name }))
@@ -493,13 +576,19 @@ fn operator_text(token: &Token) -> String {
 /// Parses a single line of expression text.
 ///
 /// `line` is the source line number attributed to any syntax error, and
-/// `file` is the source file name.
-pub fn parse(text: &str, line: usize, file: &str) -> Result<Box<dyn Expr>, Diagnostic> {
+/// `file` is the source file name. `functions` is the function catalog used
+/// to resolve function calls and validate arity.
+pub fn parse(
+    text: &str,
+    line: usize,
+    file: &str,
+    functions: &FunctionCatalog,
+) -> Result<Box<dyn Expr>, Diagnostic> {
     let tokens = match lex(text, line, file) {
         Ok(tokens) => tokens,
         Err(err) => return Err(Diagnostic::from(err)),
     };
-    let parser = Parser::new(tokens, file.to_string(), line);
+    let parser = Parser::new(tokens, file.to_string(), line, functions);
     let captured_file = parser.file.clone();
     parser
         .parse_all()

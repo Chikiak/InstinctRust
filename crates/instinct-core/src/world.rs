@@ -325,18 +325,22 @@ impl World {
     }
 
     /// Assigns a variable on a creature. Rejects any name the catalog knows
-    /// as an action or a perception.
+    /// as an action, a perception, a function, or a constant.
     pub fn set_variable(
         &mut self,
         creature_id: CreatureId,
         name: &str,
         value: Value,
     ) -> Result<(), Diagnostic> {
-        if self.catalog.is_action_name(name) || self.catalog.is_perception_name(name) {
+        if self.catalog.is_action_name(name)
+            || self.catalog.is_perception_name(name)
+            || self.catalog.is_function_name(name)
+            || self.catalog.is_constant_name(name)
+        {
             return Err(Diagnostic::new(
                 "world",
                 1,
-                format!("cannot assign to '{name}': it is a reserved action or perception name"),
+                format!("cannot assign to '{name}': it is a reserved name"),
             ));
         }
         let creature = self.creature_mut(creature_id).ok_or_else(|| {
@@ -400,6 +404,30 @@ impl World {
             .and_then(|row| row.get(x))
             .and_then(|&t| self.terrains.get(t))
             .map(|t| t.name.as_str())
+    }
+
+    /// Nombre del objeto en la casilla `(x, y)`, o `None` si no hay objeto
+    /// o está fuera del mapa.
+    pub fn object_name_at(&self, x: usize, y: usize) -> Option<&str> {
+        self.content
+            .get(y)
+            .and_then(|row| row.get(x))
+            .and_then(|c| match c {
+                CellContent::Object(idx) => self.objects.get(*idx).map(|o| o.name.as_str()),
+                _ => None,
+            })
+    }
+
+    /// Identificador de la criatura en la casilla `(x, y)`, o `None` si no
+    /// hay criatura o está fuera del mapa.
+    pub fn creature_at(&self, x: usize, y: usize) -> Option<CreatureId> {
+        self.content
+            .get(y)
+            .and_then(|row| row.get(x))
+            .and_then(|c| match c {
+                CellContent::Creature(id) => Some(*id),
+                _ => None,
+            })
     }
 
     /// Reserva actual del terreno de la casilla `(x, y)`, leída del catálogo
@@ -933,19 +961,101 @@ impl CreatureView for CreatureSnapshot<'_> {
     fn nearby(&self) -> Nearby {
         self.world.nearby(self.creature_id)
     }
+
+    fn see(&self, x: i64, y: i64) -> i64 {
+        // Radius check first: Chebyshev distance from creature's cell.
+        let self_pos = match self.world.creature_position(self.creature_id) {
+            Ok(p) => p,
+            Err(_) => return -1, // NONE: unknown creature
+        };
+        let self_creature = match self.world.creature(self.creature_id) {
+            Some(c) => c,
+            None => return -1,
+        };
+        let dx = x - self_pos.x as i64;
+        let dy = y - self_pos.y as i64;
+        let dist = dx.abs().max(dy.abs());
+        if dist > self_creature.species.vision {
+            return -1; // NONE: out of radius
+        }
+
+        // Out of map: OBJECT (border is a wall).
+        if x < 0 || y < 0 || x >= self.world.columns as i64 || y >= self.world.rows as i64 {
+            return 1; // OBJECT
+        }
+        let x = x as usize;
+        let y = y as usize;
+
+        // Own cell contains a creature: ALLY.
+        match &self.world.content[y][x] {
+            CellContent::Creature(target_id) => {
+                let target = match self.world.creature(*target_id) {
+                    Some(c) => c,
+                    None => return 0,
+                };
+                if target.species.faction == self_creature.species.faction {
+                    2 // ALLY
+                } else {
+                    3 // ENEMY
+                }
+            }
+            CellContent::Object(_) => 1, // OBJECT
+            CellContent::Empty => 0,     // GROUND
+        }
+    }
+
+    fn name(&self, x: i64, y: i64) -> &str {
+        // Out of radius or out of map: empty text.
+        let self_pos = match self.world.creature_position(self.creature_id) {
+            Ok(p) => p,
+            Err(_) => return "",
+        };
+        let self_creature = match self.world.creature(self.creature_id) {
+            Some(c) => c,
+            None => return "",
+        };
+        let dx = x - self_pos.x as i64;
+        let dy = y - self_pos.y as i64;
+        let dist = dx.abs().max(dy.abs());
+        if dist > self_creature.species.vision {
+            return "";
+        }
+
+        if x < 0 || y < 0 || x >= self.world.columns as i64 || y >= self.world.rows as i64 {
+            return "";
+        }
+        let x = x as usize;
+        let y = y as usize;
+
+        match &self.world.content[y][x] {
+            CellContent::Creature(target_id) => self
+                .world
+                .creature(*target_id)
+                .map(|c| c.species.name.as_str())
+                .unwrap_or(""),
+            CellContent::Object(obj_idx) => self.world.objects[*obj_idx].name.as_str(),
+            CellContent::Empty => self.world.terrain_name_at(x, y).unwrap_or(""),
+        }
+    }
 }
 
 /// Evaluation context for a single creature. Resolves perceptions first, then
 /// variables. Execution reads the world immutably; the world applies actions
-/// afterward.
+/// afterward. Holds a snapshot of the creature for function calls.
 pub struct CreatureContext<'a> {
     world: &'a World,
     creature_id: CreatureId,
+    snapshot: CreatureSnapshot<'a>,
 }
 
 impl<'a> CreatureContext<'a> {
     pub fn new(world: &'a World, creature_id: CreatureId) -> Self {
-        CreatureContext { world, creature_id }
+        let snapshot = CreatureSnapshot { world, creature_id };
+        CreatureContext {
+            world,
+            creature_id,
+            snapshot,
+        }
     }
 }
 
@@ -953,12 +1063,16 @@ impl<'a> EvalContext for CreatureContext<'a> {
     fn resolve(&self, name: &str) -> Option<Value> {
         // Perceptions take priority over variables.
         if let Some(perception) = self.world.catalog.resolve_perception(name) {
-            let view = CreatureSnapshot {
-                world: self.world,
-                creature_id: self.creature_id,
-            };
-            return Some(perception.read(&view));
+            return Some(perception.read(&self.snapshot));
+        }
+        // Constants resolve next.
+        if let Some(value) = self.world.catalog.resolve_constant(name) {
+            return Some(Value::Int(value));
         }
         self.world.variable(self.creature_id, name)
+    }
+
+    fn view(&self) -> Option<&dyn CreatureView> {
+        Some(&self.snapshot)
     }
 }

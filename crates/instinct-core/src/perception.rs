@@ -51,6 +51,14 @@ pub trait CreatureView: std::fmt::Debug {
     /// Nearby creatures, objects, and roars within the creature's vision radius.
     /// Recalculated on every read; no caching.
     fn nearby(&self) -> Nearby;
+
+    /// Content constant for the cell at (x, y): -1 NONE out of radius,
+    /// 0 GROUND, 1 OBJECT, 2 ALLY, 3 ENEMY. Radius checked first.
+    fn see(&self, x: i64, y: i64) -> i64;
+
+    /// Name of the element at (x, y): species name, object name, terrain
+    /// name, or empty text out of radius/map.
+    fn name(&self, x: i64, y: i64) -> &str;
 }
 
 /// The nearest target of a given class: Chebyshev distance and normalized
@@ -779,6 +787,14 @@ mod tests {
 
         fn nearby(&self) -> Nearby {
             Nearby::empty()
+        }
+
+        fn see(&self, _x: i64, _y: i64) -> i64 {
+            0
+        }
+
+        fn name(&self, _x: i64, _y: i64) -> &str {
+            ""
         }
     }
 

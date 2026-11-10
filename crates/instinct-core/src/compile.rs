@@ -292,7 +292,7 @@ pub fn compile(
                 label: label.to_string(),
                 line: line_number,
             });
-            match expr::parse(expr_text, line_number, file) {
+            match expr::parse(expr_text, line_number, file, catalog.functions()) {
                 Ok(expr) => {
                     lines.push(Line::IfGoto {
                         expr,
@@ -531,6 +531,24 @@ fn parse_assignment(
         ));
         return None;
     }
+    // Function names cannot be assignment targets.
+    if catalog.is_function_name(name) {
+        diagnostics.push(Diagnostic::new(
+            file,
+            line,
+            format!("cannot assign to function '{name}'"),
+        ));
+        return None;
+    }
+    // Constant names cannot be assignment targets.
+    if catalog.is_constant_name(name) {
+        diagnostics.push(Diagnostic::new(
+            file,
+            line,
+            format!("cannot assign to constant '{name}'"),
+        ));
+        return None;
+    }
     let expr_text = body[eq_idx + 1..].trim();
     if expr_text.is_empty() {
         diagnostics.push(Diagnostic::new(
@@ -540,7 +558,7 @@ fn parse_assignment(
         ));
         return None;
     }
-    match expr::parse(expr_text, line, file) {
+    match expr::parse(expr_text, line, file, catalog.functions()) {
         Ok(expr) => Some(Line::Assign {
             name: name.to_string(),
             expr,
@@ -551,6 +569,40 @@ fn parse_assignment(
             None
         }
     }
+}
+
+/// Divide `args_text` en argumentos separados por comas de nivel superior.
+/// Las comas y paréntesis dentro de un texto (`"..."`) o de paréntesis
+/// anidados no rompen el argumento, así `say(see(1, 0))` es un solo
+/// argumento y su coma interna no se divide.
+fn split_action_args(args_text: &str) -> Vec<&str> {
+    let mut parts: Vec<&str> = Vec::new();
+    let mut depth = 0usize;
+    let mut in_text = false;
+    let mut start = 0;
+    let mut chars = args_text.char_indices().peekable();
+    while let Some((i, ch)) = chars.next() {
+        if in_text {
+            if ch == '\\' {
+                let _ = chars.next(); // escape: salta el siguiente carácter
+            } else if ch == '"' {
+                in_text = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_text = true,
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(&args_text[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&args_text[start..]);
+    parts
 }
 
 /// Outcome of parsing an action call line.
@@ -598,12 +650,12 @@ fn parse_action_call(
         Vec::new()
     } else {
         let mut args = Vec::new();
-        for a in args_text
-            .split(',')
+        for a in split_action_args(args_text)
+            .into_iter()
             .map(|a| a.trim())
             .filter(|a| !a.is_empty())
         {
-            match expr::parse(a, line, file) {
+            match expr::parse(a, line, file, catalog.functions()) {
                 Ok(expr) => args.push(expr),
                 Err(d) => {
                     // Propaga el error de parseo del argumento como diagnóstico
