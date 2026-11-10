@@ -4,7 +4,7 @@ title: Arquitectura y patrones de diseño
 status: todo
 master: ../MASTER.md
 fuentes: ../../docs/PATRONES_DISENO_ARQUITECTURA.md
-issues: pendientes de desglosar al abrir la fase
+issues: 8 desglosados en archivos propios (F4-01 a F4-08)
 ---
 
 # F4 · Arquitectura y patrones de diseño
@@ -26,8 +26,21 @@ qué motivación y a qué coste.
 - **F2 completada**: cero pánicos con entrada inválida, `Diagnostic` único con archivo y línea,
   contratos del lexer, parser, intérprete y mundo probados, catálogos con un solo dueño, CLI
   validada y con flujos separados.
-- **F3 completada**: percepciones completas, `see`/`name`, constantes y operaciones con texto; los
-  cuatro ejemplos del anexo corren.
+- **F3 completada**: percepciones completas (31 nombres), `see`/`name`, cinco constantes y
+  operaciones con texto; los cuatro ejemplos del anexo corren. Elementos nuevos de F3 que F4 debe
+  respetar y que ahora existen en el núcleo:
+  - `crates/instinct-core/src/functions.rs`: trait `Function` (`name`, `arity`, `call`,
+    `clone_box`), `FunctionCatalog`, funciones `See`/`Name`, constantes `NONE`/`GROUND`/`OBJECT`/
+    `ALLY`/`ENEMY` registradas en `Catalog`.
+  - Nodo `Call` en el AST (`expr.rs`) con `function: Rc<dyn Function>` y `args` ya resueltos en
+    compilación (sin comparación de nombres en evaluación).
+  - `EvalContext::view()` devuelve `Option<&dyn CreatureView>` para que las funciones lean la
+    vista de la criatura.
+  - `Roar` guarda `creature_id: CreatureId` (emisor); una criatura no se oye a sí misma.
+  - `CreatureView` con 17 accesores (los 7 originales de F2 + 10 de "sí misma/mundo" + `nearby` +
+    `see` + `name`).
+  - `Catalog` con `resolve_function`, `is_function_name`, `resolve_constant`, `is_constant_name`.
+  - Orden de resolución de nombres en expresión: percepción → constante → variable.
 - Los patrones que el documento marca como "ya aplicado" siguen aplicados: Composite sobre el AST,
   Command/Strategy para acciones y percepciones, Registry/Catalog por nombre, descenso recursivo,
   Interpreter con `pc`, Observer ligero (`World::events` + `drain_events`), PRNG determinista
@@ -68,25 +81,31 @@ qué motivación y a qué coste.
    con el catálogo de errores y la carga resiliente.
 7. **Object Pool se descarta** (el documento lo marcaba como prematuro) y queda anotado aquí para
    no volver a proponerlo sin una medición que lo pida.
+8. **F4 respeta los contratos de F3 sin tocarlos salvo que el issue lo declare:** `functions.rs`,
+   `Function`/`FunctionCatalog`, el nodo `Call`, `EvalContext::view()`, las constantes en
+   `Catalog`, `Roar` con emisor y el orden de resolución percepción → constante → variable se
+   dan por establecidos. Ningún issue de F4 los cambia sin actualizar los sitios de llamada en el
+   mismo cambio.
 
 ## Issues
 
-El desglose se hace al abrir la fase, cuando los contratos de F2 y F3 estén fijos en el repo. La
-tabla siguiente es la asignación esperada de trabajo, no los ficheros de issue:
+Desglosado en 8 archivos de issue en `plan/F4-arquitectura-patrones/`, uno por patrón, listos para
+ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial: todos `todo`.
 
-| ID | Título | Problema / patrón que cubre | Depende de | Tamaño previsto |
-|----|--------|-----------------------------|------------|-----------------|
-| F4-01 | Bus de eventos formal y puerto de salida del mundo | I6 (Observer / bus), 1.2 y 4.3 del documento | F3 | M |
-| F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M |
-| F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S |
-| F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L |
-| F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M |
-| F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S |
-| F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M (condicionado por la decisión 4) |
-| F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3 | S |
+| ID | Título | Problema / patrón que cubre | Depende de | Tamaño | Estado | Archivo de issue |
+|----|--------|-----------------------------|------------|--------|--------|------------------|
+| F4-01 | Bus de eventos formal y puerto de salida del mundo | I6 (Observer / bus), 1.2 y 4.3 del documento | F3 | M | todo | F4-01-bus-eventos-puerto-salida.md |
+| F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M | todo | F4-02-estado-turno-creatura-state.md |
+| F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S | todo | F4-03-prng-inyectable-strategy.md |
+| F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L | todo | F4-04-almacenes-criaturas-ecs.md |
+| F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | todo | F4-05-flyweight-especies.md |
+| F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S | todo | F4-06-memento-estado-turno.md |
+| F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M | todo | F4-07-visitor-ast.md |
+| F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3, F4-04 | S | todo | F4-08-capas-modulos-limites.md |
 
-Notas de dimensionado: ocho issues previstos, dentro del límite de la fase; si F4-04 (ECS) se
-divide en dos al abrir la fase, la fase pasa a nueve y se separa el Flyweight a una fase posterior.
+Ocho issues previstos, dentro del límite de la fase (máximo 8 por el MASTER). F4-07 es
+condicionado por la decisión 4: si no hay consumidor real (pretty-printer / type-checker), se
+anota como candidato y no se implementa.
 
 ### Orden y dependencias (esquema, se concreta al abrir la fase)
 
@@ -124,6 +143,13 @@ divide en dos al abrir la fase, la fase pasa a nueve y se separa el Flyweight a 
 | 7.2 Builder (RunArgs) | Cerrado en F2 |
 | 7.3 Separación de streams | Cerrado en F2 |
 | 8.1 Deterministic PRNG + Strategy | F4-03 |
+| Elementos de F3 que F4 respeta (no se reabren) | Dónde se cubre |
+| `functions.rs` / `Function` / `FunctionCatalog` | Ya aplicado en F3; F4 no los cambia |
+| Nodo `Call` (AST, función resuelta en compilación) | Ya aplicado en F3; F4-07 lo maneja si hay consumidor |
+| `EvalContext::view()` | Ya aplicado en F3; F4 respeta el contrato |
+| `Roar` con `creature_id` (emisor) | Ya aplicado en F3; F4 respeta el contrato |
+| Constantes en `Catalog` (NONE/GROUND/OBJECT/ALLY/ENEMY) | Ya aplicado en F3; F4 respeta el contrato |
+| Orden resolución: percepción → constante → variable | Ya aplicado en F3; F4 respeta el contrato |
 
 ## Verificación de salida de la fase
 
@@ -151,5 +177,19 @@ en lugar de improvisar.
 ```
 
 ## Registro de ejecución
+
+| Issue | Patrón | Motivación | Coste asumido | Estado | Medición (memoria / tick) |
+|-------|--------|------------|---------------|--------|---------------------------|
+| F4-01 | Observer / bus + puertos y adaptadores | I6: intérprete emite eventos; 1.2/4.3: desacoplar E/S para F7 | Nuevo trait `WorldOutput`; cambio de firma de `World` | pendiente | — |
+| F4-02 | State | I3: `sleep_turns` gestionado externamente rompe encapsulación | `Creature` gana `CreatureState`; `interp` delega | pendiente | — |
+| F4-03 | Strategy (PRNG) | 8.1: tests de simulación sin estado global del mundo | `Rng` → `Box<dyn RngSource>` en `World`/`sim` | pendiente | — |
+| F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | pendiente | — |
+| F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |
+| F4-06 | Memento / Snapshot | 3.4: copia atómica de estado de turno antes de ejecutar | `CreatureMemento` nuevo; `sim` aplica/restaura | pendiente | — |
+| F4-07 | Visitor (AST) | 2.2: solo si hay consumidor real (pretty-printer / type-checker) | Ninguno si se descarta por falta de consumidor | pendiente | — |
+| F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Posible cambio de `sim.rs`/`world.rs` por W2 | pendiente | — |
+
+Medición de salida de F4 (criterio de la fase): consumo de memoria y tiempo por tick medidos
+antes y después de la fase, registrados aquí tras F4-08.
 
 <!-- Se rellena al avanzar: patrón por patrón, motivación, coste asumido, mediciones. -->

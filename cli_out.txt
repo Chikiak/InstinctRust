@@ -1,0 +1,15 @@
+﻿cargo :     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+At line:1 char:31
++ ... nstinctRust; cargo test -p instinct-cli --test cli_annex 2>&1 | Out-F ...
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Finished `t...get(s) in 0.03s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     Running tests\cli_annex.rs (target\debug\deps\cli_annex-b6f21cac1b63f443.exe)
+
+running 2 tests
+test test_cli_runs_all_annex_examples ... ok
+test test_cli_annex_is_deterministic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
