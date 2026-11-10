@@ -844,3 +844,76 @@ fn test_near_perceptions_are_deterministic() {
         "same seed produces same said history:\n{said1:?}\n{said2:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// AC8: see/name con argumentos enteros corre sin error; argumento de texto mata
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_see_with_text_argument_kills_creature() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp =
+        species_with_program_and_faction("D", "A", 100, 1000, "if see(\"a\", 0) == 0 goto start\n");
+    let _id = world.place_creature(sp, 0, 0).expect("place D");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(1);
+    let events = sim.step_tick();
+
+    let errors: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::RuntimeError { .. }))
+        .collect();
+    assert_eq!(errors.len(), 1, "un error de ejecución, got: {errors:?}");
+    for err in &errors {
+        if let Event::RuntimeError { line, .. } = err {
+            assert_eq!(*line, 7, "el error nombra su línea: {err:?}");
+        }
+    }
+
+    let died: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::Died { cause, .. } if cause == "error"))
+        .collect();
+    assert_eq!(died.len(), 1, "la criatura muere por el error de ejecución");
+}
+
+#[test]
+fn test_creature_uses_see_and_name() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp = species_with_program_and_faction(
+        "Watcher",
+        "A",
+        100,
+        1000,
+        "say(see(1, 0))\nsay(name(1, 0))\nwait(1)\ngoto start\n",
+    );
+    let _id = world.place_creature(sp, 0, 0).expect("place watcher");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(7);
+    let events = sim.step_tick();
+
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(e, Event::RuntimeError { .. })),
+        "sin errores de ejecución, got: {events:?}"
+    );
+    assert!(
+        sim.world
+            .creatures
+            .iter()
+            .any(|c| c.species.name == "Watcher"),
+        "la criatura sigue viva"
+    );
+
+    let said: Vec<&String> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Said { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(said.len() >= 2, "dice see y name, got: {said:?}");
+}

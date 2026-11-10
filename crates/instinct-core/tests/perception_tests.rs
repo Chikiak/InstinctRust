@@ -51,7 +51,7 @@ fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
 }
 
 fn eval(world: &World, id: CreatureId, text: &str) -> Result<Value, String> {
-    let expr = parse(text, 1, "test.ins").expect("parse");
+    let expr = parse(text, 1, "test.ins", Catalog::default().functions()).expect("parse");
     let ctx = CreatureContext::new(world, id);
     expr.eval(&ctx)
 }
@@ -309,6 +309,14 @@ fn test_catalog_accepts_extra_perception() {
         }
         fn nearby(&self) -> instinct_core::perception::Nearby {
             instinct_core::perception::Nearby::empty()
+        }
+
+        fn see(&self, _x: i64, _y: i64) -> i64 {
+            0
+        }
+
+        fn name(&self, _x: i64, _y: i64) -> &str {
+            ""
         }
     }
 

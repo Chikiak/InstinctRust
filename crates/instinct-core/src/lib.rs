@@ -6,6 +6,7 @@ pub mod compile;
 pub mod diagnostic;
 pub mod event;
 pub mod expr;
+pub mod functions;
 pub mod interp;
 pub mod lexer;
 pub mod perception;

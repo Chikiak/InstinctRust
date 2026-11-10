@@ -255,13 +255,69 @@ fn test_wrong_arity_reports_on_its_line() {
 
 #[test]
 fn test_function_in_expression_reports_on_its_line() {
+    // `see` is now a valid function; use an unknown function name instead.
     let (diags, _) = compile_src(
-        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nif see(0, 0) == 0 goto start\n",
+        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nif bogus(0, 0) == 0 goto start\n",
     );
     assert!(
-        diags.iter().any(|d| d.message.contains("function")),
-        "should report function in expression, got: {diags:?}"
+        diags.iter().any(|d| d.message.contains("unknown function")),
+        "should report unknown function 'bogus', got: {diags:?}"
     );
+    assert!(
+        diags.iter().any(|d| d.line == 7),
+        "diagnostic should carry the line number, got: {diags:?}"
+    );
+}
+
+#[test]
+fn test_compile_rejects_unknown_function() {
+    let (diags, _) = compile_src(
+        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nif nonexistent(1, 2) goto start\n",
+    );
+    assert!(
+        diags.iter().any(|d| d.message.contains("unknown function")),
+        "should report unknown function, got: {diags:?}"
+    );
+}
+
+#[test]
+fn test_compile_rejects_wrong_arity() {
+    // see with 1 argument (wrong arity)
+    let (diags, _) = compile_src(
+        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nif see(1) goto start\n",
+    );
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.message.contains("see") && d.message.contains("arguments")),
+        "should report wrong arity for 'see', got: {diags:?}"
+    );
+
+    // see with 0 arguments
+    let (diags, _) = compile_src(
+        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\nif see() goto start\n",
+    );
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.message.contains("see") && d.message.contains("arguments")),
+        "should report wrong arity for 'see()', got: {diags:?}"
+    );
+}
+
+#[test]
+fn test_compile_rejects_assignment_to_function_and_constant() {
+    for name in ["see", "name", "NONE", "GROUND", "OBJECT", "ALLY", "ENEMY"] {
+        let (diags, _) = compile_src(&format!(
+            "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\n{name} = 5\n"
+        ));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains(name) && d.message.contains("assign")),
+            "assigning to {name} should be rejected, got: {diags:?}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

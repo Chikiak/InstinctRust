@@ -7,6 +7,7 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
+use crate::functions::{Function, FunctionCatalog};
 use crate::perception::{
     Age, AlliesNear, AllyDist, AllyDx, AllyDy, EnemiesNear, EnemyDist, EnemyDx, EnemyDy, Faction,
     Health, Height, LastRoar, Lifespan, ObjectDist, ObjectDx, ObjectDy, ObjectsNear, Perception,
@@ -201,6 +202,7 @@ pub trait Action: std::fmt::Debug {
 pub struct Catalog {
     actions: Vec<Rc<dyn Action>>,
     perceptions: PerceptionCatalog,
+    functions: FunctionCatalog,
 }
 
 impl Catalog {
@@ -208,6 +210,7 @@ impl Catalog {
         Catalog {
             actions: Vec::new(),
             perceptions: PerceptionCatalog::new(),
+            functions: FunctionCatalog::new(),
         }
     }
 
@@ -276,6 +279,37 @@ impl Catalog {
     pub fn is_perception_name(&self, name: &str) -> bool {
         self.perceptions.contains(name)
     }
+
+    /// Resolves a function by name, validating arity. Returns a diagnostic
+    /// naming the function if unknown or wrong arity.
+    pub fn resolve_function(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Result<Rc<dyn Function>, Diagnostic> {
+        self.functions.resolve_function(name, arg_count)
+    }
+
+    /// Returns true if `name` is a registered function.
+    pub fn is_function_name(&self, name: &str) -> bool {
+        self.functions.is_function_name(name)
+    }
+
+    /// Resolves a constant by name. Returns `None` when the name is not a
+    /// registered constant.
+    pub fn resolve_constant(&self, name: &str) -> Option<i64> {
+        self.functions.resolve_constant(name)
+    }
+
+    /// Returns true if `name` is a registered constant.
+    pub fn is_constant_name(&self, name: &str) -> bool {
+        self.functions.is_constant_name(name)
+    }
+
+    /// Returns a reference to the function catalog.
+    pub fn functions(&self) -> &FunctionCatalog {
+        &self.functions
+    }
 }
 
 impl Default for Catalog {
@@ -319,6 +353,14 @@ impl Default for Catalog {
         let _ = c.register_perception(Box::new(ObjectDy));
         let _ = c.register_perception(Box::new(RoarsNear));
         let _ = c.register_perception(Box::new(LastRoar));
+        // Register reserved functions and constants.
+        let _ = c.functions.register(Rc::new(crate::functions::See));
+        let _ = c.functions.register(Rc::new(crate::functions::Name));
+        let _ = c.functions.register_constant("NONE", -1);
+        let _ = c.functions.register_constant("GROUND", 0);
+        let _ = c.functions.register_constant("OBJECT", 1);
+        let _ = c.functions.register_constant("ALLY", 2);
+        let _ = c.functions.register_constant("ENEMY", 3);
         c
     }
 }
