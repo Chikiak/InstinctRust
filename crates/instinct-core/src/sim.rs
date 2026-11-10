@@ -104,7 +104,7 @@ impl Simulation {
         };
 
         loop {
-            let ctx = CreatureContext::new(&self.world, id);
+            let ctx = CreatureContext::new(&self.world, id, state.variables.clone());
             let result = match execute_turn(program, &ctx, &mut state) {
                 Ok(r) => r,
                 Err((diagnostic, line)) => {
