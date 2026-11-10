@@ -47,7 +47,7 @@ Que `instinct-cli run` cargue los recursos, coloque criaturas, simule N ticks co
 - `crates/instinct-cli/src/main.rs` — organización de subcomandos.
 - `crates/instinct-core/src/sim.rs` — API para crear y avanzar la simulación.
 - `crates/instinct-core/src/event.rs` — qué datos trae cada evento.
-- `examples/creatures/walker.ins` — estilo de un `.ins` válido.
+- `examples/creatures/walker.ins` — el estilo que debe tener una criatura de ejemplo.
 
 ## Especificación
 - `--place` tiene la forma especie, arroba, x, coma, y; la especie debe existir en los recursos cargados.

@@ -7,7 +7,10 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
-use crate::perception::{Age, Health, Lifespan, Perception, PerceptionCatalog, Random, Tick, X, Y};
+use crate::perception::{
+    Age, Faction, Health, Height, Lifespan, Perception, PerceptionCatalog, Random, ReserveHere,
+    Species, TerrainHere, Tick, TotalAllies, TotalCreatures, TotalEnemies, Vision, Width, X, Y,
+};
 use crate::value::Value;
 use crate::world::{CellContent, CreatureId, World};
 use std::rc::Rc;
@@ -290,6 +293,16 @@ impl Default for Catalog {
         let _ = c.register_perception(Box::new(Y));
         let _ = c.register_perception(Box::new(Tick));
         let _ = c.register_perception(Box::new(Random));
+        let _ = c.register_perception(Box::new(Vision));
+        let _ = c.register_perception(Box::new(Species));
+        let _ = c.register_perception(Box::new(Faction));
+        let _ = c.register_perception(Box::new(TerrainHere));
+        let _ = c.register_perception(Box::new(ReserveHere));
+        let _ = c.register_perception(Box::new(Width));
+        let _ = c.register_perception(Box::new(Height));
+        let _ = c.register_perception(Box::new(TotalCreatures));
+        let _ = c.register_perception(Box::new(TotalAllies));
+        let _ = c.register_perception(Box::new(TotalEnemies));
         c
     }
 }

@@ -81,7 +81,7 @@ siendo la simulación.
 ### Leer primero
 
 - `crates/instinct-cli/src/main.rs` entero.
-- `crates/instinct-cli/tests/cli_run.rs`, `cli_check.rs`, `cli_usage.rs` — estilo y aserciones existentes.
+- `crates/instinct-cli/tests/cli_run.rs`, `crates/instinct-cli/tests/cli_check.rs`, `crates/instinct-cli/tests/cli_usage.rs` — estilo y aserciones existentes.
 - `crates/instinct-core/src/world.rs` — `draw` tras F2-03 y F2-07.
 - `docs/PROBLEMAS_Y_SOLUCIONES.md` sección 6 y `docs/PATRONES_DISENO_ARQUITECTURA.md` sección 7.
 

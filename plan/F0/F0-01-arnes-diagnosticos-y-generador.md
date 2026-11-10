@@ -41,14 +41,14 @@ Dejar un workspace de Rust que compila, prueba y pasa lint sin dependencias exte
 - [ ] **AC7** `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` y `cargo fmt --all --check` terminan con exit 0. Verif: los tres comandos
 
 ## Contexto
-**Ya existe**: `plan/MASTER.md` y `plan/F0-esqueleto-andante/PHASE.md`; el enunciado `instinct.md` vive fuera del repo (cópialo desde donde lo tengas).
+**Ya existe**: `plan/MASTER.md` y `plan/F0/PHASE.md`; el enunciado `instinct.md` vive fuera del repo (cópialo desde donde lo tengas).
 **Contratos que debes respetar**: `Diagnostic` y `Rng` en `../PHASE.md#contratos-compartidos`; la línea es siempre desde 1.
 **Ojo**: el generador debe ser independiente de la plataforma y de la versión de Rust (por eso no se usa `rand`): ninguna operación puede depender del tamaño de `usize`. El test del CLI localiza el binario con la variable de entorno que Cargo ofrece a las pruebas de integración.
 **Rust que se practica**: workspaces y módulos, `impl Display`, `Result`, pruebas unitarias y de integración, aritmética con enteros de ancho fijo.
 
 ### Leer primero
 - `plan/MASTER.md` — decisiones fijadas.
-- `plan/F0-esqueleto-andante/PHASE.md` — contratos y tabla de ambigüedades.
+- `plan/F0/PHASE.md` — contratos y tabla de ambigüedades.
 
 ## Especificación
 - `Diagnostic` se construye con archivo, línea y mensaje, y expone los tres.

@@ -389,6 +389,41 @@ impl World {
         &self.roars_previous
     }
 
+    /// Nombre del terreno de la casilla `(x, y)`, o `None` si está fuera del
+    /// mapa o su índice no está cubierto por el catálogo de terrenos.
+    pub fn terrain_name_at(&self, x: usize, y: usize) -> Option<&str> {
+        self.terrain
+            .get(y)
+            .and_then(|row| row.get(x))
+            .and_then(|&t| self.terrains.get(t))
+            .map(|t| t.name.as_str())
+    }
+
+    /// Reserva actual del terreno de la casilla `(x, y)`, leída del catálogo
+    /// de terrenos del mundo (no de la casilla), o `None` si está fuera del
+    /// mapa. Dos casillas con el mismo terreno comparten la misma reserva.
+    pub fn reserve_at(&self, x: usize, y: usize) -> Option<i64> {
+        self.terrain
+            .get(y)
+            .and_then(|row| row.get(x))
+            .and_then(|&t| self.terrains.get(t))
+            .map(|t| t.reserve)
+    }
+
+    /// Número de criaturas vivas de la facción dada, excluyendo a `exclude`.
+    /// Todas las criaturas del mundo están vivas (las muertas se retiran al
+    /// morir).
+    pub fn count_creatures_by_faction_excluding(
+        &self,
+        faction: &str,
+        exclude: CreatureId,
+    ) -> usize {
+        self.creatures
+            .iter()
+            .filter(|c| c.id != exclude && c.species.faction == faction)
+            .count()
+    }
+
     /// Marca los rugidos del tick actual como "del tick anterior" y limpia los
     /// actuales. Llama `sim.rs` al final de cada tick para que un rugido no
     /// persista más allá del tick siguiente al de su emisión.
@@ -718,6 +753,71 @@ impl CreatureView for CreatureSnapshot<'_> {
 
     fn random(&self) -> i64 {
         self.world.rng.borrow_mut().next_bounded(99)
+    }
+
+    fn vision(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.species.vision)
+            .unwrap_or(0)
+    }
+
+    fn species_name(&self) -> &str {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.species.name.as_str())
+            .unwrap_or("")
+    }
+
+    fn faction_name(&self) -> &str {
+        self.world
+            .creature(self.creature_id)
+            .map(|c| c.species.faction.as_str())
+            .unwrap_or("")
+    }
+
+    fn terrain_here(&self) -> &str {
+        self.world
+            .creature(self.creature_id)
+            .and_then(|c| self.world.creature_position(c.id).ok())
+            .and_then(|p| self.world.terrain_name_at(p.x, p.y))
+            .unwrap_or("")
+    }
+
+    fn reserve_here(&self) -> i64 {
+        self.world
+            .creature(self.creature_id)
+            .and_then(|c| self.world.creature_position(c.id).ok())
+            .and_then(|p| self.world.reserve_at(p.x, p.y))
+            .unwrap_or(0)
+    }
+
+    fn width(&self) -> i64 {
+        self.world.columns as i64
+    }
+
+    fn height(&self) -> i64 {
+        self.world.rows as i64
+    }
+
+    fn total_creatures(&self) -> i64 {
+        let n = self.world.creatures.len();
+        let present = self.world.creature(self.creature_id).is_some();
+        (n.saturating_sub(if present { 1 } else { 0 })) as i64
+    }
+
+    fn total_allies(&self) -> i64 {
+        let Some(creature) = self.world.creature(self.creature_id) else {
+            return 0;
+        };
+        self.world
+            .count_creatures_by_faction_excluding(&creature.species.faction, self.creature_id)
+            as i64
+    }
+
+    fn total_enemies(&self) -> i64 {
+        // Todo lo que no es aliado (y no es la propia criatura) es enemigo.
+        self.total_creatures() - self.total_allies()
     }
 }
 

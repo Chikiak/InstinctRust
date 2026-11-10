@@ -77,7 +77,7 @@ natural). Cambia una sola vez y cítalo en las notas.
 - `crates/instinct-core/src/world.rs` — campos, constructores, `damage_cell_content`, `end_of_tick_*`, `draw`.
 - `crates/instinct-core/src/sim.rs` — `Simulation`, `step_tick`, `end_of_tick_terrain_and_objects` en uso.
 - `crates/instinct-cli/src/main.rs` — dónde se consumen los catálogos.
-- `crates/instinct-core/tests/sim_tests.rs` y `world_tests.rs` — pruebas que afirman reservas.
+- `crates/instinct-core/tests/sim_tests.rs` y `crates/instinct-core/tests/world_tests.rs` — pruebas que afirman reservas.
 - `docs/PROBLEMAS_Y_SOLUCIONES.md` problema W2 y `docs/PATRONES_DISENO_ARQUITECTURA.md` sección 1.2.
 
 ## Especificación

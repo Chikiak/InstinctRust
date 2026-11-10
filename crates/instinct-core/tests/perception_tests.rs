@@ -4,7 +4,7 @@
 
 use instinct_core::actions::Catalog;
 use instinct_core::expr::parse;
-use instinct_core::perception::{CreatureView, Perception};
+use instinct_core::perception::{CreatureView, Perception, PerceptionCatalog};
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
@@ -269,6 +269,36 @@ fn test_catalog_accepts_extra_perception() {
         fn random(&self) -> i64 {
             0
         }
+        fn vision(&self) -> i64 {
+            0
+        }
+        fn species_name(&self) -> &str {
+            ""
+        }
+        fn faction_name(&self) -> &str {
+            ""
+        }
+        fn terrain_here(&self) -> &str {
+            ""
+        }
+        fn reserve_here(&self) -> i64 {
+            0
+        }
+        fn width(&self) -> i64 {
+            0
+        }
+        fn height(&self) -> i64 {
+            0
+        }
+        fn total_creatures(&self) -> i64 {
+            0
+        }
+        fn total_allies(&self) -> i64 {
+            0
+        }
+        fn total_enemies(&self) -> i64 {
+            0
+        }
     }
 
     let mut cat = Catalog::default();
@@ -291,4 +321,138 @@ fn test_catalog_accepts_extra_perception() {
     let view = EmptyView;
     let p = cat.resolve_perception("bonus").expect("bonus resolves");
     assert_eq!(p.read(&view), Value::Int(7));
+}
+
+// ---------------------------------------------------------------------------
+// AC2: species, faction y vision de la propia criatura
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_self_perceptions_report_species_data() {
+    let mut world = empty_world();
+    let id = place_walker(&mut world); // (4, 2) sobre Grass
+    let c = creature_mut(&mut world, id);
+    c.species.name = "Hobbit".to_string();
+    c.species.faction = "Comarca".to_string();
+    c.species.vision = 2;
+
+    assert_eq!(
+        eval(&world, id, "species").unwrap(),
+        Value::Text("Hobbit".to_string())
+    );
+    assert_eq!(
+        eval(&world, id, "faction").unwrap(),
+        Value::Text("Comarca".to_string())
+    );
+    assert_eq!(unwrap_int(eval(&world, id, "vision").unwrap()), 2);
+}
+
+// ---------------------------------------------------------------------------
+// AC3: terrain_here y reserve_here leen la casilla bajo la criatura
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_terrain_here_tracks_reserve() {
+    let mut world = empty_world(); // 5x5 Grass, reserva 100
+    let id = place_walker(&mut world); // (4, 2)
+
+    assert_eq!(
+        eval(&world, id, "terrain_here").unwrap(),
+        Value::Text("Grass".to_string())
+    );
+    assert_eq!(unwrap_int(eval(&world, id, "reserve_here").unwrap()), 100);
+
+    // Retira la criatura para dañar el terreno bajo ella sin lastimarla:
+    // damage_cell_content sobre una casilla con criatura no toca el terreno.
+    world.remove_creature(id).expect("retirar criatura");
+    world
+        .damage_cell_content(4, 2, 30)
+        .expect("daña terreno de (4,2)");
+    assert_eq!(world.terrains[0].reserve, 70);
+
+    // Vuelve a colocar en la misma casilla (nuevo id) y lee la reserva dañada.
+    let id2 = world
+        .place_creature(Species::new("Walker"), 4, 2)
+        .expect("colocar de nuevo");
+    assert_eq!(unwrap_int(eval(&world, id2, "reserve_here").unwrap()), 70);
+
+    // Fin de tick: regenera +2 sobre la reserva dañada: 72 (topada en 100).
+    world.end_of_tick_terrain_and_objects();
+    assert_eq!(unwrap_int(eval(&world, id2, "reserve_here").unwrap()), 72);
+}
+
+// ---------------------------------------------------------------------------
+// AC4: width, height y totales sobre un mundo de varias facciones
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_totals_count_world_excluding_self() {
+    let mut world = empty_world(); // 5x5
+
+    let mut faction_a = Species::new("A");
+    faction_a.faction = "A".to_string();
+    let id_self = world
+        .place_creature(faction_a.clone(), 0, 0)
+        .expect("colocar self");
+
+    let mut faction_b = Species::new("B");
+    faction_b.faction = "B".to_string();
+    let _id_ally = world
+        .place_creature(faction_a.clone(), 1, 0)
+        .expect("colocar aliado");
+    let _id_enemy1 = world
+        .place_creature(faction_b.clone(), 2, 0)
+        .expect("colocar enemigo 1");
+    let _id_enemy2 = world
+        .place_creature(faction_b, 3, 0)
+        .expect("colocar enemigo 2");
+
+    assert_eq!(unwrap_int(eval(&world, id_self, "width").unwrap()), 5);
+    assert_eq!(unwrap_int(eval(&world, id_self, "height").unwrap()), 3);
+    // Cuenta a las otras 3 criaturas, no a sí misma.
+    assert_eq!(
+        unwrap_int(eval(&world, id_self, "total_creatures").unwrap()),
+        3
+    );
+    // Un aliado de la facción A (sin contarse a sí misma).
+    assert_eq!(
+        unwrap_int(eval(&world, id_self, "total_allies").unwrap()),
+        1
+    );
+    // Dos enemigos de la facción B.
+    assert_eq!(
+        unwrap_int(eval(&world, id_self, "total_enemies").unwrap()),
+        2
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC5: los diez nombres nuevos resuelven en ambos catálogos por defecto
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_default_catalogs_resolve_self_and_world_perceptions() {
+    let cat = Catalog::default();
+    let pc = PerceptionCatalog::default();
+    for name in [
+        "vision",
+        "species",
+        "faction",
+        "terrain_here",
+        "reserve_here",
+        "width",
+        "height",
+        "total_creatures",
+        "total_allies",
+        "total_enemies",
+    ] {
+        assert!(
+            cat.resolve_perception(name).is_some(),
+            "Catalog::default() debe registrar {name}"
+        );
+        assert!(
+            pc.resolve(name).is_some(),
+            "PerceptionCatalog::default() debe registrar {name}"
+        );
+    }
 }
