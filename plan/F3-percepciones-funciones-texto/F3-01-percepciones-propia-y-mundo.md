@@ -2,7 +2,7 @@
 id: F3-01
 title: Percepciones sobre sí misma y sobre el mundo
 phase: F3
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -160,5 +160,76 @@ cálculo de totales fuera de `World`, o tocar la semántica de las siete percepc
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
-<!-- Lo rellena el implementador: desviaciones, hechos descubiertos que afectan a issues siguientes,
-nombres reales creados (para que F3-02 los cite), deuda consciente. -->
+
+Rama: feat/f3-01-percepciones-propia-mundo (sobre develop). Commit: 47611f6
+"feat: percepciones propias y de mundo (F3-01)". Verificación: `cargo test
+--workspace` (exit 0, todas las suites ok), `cargo clippy --workspace
+--all-targets -- -D warnings` (exit 0, sin warnings), `cargo fmt --all
+--check` (exit 0).
+
+Evidencia AC por AC:
+- AC1 PASS: `CreatureView` en `crates/instinct-core/src/perception.rs` expone
+  los 10 accesores nuevos (`vision`, `species_name`, `faction_name`,
+  `terrain_here`, `reserve_here`, `width`, `height`, `total_creatures`,
+  `total_allies`, `total_enemies`) junto a los 7 existentes; `CreatureSnapshot`
+  en `world.rs` los implementa delegando en `World` sin cachear ni mutar;
+  `FixedView` (pruebas de `src/perception.rs`) y `EmptyView`
+  (`tests/perception_tests.rs`) implementan los 10 sin cambiar lo que afirman.
+  `cargo test --workspace` verde.
+- AC2 PASS: `test_self_perceptions_report_species_data` en
+  `tests/perception_tests.rs`: `species`, `faction` y `vision` reportan datos
+  de cabecera de la especie (`cargo test -p instinct-core --test
+  perception_tests` verde).
+- AC3 PASS: `test_terrain_here_tracks_reserve`: `terrain_here` = "Grass",
+  `reserve_here` lee la reserva del catálogo del mundo (100 -> 70 tras
+  `damage_cell_content`, -> 72 tras `end_of_tick_terrain_and_objects`).
+- AC4 PASS: `test_totals_count_world_excluding_self`: width 5, height 3,
+  total_creatures 3 (excluye a la propia), total_allies 1, total_enemies 2 con
+  dos facciones.
+- AC5 PASS: `test_default_catalogs_resolve_self_and_world_perceptions`: los 10
+  nombres resuelven en `Catalog::default()` y en
+  `PerceptionCatalog::default()`, por catálogo (sin `if` por nombre).
+- AC6 PASS: `test_simulation_reads_self_and_world_perceptions` en
+  `tests/sim_tests.rs`: criatura compilada dice species/faction/total_enemies
+  y emite `Said` con los textos correctos ("X", "A", "2").
+- AC7 PASS: `test_text_semantics_kill_on_type_error`: texto==texto da 1 o 0;
+  texto+entero en aritmética, texto en comparación de orden y texto en
+  argumento numérico de acción matan a la criatura con `RuntimeError` en su
+  línea y `Died` causa "error"; `say(42)` emite `Said` con texto "42".
+- AC8 PASS: `test_compile_rejects_assignment_to_new_perceptions` en
+  `tests/compile_tests.rs`: asignar a cualquiera de los 10 nombres es error de
+  compilación que nombra la percepción.
+- AC9 PASS: suite completa + clippy + fmt en verde (ver arriba).
+
+Cambios de firma autorizados aplicados (según PHASE.md#cambios-de-firma):
+- `CreatureView`: 7 -> 17 accesores (se añaden los 10 escalares; `nearby`,
+  `see` y `name` quedan para F3-02/F3-03). Propagado a `FixedView`,
+  `EmptyView` y `CreatureSnapshot`.
+- No se tocó `expr::parse` (sigue sin catálogo de funciones: es F3-03), ni
+  `EvalContext` (sigue con `resolve` solo: es F3-03), ni `Roar`/`add_roar`
+  (emisor de rugido: es F3-02).
+
+Consultas nuevas de `World` en `world.rs`:
+- `terrain_name_at(x, y) -> Option<&str>`, `reserve_at(x, y) -> Option<i64>`
+  (reserva leída del catálogo de terrenos del mundo, compartida por casillas
+  del mismo terreno) y
+  `count_creatures_by_faction_excluding(faction, exclude) -> usize`.
+
+Nuevos tipos de percepción en `perception.rs` (registro doble en
+`PerceptionCatalog::default()` y `Catalog::default()` de `actions.rs`):
+`Vision`, `Species`, `Faction`, `TerrainHere`, `ReserveHere`, `Width`,
+`Height`, `TotalCreatures`, `TotalAllies`, `TotalEnemies`.
+
+Pruebas existentes ajustadas: `EmptyView` en `tests/perception_tests.rs`
+ampliada con los 10 accesores (sin cambiar aserciones); `FixedView` en
+`src/perception.rs` idéntico. Ninguna aserción suavizada.
+
+Desviaciones/heurística: en el test de totales, `empty_world()` es 5x3
+(columnas=5, filas=3), por lo que `width`=5 y `height`=3. Ninguna entrada de
+usuario provoca pánico; conversiones `usize`->`i64` con `as` como el resto del
+repo. No hay `#[allow]`, TODOs, stubs ni código muerto.
+
+Hechos para issues siguientes: F3-02 puede confiar en `World`
+`count_creatures_by_faction_excluding` y en que `CreatureView` ya tiene
+`vision`/`total_*`; `nearby`, `see`, `name` y `Roar` con emisor quedan para
+F3-02/F3-03 sin tocar contratos de este issue.
