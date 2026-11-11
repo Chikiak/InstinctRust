@@ -3,6 +3,7 @@
 use instinct_core::actions::ActionResult;
 use instinct_core::event::Event;
 use instinct_core::resources::{Map, Object, Terrain};
+use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
 use instinct_core::value::Value;
 use instinct_core::world::{CellContent, CreatureId, CreatureMemento, CreatureState, World};
@@ -650,4 +651,60 @@ fn test_creatures_share_species_rc() {
     assert_eq!(lines[0], "G..");
     assert_eq!(lines[1], ".G.");
     assert_eq!(lines[2], "...");
+}
+
+// ---------------------------------------------------------------------------
+// AC2 / W2: un único dueño consistente de las reservas de terreno y objeto.
+// World y Simulation nunca mantienen copias desincronizadas: el daño y el
+// fin de tick actúan sobre el mismo catálogo.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_terrain_reserve_consistent_world_simulation() {
+    let mut world = empty_world();
+    // (2,2) es hierba del catálogo único del mundo: reserve 100.
+    assert_eq!(world.terrains[0].reserve, 100);
+    assert_eq!(world.reserve_at(2, 2), Some(100));
+
+    // Daño sobre el catálogo del mundo (lo mismo que muta strike_cell).
+    world
+        .damage_cell_content(2, 2, 30)
+        .expect("daña terreno de (2,2)");
+    assert_eq!(world.terrains[0].reserve, 70);
+    assert_eq!(world.reserve_at(2, 2), Some(70));
+
+    // La simulación lee y regenera sobre el mismo catálogo: no tiene copia propia.
+    let mut sim = Simulation::new(world);
+    let _ = sim.step_tick(); // fin de tick: regenera +2 sobre la reserva dañada -> 72
+
+    // World.reserve_at y la reserva de Simulation coinciden: un único dueño.
+    assert_eq!(sim.world().reserve_at(2, 2), Some(72));
+    assert_eq!(sim.world.terrains[0].reserve, 72);
+    assert_eq!(sim.world.tick(), 1);
+}
+
+#[test]
+fn test_object_reserve_consistent_world_simulation() {
+    let mut world = empty_world();
+    // Roca del catálogo en (0,0): reserve 100.
+    world.content[0][0] = CellContent::Object(0);
+    assert_eq!(world.objects[0].reserve, 100);
+    assert_eq!(world.object_name_at(0, 0), Some("Rock"));
+
+    // Agota el objeto sobre el catálogo del mundo.
+    world
+        .damage_cell_content(0, 0, 100)
+        .expect("agota objeto de (0,0)");
+    assert_eq!(world.objects[0].reserve, 0);
+
+    // Fin de tick en la simulación sobre el mismo catálogo: el objeto se retira.
+    let mut sim = Simulation::new(world);
+    let _ = sim.step_tick();
+
+    assert!(
+        matches!(sim.world.content[0][0], CellContent::Empty),
+        "el objeto agotado libera su casilla"
+    );
+    assert_eq!(sim.world.objects[0].reserve, 0);
+    assert_eq!(sim.world.object_name_at(0, 0), None);
 }
