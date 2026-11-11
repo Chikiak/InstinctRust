@@ -94,10 +94,16 @@ pub struct World {
     pub objects: Vec<Object>,
     /// Optional content (object or creature) of each cell.
     pub content: Vec<Vec<CellContent>>,
-    /// Creatures by id. The position in this vec is not the id; id is stable.
-    pub creatures: Vec<Creature>,
-    /// Next creature id to assign.
-    next_creature_id: usize,
+    /// Creatures by id: `creatures[id.0]` is `Some(creature)` while the
+    /// creature lives and `None` is a free slot ready for reuse. The index is
+    /// the stable `CreatureId`, so `creature(id)`/`creature_mut(id)` are O(1)
+    /// with no linear search (ECS ligero, sección 4.1).
+    pub creatures: Vec<Option<Creature>>,
+    /// Free-list of creature ids whose slots can be reused. `place_creature`
+    /// pops one here before growing `creatures`; when empty the next id is
+    /// `creatures.len()`. Replaces the old `next_creature_id` counter; ids are
+    /// stable within a simulation and never invalidated for other creatures.
+    free_ids: Vec<usize>,
     /// Number of completed ticks.
     pub ticks: u64,
     /// Events emitted since the last consumer drained them.
@@ -143,7 +149,7 @@ impl World {
                 objects: objects.to_vec(),
                 content: Vec::new(),
                 creatures: Vec::new(),
-                next_creature_id: 0,
+                free_ids: Vec::new(),
                 ticks: 0,
                 events: Vec::new(),
                 diagnostics,
@@ -203,7 +209,7 @@ impl World {
             objects: objects.to_vec(),
             content,
             creatures: Vec::new(),
-            next_creature_id: 0,
+            free_ids: Vec::new(),
             ticks: 0,
             events: Vec::new(),
             diagnostics,
@@ -246,12 +252,19 @@ impl World {
             ));
         }
 
-        let id = CreatureId(self.next_creature_id);
-        self.next_creature_id += 1;
+        // Reusa un hueco libre si hay uno; si no, crece el almacén. El índice
+        // es el id estable de la nueva criatura.
+        let id = match self.free_ids.pop() {
+            Some(slot) => slot,
+            None => {
+                self.creatures.push(None);
+                self.creatures.len() - 1
+            }
+        };
         let health = species.health;
         let lifespan = species.lifespan;
         let creature = Creature {
-            id,
+            id: CreatureId(id),
             species,
             x,
             y,
@@ -262,34 +275,36 @@ impl World {
             pc: 0,
             variables: HashMap::new(),
         };
-        self.content[y][x] = CellContent::Creature(id);
-        self.creatures.push(creature);
-        Ok(id)
+        self.content[y][x] = CellContent::Creature(CreatureId(id));
+        self.creatures[id] = Some(creature);
+        Ok(CreatureId(id))
     }
 
     /// Removes the creature with the given id, freeing its cell. Returns a
     /// diagnostic if the id does not exist.
     pub fn remove_creature(&mut self, creature_id: CreatureId) -> Result<(), Diagnostic> {
-        let pos = match self.creature_position(creature_id) {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(Diagnostic::new(
-                    "world",
-                    0,
-                    format!("unknown creature id {creature_id:?}"),
-                ));
-            }
-        };
+        let pos = self.creature_position(creature_id)?; // O(1): índice directo
         self.content[pos.y][pos.x] = CellContent::Empty;
-        self.creatures.retain(|c| c.id != creature_id);
+        // Libera el hueco sin invalidar los ids de las otras criaturas.
+        self.creatures[creature_id.0] = None;
+        self.free_ids.push(creature_id.0);
         Ok(())
     }
 
-    /// Returns the position of the creature, or a diagnostic if unknown.
-    pub fn creature_position(&self, creature_id: CreatureId) -> Result<Pos, Diagnostic> {
+    /// Ids de las criaturas vivas, en orden ascendente de id (orden del
+    /// almacén). `sim.step_tick` itera sobre estos ids; ninguna busca lineal.
+    pub fn live_creature_ids(&self) -> Vec<CreatureId> {
         self.creatures
             .iter()
-            .find(|c| c.id == creature_id)
+            .enumerate()
+            .filter_map(|(index, slot)| slot.as_ref().map(|_| CreatureId(index)))
+            .collect()
+    }
+
+    /// Returns the position of the creature, or a diagnostic if unknown.
+    /// O(1): indexa directamente en `creatures[id.0]`.
+    pub fn creature_position(&self, creature_id: CreatureId) -> Result<Pos, Diagnostic> {
+        self.creature(creature_id)
             .map(|c| Pos { x: c.x, y: c.y })
             .ok_or_else(|| {
                 Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
@@ -298,23 +313,23 @@ impl World {
 
     /// Returns the species name of the creature, or a diagnostic if unknown.
     pub fn creature_species(&self, creature_id: CreatureId) -> Result<String, Diagnostic> {
-        self.creatures
-            .iter()
-            .find(|c| c.id == creature_id)
+        self.creature(creature_id)
             .map(|c| c.species.name.clone())
             .ok_or_else(|| {
                 Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
             })
     }
 
-    /// Returns the creature with the given id, or `None`.
-    fn creature(&self, id: CreatureId) -> Option<&Creature> {
-        self.creatures.iter().find(|c| c.id == id)
+    /// Returns the creature with the given id, or `None`. O(1): indexación
+    /// directa; `None` tanto si el id está fuera de rango como si su hueco
+    /// está libre.
+    pub(crate) fn creature(&self, id: CreatureId) -> Option<&Creature> {
+        self.creatures.get(id.0).and_then(Option::as_ref)
     }
 
-    /// Returns the creature with the given id mutably, or `None`.
-    fn creature_mut(&mut self, id: CreatureId) -> Option<&mut Creature> {
-        self.creatures.iter_mut().find(|c| c.id == id)
+    /// Returns the creature with the given id mutably, or `None`. O(1).
+    pub(crate) fn creature_mut(&mut self, id: CreatureId) -> Option<&mut Creature> {
+        self.creatures.get_mut(id.0).and_then(Option::as_mut)
     }
 
     /// Returns the value of a creature variable, or `None` if unassigned or
@@ -333,13 +348,9 @@ impl World {
         creature_id: CreatureId,
         health: i64,
     ) -> Result<(), Diagnostic> {
-        let creature = self
-            .creatures
-            .iter_mut()
-            .find(|c| c.id == creature_id)
-            .ok_or_else(|| {
-                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
-            })?;
+        let creature = self.creature_mut(creature_id).ok_or_else(|| {
+            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+        })?;
         creature.health = health;
         Ok(())
     }
@@ -492,6 +503,7 @@ impl World {
     ) -> usize {
         self.creatures
             .iter()
+            .flatten()
             .filter(|c| c.id != exclude && c.species.faction == faction)
             .count()
     }
@@ -521,7 +533,7 @@ impl World {
         let mut nearest_object: Option<Nearest> = None;
 
         // Pass 1: criaturas vivas por id ascendente (excluida la propia).
-        for c in self.creatures.iter() {
+        for c in self.creatures.iter().flatten() {
             if c.id == creature_id {
                 continue;
             }
@@ -639,12 +651,9 @@ impl World {
         }
         let old = self.creature_position(creature_id)?;
         self.content[old.y][old.x] = CellContent::Empty;
-        for creature in self.creatures.iter_mut() {
-            if creature.id == creature_id {
-                creature.x = x;
-                creature.y = y;
-                break;
-            }
+        if let Some(creature) = self.creature_mut(creature_id) {
+            creature.x = x;
+            creature.y = y;
         }
         self.content[y][x] = CellContent::Creature(creature_id);
         Ok(())
@@ -697,7 +706,7 @@ impl World {
         creature_id: CreatureId,
         result: ActionResult,
     ) -> Result<(), Diagnostic> {
-        if let Some(creature) = self.creatures.iter_mut().find(|c| c.id == creature_id) {
+        if let Some(creature) = self.creature_mut(creature_id) {
             creature.state = if result.sleep_turns > 0 {
                 CreatureState::Sleeping(result.sleep_turns)
             } else {
@@ -724,22 +733,26 @@ impl World {
     /// death when health <= 0 or age >= lifespan. Returns `Died` events for
     /// creatures that die and removes them from the map.
     ///
+    /// Recorre el almacén por índice (ids vivos), O(1) por acceso, sin
+    /// búsqueda lineal ni `dead_ids.contains` en bucles.
+    ///
     /// La salud y la edad se calculan con aritmética comprobada. Si
     /// `health - 1` o `age + 1` desborda (p. ej. vida en `i64::MIN` o edad en
     /// `i64::MAX`) se trata como un error de ejecución: la criatura muere con
     /// causa `"error"` sin provocar pánico en debug ni en release.
     pub fn end_of_tick_creatures(&mut self) -> Vec<Event> {
         let mut died: Vec<Event> = Vec::new();
-        let mut dead_ids: Vec<CreatureId> = Vec::new();
-        // (id, next_health, next_age) de las criaturas que sobreviven, para
+        let mut dead_indices: Vec<usize> = Vec::new();
+        // (index, next_health, next_age) de las criaturas que sobreviven, para
         // aplicar el cambio tras el escaneo sin indexar dos veces.
-        let mut survivors: Vec<(CreatureId, i64, i64)> = Vec::new();
+        let mut survivors: Vec<(usize, i64, i64)> = Vec::new();
 
-        for creature in self.creatures.iter() {
+        for (index, slot) in self.creatures.iter_mut().enumerate() {
+            let Some(creature) = slot else { continue }; // hueco libre
             match (creature.health.checked_sub(1), creature.age.checked_add(1)) {
                 (Some(next_health), Some(next_age)) => {
                     if next_health <= 0 || next_age >= creature.lifespan {
-                        dead_ids.push(creature.id);
+                        dead_indices.push(index);
                         let cause = if next_health <= 0 { "vida" } else { "edad" };
                         died.push(Event::Died {
                             tick: self.ticks,
@@ -751,12 +764,12 @@ impl World {
                             cause: cause.to_string(),
                         });
                     } else {
-                        survivors.push((creature.id, next_health, next_age));
+                        survivors.push((index, next_health, next_age));
                     }
                 }
                 _ => {
                     // Desbordamiento: error de ejecución, la criatura muere.
-                    dead_ids.push(creature.id);
+                    dead_indices.push(index);
                     died.push(Event::Died {
                         tick: self.ticks,
                         species: creature.species.name.clone(),
@@ -771,15 +784,16 @@ impl World {
         }
 
         // Aplica salud y edad a las sobrevivientes.
-        for (id, next_health, next_age) in survivors {
-            if let Some(creature) = self.creatures.iter_mut().find(|c| c.id == id) {
+        for (index, next_health, next_age) in survivors {
+            if let Some(creature) = self.creatures[index].as_mut() {
                 creature.health = next_health;
                 creature.age = next_age;
             }
         }
-        // Elimina las muertas (por vida, edad o error de ejecución).
-        for id in &dead_ids {
-            let _ = self.remove_creature(*id);
+        // Elimina las muertas (por vida, edad o error de ejecución), liberando
+        // sus huecos sin invalidar otros ids.
+        for index in dead_indices {
+            let _ = self.remove_creature(CreatureId(index));
         }
         died
     }
@@ -835,14 +849,13 @@ impl World {
             for column in 0..self.columns {
                 let c = match &self.content[row][column] {
                     CellContent::Creature(id) => {
-                        let creature =
-                            self.creatures.iter().find(|c| c.id == *id).ok_or_else(|| {
-                                Diagnostic::new(
-                                    "world",
-                                    0,
-                                    format!("grid references missing creature {id:?}"),
-                                )
-                            })?;
+                        let creature = self.creature(*id).ok_or_else(|| {
+                            Diagnostic::new(
+                                "world",
+                                0,
+                                format!("grid references missing creature {id:?}"),
+                            )
+                        })?;
                         creature.species.name.chars().next().ok_or_else(|| {
                             Diagnostic::new(
                                 "world",
@@ -898,7 +911,7 @@ impl Clone for World {
             objects: self.objects.clone(),
             content: self.content.clone(),
             creatures: self.creatures.clone(),
-            next_creature_id: self.next_creature_id,
+            free_ids: self.free_ids.clone(),
             ticks: self.ticks,
             events: self.events.clone(),
             diagnostics: self.diagnostics.clone(),
@@ -923,7 +936,7 @@ impl std::fmt::Debug for World {
             .field("objects", &self.objects)
             .field("content", &self.content)
             .field("creatures", &self.creatures)
-            .field("next_creature_id", &self.next_creature_id)
+            .field("free_ids", &self.free_ids)
             .field("ticks", &self.ticks)
             .field("events", &self.events)
             .field("diagnostics", &self.diagnostics)
@@ -1035,7 +1048,9 @@ impl CreatureView for CreatureSnapshot<'_> {
     }
 
     fn total_creatures(&self) -> i64 {
-        let n = self.world.creatures.len();
+        // Solo cuenta criaturas vivas: los huecos libres (`None`) no son
+        // criaturas.
+        let n = self.world.creatures.iter().flatten().count();
         let present = self.world.creature(self.creature_id).is_some();
         (n.saturating_sub(if present { 1 } else { 0 })) as i64
     }

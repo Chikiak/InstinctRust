@@ -146,6 +146,7 @@ fn test_hobbit_flees_and_speaks() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == hobbit_id)
         .expect("hobbit alive");
     assert_eq!(
@@ -197,6 +198,7 @@ fn test_ent_feeds_and_stays() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == ent_id)
         .expect("ent alive");
     assert_eq!((ent.x, ent.y), (2, 2), "ent should stay on its cell");
@@ -305,6 +307,7 @@ fn test_uruk_hunts_and_breeds() {
         sim.world
             .creatures
             .iter()
+            .flatten()
             .all(|c| c.species.name != "Enemy"),
         "enemy removed from the map"
     );
@@ -330,6 +333,7 @@ fn test_uruk_hunts_and_breeds() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id != uruk_id)
         .expect("a child should exist");
     assert_eq!((child.x, child.y), (2, 3), "child below the mother");
@@ -338,6 +342,7 @@ fn test_uruk_hunts_and_breeds() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == uruk_id)
         .expect("mother alive");
     assert!(mother.health < 80, "mother spent health to breed");

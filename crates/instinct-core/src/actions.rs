@@ -74,13 +74,9 @@ fn strike_cell(
 
     match target {
         CellContent::Creature(target_id) => {
-            let creature = world
-                .creatures
-                .iter_mut()
-                .find(|c| c.id == target_id)
-                .ok_or_else(|| {
-                    Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
-                })?;
+            let creature = world.creature_mut(target_id).ok_or_else(|| {
+                Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
+            })?;
             let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
                 Diagnostic::new(
                     "attack",
@@ -149,13 +145,9 @@ fn strike_cell(
 /// Aplica `heal` a la salud de la criatura atacante (sin tope; puede acumularse).
 /// Devuelve un error de runtime si hay overflow.
 fn heal_attacker(world: &mut World, creature_id: CreatureId, heal: i64) -> Result<(), Diagnostic> {
-    let creature = world
-        .creatures
-        .iter_mut()
-        .find(|c| c.id == creature_id)
-        .ok_or_else(|| {
-            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
-        })?;
+    let creature = world.creature_mut(creature_id).ok_or_else(|| {
+        Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+    })?;
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(
             "consume",
@@ -750,13 +742,9 @@ impl Action for Reproduce {
         validate_direction("reproduce", dx, dy)?;
 
         let pos = world.creature_position(creature_id)?;
-        let mother = world
-            .creatures
-            .iter()
-            .find(|c| c.id == creature_id)
-            .ok_or_else(|| {
-                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
-            })?;
+        let mother = world.creature(creature_id).ok_or_else(|| {
+            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+        })?;
         // La madre debe tener vida estrictamente mayor que `health`.
         if mother.health <= health {
             return Ok(abort_reproduction());
@@ -788,13 +776,9 @@ impl Action for Reproduce {
         // `place_creature` inicializa con `species.health`; ajustar a `health`.
         world.set_creature_health(child_id, health)?;
 
-        let mother = world
-            .creatures
-            .iter_mut()
-            .find(|c| c.id == creature_id)
-            .ok_or_else(|| {
-                Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
-            })?;
+        let mother = world.creature_mut(creature_id).ok_or_else(|| {
+            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+        })?;
         mother.health = new_mother_health;
 
         Ok(abort_reproduction())

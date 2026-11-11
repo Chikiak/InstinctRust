@@ -24,7 +24,7 @@ fn vision_world() -> World {
 }
 
 fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
-    for c in world.creatures.iter_mut() {
+    for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.species.vision = vision;
         }
@@ -142,7 +142,7 @@ fn test_place_rejects_invalid_cells() {
 }
 
 #[test]
-fn test_place_creature_returns_stable_id() {
+fn test_place_creature_returns_stable_id_and_reuses_slot() {
     let mut world = empty_world();
     let id1 = world
         .place_creature(Species::new("A"), 0, 0)
@@ -150,16 +150,56 @@ fn test_place_creature_returns_stable_id() {
     let id2 = world
         .place_creature(Species::new("B"), 2, 2)
         .expect("place B");
+    assert_eq!(id1, CreatureId(0));
+    assert_eq!(id2, CreatureId(1));
     assert_ne!(id1, id2);
-    // Removing id1 does not reuse its id for a new creature.
+    // Las criaturas se consultan O(1) por id estable.
+    assert_eq!(
+        world.creature_position(id1).unwrap(),
+        instinct_core::event::Pos { x: 0, y: 0 }
+    );
+    assert_eq!(
+        world.creature_position(id2).unwrap(),
+        instinct_core::event::Pos { x: 2, y: 2 }
+    );
+
+    // Remover id1 libera su hueco sin tocar a id2.
     world.remove_creature(id1).expect("remove A");
+    assert!(world.creature_position(id1).is_err());
+    assert_eq!(
+        world.creature_position(id2).unwrap(),
+        instinct_core::event::Pos { x: 2, y: 2 }
+    );
+    assert_eq!(
+        world
+            .creatures
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| s.as_ref().map(|_| i))
+            .collect::<Vec<_>>(),
+        vec![1]
+    );
+
+    // Un place posterior reusa ese mismo id (0).
     let id3 = world
         .place_creature(Species::new("C"), 0, 0)
         .expect("place C");
-    assert_ne!(id3, id1);
+    assert_eq!(id3, id1, "el hueco libre se reusa con el mismo id");
     assert_ne!(id3, id2);
-    assert_eq!(world.creatures.len(), 2);
-    let _ = CreatureId(0); // ensure import used
+    assert_eq!(
+        world.creature_position(id3).unwrap(),
+        instinct_core::event::Pos { x: 0, y: 0 }
+    );
+    // La otra criatura no se corrompe.
+    assert_eq!(
+        world.creature_position(id2).unwrap(),
+        instinct_core::event::Pos { x: 2, y: 2 }
+    );
+    assert_eq!(
+        world.creatures.iter().filter(|c| c.is_some()).count(),
+        2,
+        "dos criaturas vivas tras reusar el hueco"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +243,11 @@ fn test_remove_creature_frees_cell() {
     ));
     world.remove_creature(id).expect("remove");
     assert!(matches!(world.content[1][1], CellContent::Empty));
-    assert!(world.creatures.is_empty());
+    assert!(world.creatures[id.0].is_none(), "el hueco quedó libre");
+    assert!(
+        world.creatures.iter().all(|c| c.is_none()),
+        "el almacén solo tiene huecos libres"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +260,7 @@ fn test_end_of_tick_min_health_no_panic() {
     let mut world = empty_world();
     let species = Species::new("Walker");
     let id = world.place_creature(species, 0, 0).expect("place");
-    for c in world.creatures.iter_mut() {
+    for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.health = i64::MIN;
             c.age = 0;
@@ -228,7 +272,14 @@ fn test_end_of_tick_min_health_no_panic() {
         events.iter().any(|e| matches!(e, Event::Died { .. })),
         "la criatura con vida i64::MIN debe morir, got {events:?}"
     );
-    assert!(world.creatures.is_empty(), "criatura removida del mapa");
+    assert!(
+        world.creatures[id.0].is_none(),
+        "criatura removida del mapa"
+    );
+    assert!(
+        world.creatures.iter().all(|c| c.is_none()),
+        "el almacén solo tiene huecos libres"
+    );
 }
 
 #[test]
@@ -314,21 +365,25 @@ fn test_world_setters_unknown_id_error() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn test_draw_orphan_creature_errors() {
+fn test_draw_no_orphan_panic() {
     let mut world = empty_world();
     let id = world
         .place_creature(Species::new("Walker"), 1, 1)
         .expect("place Walker");
-    // Huérfano: la celda apunta a una criatura que ya no existe.
-    world.content[1][1] = CellContent::Creature(CreatureId(999));
-    world.creatures.retain(|c| c.id != id);
+    // Huérfano: la celda apunta a un id cuyo hueco ya se liberó; draw debe
+    // reportarlo como error, nunca pánico.
+    world.content[1][1] = CellContent::Creature(id);
+    world.creatures[id.0] = None;
 
     let result = world.draw();
-    assert!(result.is_err(), "draw debe fallar con criatura huérfana");
+    assert!(
+        result.is_err(),
+        "draw debe fallar con criatura huérfana, no pánico"
+    );
     let err = result.unwrap_err();
     assert_eq!(err.file, "world");
     assert!(
-        err.message.contains("999"),
+        err.message.contains(&id.0.to_string()),
         "error nombra el id huérfano: {err:?}"
     );
 }

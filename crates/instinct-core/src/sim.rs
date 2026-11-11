@@ -47,9 +47,10 @@ impl Simulation {
     /// applies end-of-tick laws, and increments the tick counter. Returns all
     /// events emitted during the tick.
     pub fn step_tick(&mut self) -> Vec<Event> {
-        // 1. Snapshot the alive creature ids and shuffle them with the world's
-        //    generator. The order is fixed for this tick.
-        let mut ids: Vec<CreatureId> = self.world.creatures.iter().map(|c| c.id).collect();
+        // 1. Snapshot the alive creature ids from the store (ids vivos del
+        //    almacén, sin búsqueda lineal ni dead_ids.contains) y barájalos
+        //    con el generador del mundo. El orden es fijo para este tick.
+        let mut ids: Vec<CreatureId> = self.world.live_creature_ids();
         let mut order: Vec<usize> = (0..ids.len()).collect();
         self.world.rng.borrow_mut().shuffle(&mut order);
         ids = order.into_iter().map(|i| ids[i]).collect();
@@ -57,7 +58,7 @@ impl Simulation {
         // 2. Run each creature's turn. Awake creatures execute; Sleeping
         //    creatures have their sleep decremented without executing.
         for id in ids {
-            let creature = match self.world.creatures.iter().find(|c| c.id == id) {
+            let creature = match self.world.creature(id) {
                 Some(c) => c.clone(),
                 None => continue, // died earlier this tick
             };
@@ -68,7 +69,7 @@ impl Simulation {
                 }
                 CreatureState::Sleeping(n) => {
                     // Advance sleep by one tick without executing lines.
-                    if let Some(c) = self.world.creatures.iter_mut().find(|c| c.id == id) {
+                    if let Some(c) = self.world.creature_mut(id) {
                         c.state = if n == 1 {
                             CreatureState::Awake
                         } else {
@@ -106,8 +107,8 @@ impl Simulation {
     /// creature.
     fn run_creature_turn(&mut self, id: CreatureId) {
         // Snapshot the creature (owned data, no borrow of self.world held).
-        let creature = match self.world.creatures.iter().find(|c| c.id == id) {
-            Some(c) => c.clone(),
+        let creature = match self.world.creature(id).cloned() {
+            Some(c) => c,
             None => return, // died earlier this tick
         };
 
@@ -136,7 +137,7 @@ impl Simulation {
             };
 
             // Persist the updated turn state back to the creature.
-            if let Some(c) = self.world.creatures.iter_mut().find(|c| c.id == id) {
+            if let Some(c) = self.world.creature_mut(id) {
                 c.pc = result.state.pc;
                 c.state = result.state.state.clone();
                 c.variables = state.variables.borrow().clone();
