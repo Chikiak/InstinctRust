@@ -121,7 +121,7 @@ Si `Simulation { world: World }` hace imposible unificar catálogos sin mover `W
 ### Notas de implementación
 
 Rama: feat/f4-08-capas-modulos-limites (sobre develop, desde 66f860a "merge: F4-07...").
-Commit: por confirmar tras `git commit` (se anexa en el segundo commit de la sesión).
+Commit: d712f81 (`feat: capas y límites de módulos verificados, sin código pasarela (F4-08)`).
 Depende de F4-04; cierra F4.
 
 Cambios realizados:
