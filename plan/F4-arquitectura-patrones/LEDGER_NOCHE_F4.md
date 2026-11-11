@@ -12,3 +12,4 @@ Orden de ejecucion (RUNBOOK_F4 seccion 3): raices F4-01, F4-02, F4-03 (cualquier
 | ~22:30 | F4-03 | verde | Commit a265116+b739f5b, merge en develop, rama borrada. Todos los AC PASS. Desviacion documentada: shuffle sobre &mut [usize> no &mut [T] (dyn-compat). Siguiente: F4-04 (dep F4-02). |
 | ~22:55 | F4-04 | verde | Commit f24f252, merge en develop, rama borrada. Todos los AC PASS. Siguiente: F4-05 (dep F4-04). |
 | ~23:15 | F4-05 | verde | Commit acd16ac+21b0189, merge en develop, rama borrada. Todos los AC PASS. Artefacto stray `null` borrado. Siguiente: F4-06 (dep F4-02). |
+| ~23:35 | F4-06 | verde | Commit b27458d, merge en develop, rama borrada. Todos los AC PASS. Siguiente: F4-07 (Visitor AST, condicional: hay consumidor real?). |

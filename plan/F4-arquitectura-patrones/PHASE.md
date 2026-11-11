@@ -100,7 +100,7 @@ ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial
 | F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L | done | F4-04-almacenes-criaturas-ecs.md |
 | F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | done | F4-05-flyweight-especies.md |
 | F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S | done | F4-06-memento-estado-turno.md |
-| F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M | todo | F4-07-visitor-ast.md |
+| F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M | done | F4-07-visitor-ast.md |
 | F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3, F4-04 | S | todo | F4-08-capas-modulos-limites.md |
 
 Ocho issues previstos, dentro del límite de la fase (máximo 8 por el MASTER). F4-07 es
@@ -186,7 +186,7 @@ en lugar de improvisar.
 | F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | pendiente | — |
 | F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |
 | F4-06 | Memento / Snapshot | 3.4: copia atómica de estado de turno antes de ejecutar | `CreatureMemento` nuevo; `sim` aplica/restaura | done | — |
-| F4-07 | Visitor (AST) | 2.2: solo si hay consumidor real (pretty-printer / type-checker) | Ninguno si se descarta por falta de consumidor | pendiente | — |
+| F4-07 | Visitor (AST) | 2.2: solo si hay consumidor real (pretty-printer / type-checker) | Ninguno (descartado por falta de consumidor) | done | — |
 | F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Posible cambio de `sim.rs`/`world.rs` por W2 | pendiente | — |
 
 Medición de salida de F4 (criterio de la fase): consumo de memoria y tiempo por tick medidos
