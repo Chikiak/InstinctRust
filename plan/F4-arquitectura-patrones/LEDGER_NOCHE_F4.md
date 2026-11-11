@@ -14,3 +14,4 @@ Orden de ejecucion (RUNBOOK_F4 seccion 3): raices F4-01, F4-02, F4-03 (cualquier
 | ~23:15 | F4-05 | verde | Commit acd16ac+21b0189, merge en develop, rama borrada. Todos los AC PASS. Artefacto stray `null` borrado. Siguiente: F4-06 (dep F4-02). |
 | ~23:35 | F4-06 | verde | Commit b27458d, merge en develop, rama borrada. Todos los AC PASS. Siguiente: F4-07 (Visitor AST, condicional: hay consumidor real?). |
 | ~23:50 | F4-07 | verde (descarte) | Commit 3048748, merge en develop, rama borrada. No hay consumidor real de Visitor; descarte documentado (decisión 4 fase + MASTER dec. 40). Siguiente: F4-08 (cierra la fase, dep F3, F4-04). |
+| ~00:15 | F4-08 | verde | Commits d712f81+0e45293, merge en develop, rama borrada. Todos los AC PASS. Cierra F4 (8/8). Siguiente: verificación final + informe. |
