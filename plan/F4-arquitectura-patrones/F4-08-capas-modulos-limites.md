@@ -2,7 +2,7 @@
 id: F4-08
 title: Capas y límites de módulos verificados, sin código pasarela
 phase: F4
-status: todo
+status: done
 depends_on: [F4-04]
 size: S
 ---
@@ -120,6 +120,29 @@ Si `Simulation { world: World }` hace imposible unificar catálogos sin mover `W
 
 ### Notas de implementación
 
-Rama: feat/f4-08-capas-modulos-limites (sobre develop). Depende de F4-04; cierre de F4.
-Evidencia AC por AC: pendiente.
-Medición de F4 (memoria y tiempo por tick, antes/después): registrar en `PHASE.md#registro-de-ejecución`.
+Rama: feat/f4-08-capas-modulos-limites (sobre develop, desde 66f860a "merge: F4-07...").
+Commit: d712f81 (`feat: capas y límites de módulos verificados, sin código pasarela (F4-08)`).
+Depende de F4-04; cierra F4.
+
+Cambios realizados:
+- `crates/instinct-core/src/lib.rs`: `pub mod` reordenado por capas (diagnostic/event/rng/value; species/resources/functions; actions/perception/lexer/expr/program/compile/interp/world/sim) con comentario documentando el orden de dependencias (solo hacia abajo). No cambia semántica de compilación.
+- `crates/instinct-core/tests/world_tests.rs`: import de `instinct_core::sim::Simulation` y dos tests nuevos (W2/AC2): `test_terrain_reserve_consistent_world_simulation` y `test_object_reserve_consistent_world_simulation`.
+- `plan/F4-arquitectura-patrones/PHASE.md`: phase status `done`; fila F4-08 de la tabla en `done` con medición; sección "Registro de medición F4-08" con antes/después.
+
+W2 (catálogos): ya estaba unificado antes de esta issue (F2 cerró "catálogos con un solo dueño"). `Simulation { pub world: World }` no tiene `terrains`/`objects` propios; `damage_cell_content`/`strike_cell` mutan `World.terrains`/`World.objects` y `sim.step_tick()` regenera sobre el mismo catálogo vía `self.world.end_of_tick_terrain_and_objects()`. Los tests nuevos lo bloquean como regresión.
+
+Código pasarela (AC3): revisados los delegados. Se mantienen como interfaz estable de la API del núcleo (se usan en `crates/instinct-cli/src/main.rs` y en tests, y AC4 prohíbe tocarlos sin declararlo): `Simulation::{set_rng_seed, tick, world()}` y `Catalog::{resolve_function, resolve_constant, is_function_name, is_constant_name, functions()}` (delegan en `FunctionCatalog`, contrato F3 estable). No se encontró pasarela muerta ni de comportamiento; no se eliminó nada.
+
+Revisión de capas (AC1): `use` directo por módulo — `compile`/`expr`/`lexer` no usan `world`/`sim`; `interp` no usa CLI (crate aparte); `world`/`sim` no usan `compile` directamente. Acoplamientos preexistentes dentro de la crata (no nuevos, no tocados por refactor especulativo): `actions` <-> `world` (misma capa "Mundo/Simulación"), `resources` -> `compile` (carga de criaturas), `program` -> `actions`.
+
+AC5 (medición, `PHASE.md#registro-de-ejecución`): `run --root examples --map "Plain with rocks" --seed 7 --ticks 500 --every 501 --place Walker@5,5`, debug. Antes: 0.164 ms/tick, pico 3.94 MB. Después: 0.162 ms/tick, pico 4.10 MB. Cuatro ejemplos del anexo con `--seed 7`, 100 ticks: salida byte a byte idéntica (determinismo preservado).
+
+Comandos ejecutados y resultados (AC por AC):
+- AC1: `cargo check --workspace` → exit 0 (sin nuevas dependencias hacia arriba ni circulares en `use`).
+- AC2: `cargo test -p instinct-core --test world_tests` → 20 passed (incluidos los 2 tests W2 nuevos).
+- AC3: revisión documentada en estas notas; nada eliminado por ser API estable.
+- AC4: `cargo test -p instinct-cli --test cli_run` → 20 passed (`run`/`check` intactos; `main.rs` sin cambios).
+- AC5: `measure4.ps1` antes/después (ver tabla de PHASE.md); sin degradación significativa.
+- AC6: cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario o archivo; `cargo test --workspace` → todo verde; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+
+Desviaciones: ninguna respecto al alcance; no se cambió API pública del núcleo ni `main.rs`.

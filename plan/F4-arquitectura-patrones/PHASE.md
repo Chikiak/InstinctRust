@@ -1,7 +1,7 @@
 ---
 phase: F4
 title: Arquitectura y patrones de diseño
-status: todo
+status: done
 master: ../MASTER.md
 fuentes: ../../docs/PATRONES_DISENO_ARQUITECTURA.md
 issues: 8 desglosados en archivos propios (F4-01 a F4-08)
@@ -187,9 +187,22 @@ en lugar de improvisar.
 | F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |
 | F4-06 | Memento / Snapshot | 3.4: copia atómica de estado de turno antes de ejecutar | `CreatureMemento` nuevo; `sim` aplica/restaura | done | — |
 | F4-07 | Visitor (AST) | 2.2: solo si hay consumidor real (pretty-printer / type-checker) | Ninguno (descartado por falta de consumidor) | done | — |
-| F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Posible cambio de `sim.rs`/`world.rs` por W2 | pendiente | — |
+| F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Ninguno: W2 ya unificado (F2); solo verificación de capas, tests y medición | done | 0.162 ms/tick, 4.10 MB pico (antes 0.164 ms/tick, 3.94 MB): sin degradación |
 
 Medición de salida de F4 (criterio de la fase): consumo de memoria y tiempo por tick medidos
 antes y después de la fase, registrados aquí tras F4-08.
+
+### Registro de medición F4-08 (cierre de la fase)
+
+Harness: `instinct-cli run --root examples --map "Plain with rocks" --seed 7 --ticks 500 --every 501 --place Walker@5,5`, perfil `debug`, pico de working set muestreado cada 50 ms mientras corre el proceso.
+
+| Medida | Antes de F4-08 | Después de F4-08 |
+|---|---|---|
+| Tiempo total (500 ticks) | 82 ms | 81 ms |
+| Tiempo por tick | 0.164 ms | 0.162 ms |
+| Pico de memoria (working set) | 3.94 MB | 4.10 MB |
+| Cuatro ejemplos del anexo (`Hobbit`, `Ent`, `Dwarf`, `Uruk`), `--seed 7`, 100 ticks | Historias "antes" capturadas | Byte a byte idénticas a las de antes |
+
+Conclusión: F4-08 no empeora significativamente ni el tiempo ni la memoria por tick; la salida de fase se considera cumplida.
 
 <!-- Se rellena al avanzar: patrón por patrón, motivación, coste asumido, mediciones. -->
