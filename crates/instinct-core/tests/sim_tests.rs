@@ -6,10 +6,46 @@ use instinct_core::compile;
 use instinct_core::event::{Event, Pos};
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
+use instinct_core::rng::RngSource;
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
 use instinct_core::world::{CellContent, CreatureState, World};
+use std::cell::RefCell;
 use std::rc::Rc;
+
+/// Deterministic RNG for tests: returns values from a fixed sequence.
+#[derive(Debug, Clone)]
+pub struct TestRng {
+    values: Vec<i64>,
+    index: usize,
+}
+
+impl TestRng {
+    pub fn new(values: Vec<i64>) -> Self {
+        TestRng { values, index: 0 }
+    }
+}
+
+impl RngSource for TestRng {
+    fn next_bounded(&mut self, max: i64) -> i64 {
+        let v = self.values[self.index % self.values.len()];
+        self.index += 1;
+        if max < 0 {
+            return 0;
+        }
+        let range = (max as u64).wrapping_add(1);
+        (v as u64 % range) as i64
+    }
+
+    fn shuffle(&mut self, list: &mut [usize]) {
+        let mut i = list.len();
+        while i > 1 {
+            i -= 1;
+            let j = self.next_bounded(i as i64) as usize;
+            list.swap(i, j);
+        }
+    }
+}
 
 fn grass_terrain() -> Terrain {
     Terrain {
@@ -916,4 +952,89 @@ fn test_creature_uses_see_and_name() {
         })
         .collect();
     assert!(said.len() >= 2, "dice see y name, got: {said:?}");
+}
+
+#[test]
+fn test_simulation_with_injected_rng_is_deterministic() {
+    // AC3: Un TestRng inyectado controla shuffle (orden de turnos) y
+    // next_bounded (percepción random). Dos corridas con el mismo TestRng
+    // producen la misma historia.
+    // TestRng con valores fijos: random devuelve 0, 1, 2 en secuencia.
+    // La criatura dice random cada turno, así que el TestRng controla la salida.
+    fn make_world() -> World {
+        let map = Map {
+            name: "test".to_string(),
+            rows: vec![vec!['.'; 5], vec!['.'; 5], vec!['.'; 5]],
+        };
+        let terrain = Terrain {
+            name: "Grass".to_string(),
+            character: '.',
+            resource_max: 100,
+            regen: 2,
+            reserve: 100,
+        };
+        let mut world = World::from_map(&map, &[terrain], &[]);
+        assert!(world.diagnostics.is_empty());
+        let sp = species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
+        let _id = world.place_creature(sp, 0, 0).expect("place walker");
+        world
+    }
+
+    // TestRng con valores fijos: random devuelve 0, 1, 2 en secuencia.
+    let mut world1 = make_world();
+    world1.rng = RefCell::new(Box::new(TestRng::new(vec![0, 1, 2])));
+    let mut sim1 = Simulation::new(world1);
+    let events1 = run_ticks(&mut sim1, 10);
+
+    let mut world2 = make_world();
+    world2.rng = RefCell::new(Box::new(TestRng::new(vec![0, 1, 2])));
+    let mut sim2 = Simulation::new(world2);
+    let events2 = run_ticks(&mut sim2, 10);
+
+    assert_eq!(
+        events1, events2,
+        "same injected TestRng produces same history:\n{events1:?}\n{events2:?}"
+    );
+
+    let said1: Vec<&String> = events1
+        .iter()
+        .filter_map(|e| match e {
+            Event::Said { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        said1.iter().any(|t| **t == "0"),
+        "dice random=0, got: {said1:?}"
+    );
+    assert!(
+        said1.iter().any(|t| **t == "1"),
+        "dice random=1, got: {said1:?}"
+    );
+    assert!(
+        said1.iter().any(|t| **t == "2"),
+        "dice random=2, got: {said1:?}"
+    );
+
+    // Un TestRng diferente produce una historia diferente (controla random).
+    let mut world3 = make_world();
+    world3.rng = RefCell::new(Box::new(TestRng::new(vec![5, 5, 5])));
+    let mut sim3 = Simulation::new(world3);
+    let events3 = run_ticks(&mut sim3, 10);
+
+    let said3: Vec<&String> = events3
+        .iter()
+        .filter_map(|e| match e {
+            Event::Said { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        said3.iter().all(|t| **t == "5"),
+        "dice random=5 siempre, got: {said3:?}"
+    );
+    assert_ne!(
+        events1, events3,
+        "different injected TestRng produces different history"
+    );
 }

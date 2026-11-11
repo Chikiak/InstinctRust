@@ -50,7 +50,9 @@ impl Simulation {
         // 1. Snapshot the alive creature ids and shuffle them with the world's
         //    generator. The order is fixed for this tick.
         let mut ids: Vec<CreatureId> = self.world.creatures.iter().map(|c| c.id).collect();
-        self.world.rng.borrow_mut().shuffle(&mut ids);
+        let mut order: Vec<usize> = (0..ids.len()).collect();
+        self.world.rng.borrow_mut().shuffle(&mut order);
+        ids = order.into_iter().map(|i| ids[i]).collect();
 
         // 2. Run each creature's turn. Awake creatures execute; Sleeping
         //    creatures have their sleep decremented without executing.
