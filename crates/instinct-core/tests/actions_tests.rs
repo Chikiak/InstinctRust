@@ -375,10 +375,9 @@ fn test_move_zero_direction_or_speed_does_not_move() {
 fn test_move_argument_errors_name_the_argument() {
     let mv = Move;
     let (mut world, _, _) = rock_world();
-    world
+    let id = world
         .place_creature(Species::new("Walker"), 0, 0)
         .expect("place walker at free cell");
-    let id = world.creatures[0].id;
 
     // dx outside {-1,0,1}.
     let err = mv
@@ -430,7 +429,7 @@ fn place_creature_with_health(world: &mut World, x: usize, y: usize, health: i64
     let id = world
         .place_creature(Species::new("Walker"), x, y)
         .expect("place creature");
-    for c in world.creatures.iter_mut() {
+    for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.health = health;
         }
@@ -442,6 +441,7 @@ fn creature_health(world: &World, id: CreatureId) -> i64 {
     world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == id)
         .map(|c| c.health)
         .expect("creature exists")
@@ -493,7 +493,7 @@ fn test_attack_kills_creature_immediately() {
     );
     // Víctima removida.
     assert!(
-        world.creatures.iter().all(|c| c.id != victim),
+        world.creatures.iter().flatten().all(|c| c.id != victim),
         "víctima debe estar removida"
     );
     // Casilla de la víctima queda solo terreno.
@@ -519,7 +519,7 @@ fn test_attack_wounds_creature() {
         .expect("attack applies");
     assert_eq!(creature_health(&world, victim), 7, "vida debe reducirse");
     assert!(
-        world.creatures.iter().any(|c| c.id == victim),
+        world.creatures.iter().flatten().any(|c| c.id == victim),
         "víctima debe seguir viva"
     );
     assert!(matches!(world.content[0][1], CellContent::Creature(_)));
@@ -742,7 +742,7 @@ fn test_consume_damages_creature() {
         r.events
     );
     assert!(
-        world.creatures.iter().all(|c| c.id != victim),
+        world.creatures.iter().flatten().all(|c| c.id != victim),
         "víctima debe estar removida"
     );
     assert!(matches!(world.content[0][1], CellContent::Empty));
@@ -975,6 +975,7 @@ fn test_reproduce_creates_offspring() {
     let child = world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id != mother)
         .expect("debe existir la cría");
     assert_eq!((child.x, child.y), (1, 2), "cría en la casilla objetivo");
@@ -993,6 +994,7 @@ fn test_reproduce_creates_offspring() {
         world
             .creatures
             .iter()
+            .flatten()
             .find(|c| c.id == mother)
             .unwrap()
             .species
@@ -1004,6 +1006,7 @@ fn test_reproduce_creates_offspring() {
         world
             .creatures
             .iter()
+            .flatten()
             .find(|c| c.id == mother)
             .unwrap()
             .species
@@ -1056,6 +1059,7 @@ fn test_reproduce_offspring_no_variables() {
     let child = world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id != mother)
         .expect("debe existir la cría");
     assert!(
@@ -1088,7 +1092,7 @@ fn test_reproduce_abort_occupied_cell() {
     assert_eq!(r.sleep_turns, 0);
     assert!(r.events.is_empty());
     assert_eq!(
-        world.creatures.len(),
+        world.creatures.iter().filter(|c| c.is_some()).count(),
         2,
         "solo la madre y la víctima, sin cría"
     );
@@ -1115,7 +1119,7 @@ fn test_reproduce_abort_occupied_by_object() {
         .expect("reproduce applies: aborto no es error");
     assert!(r.events.is_empty());
     assert!(
-        !world.creatures.iter().any(|c| c.id != mother),
+        !world.creatures.iter().flatten().any(|c| c.id != mother),
         "no debe haber cría"
     );
     assert!(matches!(world.content[1][1], CellContent::Object(0)));
@@ -1138,7 +1142,7 @@ fn test_reproduce_abort_out_of_map() {
         .expect("reproduce applies: fuera del mapa no es error");
     assert!(r.events.is_empty());
     assert!(
-        world.creatures.iter().all(|c| c.id == mother),
+        world.creatures.iter().flatten().all(|c| c.id == mother),
         "no debe haber cría"
     );
     assert_eq!(creature_health(&world, mother), 10);
@@ -1160,7 +1164,7 @@ fn test_reproduce_abort_insufficient_health() {
         .expect("reproduce applies: aborto no es error");
     assert!(r.events.is_empty());
     assert!(
-        !world.creatures.iter().any(|c| c.id != mother),
+        !world.creatures.iter().flatten().any(|c| c.id != mother),
         "no debe haber cría"
     );
     assert_eq!(creature_health(&world, mother), 5);
@@ -1175,7 +1179,7 @@ fn test_reproduce_abort_insufficient_health() {
         .expect("reproduce applies");
     assert!(r.events.is_empty());
     assert!(
-        !world.creatures.iter().any(|c| c.id != mother),
+        !world.creatures.iter().flatten().any(|c| c.id != mother),
         "no debe haber cría"
     );
 }

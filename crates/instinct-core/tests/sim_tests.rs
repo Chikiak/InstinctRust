@@ -9,7 +9,7 @@ use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::rng::RngSource;
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
-use instinct_core::world::{CellContent, CreatureState, World};
+use instinct_core::world::{CellContent, CreatureId, CreatureState, World};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -170,6 +170,7 @@ fn test_death_by_health_and_by_age() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == id_a)
         .expect("creature alive after 9 ticks");
     assert_eq!(creature.health, 1);
@@ -195,7 +196,10 @@ fn test_death_by_health_and_by_age() {
         }
         _ => panic!("expected Died event"),
     }
-    assert!(sim.world.creatures.iter().all(|c| c.id != id_a));
+    assert!(
+        sim.world.creatures.iter().flatten().all(|c| c.id != id_a),
+        "id_a debe haber desaparecido del almacén"
+    );
 
     // Creature B: health 100, lifespan 5 -> dies by edad at end of tick 5.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
@@ -214,6 +218,7 @@ fn test_death_by_health_and_by_age() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == id_b)
         .expect("creature alive after 4 ticks");
     assert_eq!(creature.age, 4);
@@ -237,7 +242,56 @@ fn test_death_by_health_and_by_age() {
         }
         _ => panic!("expected Died event"),
     }
-    assert!(sim.world.creatures.iter().all(|c| c.id != id_b));
+    assert!(
+        sim.world.creatures.iter().flatten().all(|c| c.id != id_b),
+        "id_b debe haber desaparecido del almacén"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// AC3: step_tick itera solo sobre ids vivos del almacén (huecos ignorados).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sim_iterates_live_ids_only() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp = species_no_program("Walker", 100, 1000);
+    let id_a = world.place_creature(sp.clone(), 0, 0).expect("place A");
+    let id_b = world.place_creature(sp.clone(), 1, 0).expect("place B");
+    let id_c = world.place_creature(sp, 2, 0).expect("place C");
+
+    // Liberar el hueco del medio antes del tick: id_b deja de existir.
+    world.remove_creature(id_b).expect("remove B");
+
+    // El almacén tiene un hueco en id_b; los ids vivos son id_a e id_c.
+    let live: Vec<CreatureId> = world
+        .creatures
+        .iter()
+        .enumerate()
+        .filter_map(|(i, slot)| slot.as_ref().map(|_| CreatureId(i)))
+        .collect();
+    assert_eq!(live, vec![id_a, id_c]);
+
+    let mut sim = Simulation::new(world);
+    let events = sim.step_tick();
+
+    // Ninguna muerte ni error; solo los vivos envejecen un tick.
+    assert!(
+        !events.iter().any(|e| matches!(e, Event::Died { .. })),
+        "no muertes esperadas, got: {events:?}"
+    );
+    let after: Vec<(CreatureId, i64)> = sim
+        .world
+        .creatures
+        .iter()
+        .enumerate()
+        .filter_map(|(i, slot)| slot.as_ref().map(|c| (CreatureId(i), c.age)))
+        .collect();
+    assert_eq!(after, vec![(id_a, 1), (id_c, 1)]);
+    assert!(
+        sim.world.creatures[id_b.0].is_none(),
+        "el hueco de id_b sigue libre tras el tick"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -398,6 +452,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id != mother)
         .expect("debe existir la cría tras reproducir");
     assert_eq!((child.x, child.y), (1, 2));
@@ -420,6 +475,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
         .world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id != mother)
         .expect("la cría sigue viva");
     assert_eq!(
@@ -433,6 +489,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
         sim.world
             .creatures
             .iter()
+            .flatten()
             .filter(|c| c.id != mother)
             .count(),
         1,
@@ -653,13 +710,23 @@ fn test_text_semantics_kill_on_type_error() {
     assert_eq!(died.len(), 4, "cuatro muertes por error, got: {died:?}");
     for id in [_id_d1, _id_d2, _id_d3, _id_d4] {
         assert!(
-            sim.world.creatures.iter().all(|c| c.id != id),
+            sim.world.creatures.iter().flatten().all(|c| c.id != id),
             "{id:?} debe estar muerta"
         );
     }
     // T y S siguen vivas.
-    assert!(sim.world.creatures.iter().any(|c| c.species.name == "T"));
-    assert!(sim.world.creatures.iter().any(|c| c.species.name == "S"));
+    assert!(sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .any(|c| c.species.name == "T"));
+    assert!(sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .any(|c| c.species.name == "S"));
 }
 
 // ---------------------------------------------------------------------------
@@ -940,6 +1007,7 @@ fn test_creature_uses_see_and_name() {
         sim.world
             .creatures
             .iter()
+            .flatten()
             .any(|c| c.species.name == "Watcher"),
         "la criatura sigue viva"
     );

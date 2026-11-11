@@ -158,7 +158,7 @@ fn place_with_health(
     let id = world
         .place_creature(instinct_core::species::Species::new("Walker"), x, y)
         .expect("place creature");
-    for c in world.creatures.iter_mut() {
+    for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.health = health;
         }
@@ -171,6 +171,7 @@ fn creature_health(world: &World, id: instinct_core::world::CreatureId) -> i64 {
     world
         .creatures
         .iter()
+        .flatten()
         .find(|c| c.id == id)
         .map(|c| c.health)
         .expect("creature exists")

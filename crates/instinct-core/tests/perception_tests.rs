@@ -41,12 +41,13 @@ fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world:
     world
         .creatures
         .iter_mut()
+        .flatten()
         .find(|c| c.id == id)
         .expect("creature exists")
 }
 
 fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
-    for c in world.creatures.iter_mut() {
+    for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.species.vision = vision;
         }

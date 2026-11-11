@@ -727,7 +727,7 @@ fn test_interpreter_emits_runtime_error_to_bus() {
     let id = world.place_creature(species, 0, 0).expect("place creature");
 
     // Verifica que la criatura está viva antes de crear la simulación.
-    assert!(world.creatures.iter().any(|c| c.id == id));
+    assert!(world.creatures.iter().flatten().any(|c| c.id == id));
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(42);
@@ -768,5 +768,5 @@ fn test_interpreter_emits_runtime_error_to_bus() {
         _ => unreachable!(),
     };
     // La criatura debe estar muerta.
-    assert!(sim.world.creatures.iter().all(|c| c.id != id));
+    assert!(sim.world.creatures.iter().flatten().all(|c| c.id != id));
 }

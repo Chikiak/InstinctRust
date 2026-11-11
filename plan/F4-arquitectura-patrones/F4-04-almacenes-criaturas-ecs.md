@@ -2,7 +2,7 @@
 id: F4-04
 title: Almacenes de criaturas indexados por identificador (ECS ligero)
 phase: F4
-status: todo
+status: done
 depends_on: [F4-02]
 size: L
 ---
@@ -120,5 +120,16 @@ Si `remove_creature` en medio de `step_tick` invalida el iterador de ids vivos, 
 ### Notas de implementación
 
 Rama: feat/f4-04-almacenes-criaturas-ecs (sobre develop). Depende de F4-02.
-Evidencia AC por AC: pendiente.
-Cambios de firma autorizados: `World.creatures` deja de ser `Vec<Creature>`; `place_creature`/`remove_creature` mantienen firma pero cambian semántica de id (reuso de huecos).
+Commit: c4fa709 (feat: almacenes de criaturas indexados por CreatureId (ECS ligero) (F4-04)).
+
+Evidencia AC por AC:
+- AC1 PASS: `World.creatures: Vec<Option<Creature>>` (`world.rs`), índice == `CreatureId.0`, `None` = hueco libre; `creature`/`creature_mut`/`creature_position` indexan directo O(1); `live_creature_ids()` para `sim.step_tick`. Sin `find(|c| c.id == ...)` por id en el núcleo. `cargo test --workspace` OK.
+- AC2 PASS: `place_creature` reusa `free_ids` (LIFO) o crece el almacén; `remove_creature` pone `None` y pushea al free-list sin invalidar otros ids. `test_place_creature_returns_stable_id_and_reuses_slot`: coloca ids 0,1; remueve 0; vuelve a colocar → id 0; `creature(0)`/`creature(1)` correctas. `cargo test -p instinct-core --test world_tests` OK.
+- AC3 PASS: `sim.step_tick` itera `world.live_creature_ids()` (snapshot de ids vivos); `run_creature_turn` y el decremento de sueño usan `creature(id)`/`creature_mut(id)` O(1). `test_sim_iterates_live_ids_only`: hueco en el medio ignorado, solo ids vivos envejecen. `cargo test -p instinct-core --test sim_tests` OK. Cero `dead_ids.contains`.
+- AC4 PASS: rejilla sigue con `CellContent::Creature(CreatureId)`; `draw` usa `creature(*id)` y falla con diagnóstico ante id huérfano sin pánico. `test_draw_no_orphan_panic`. `cargo test -p instinct-core --test world_tests` OK.
+- AC5 PASS: determinismo intacto (misma semilla = misma historia): `test_annex_seed7_sequence_unchanged` (seed 7, 10 ticks, 4 ejemplos) y `cargo test --workspace` verdes; CLI: `run --root examples --map "Plain with rocks" --seed 7 --ticks 10 --place <Especie>@2,0` dos corridas por especie byte a byte iguales (fc.exe).
+- AC6 PASS: cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario o archivo. `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` (exit 0, sin warnings), `cargo fmt --all --check` (exit 0) verdes.
+
+Cambios de firma autorizados aplicados: `World.creatures` deja de ser `Vec<Creature>`; `next_creature_id` eliminado y sustituido por `free_ids: Vec<usize>` (cursor del free-list; cuando está vacío el próximo id es `creatures.len()`); `place_creature`/`remove_creature` mantienen firma con reuso de huecos. `creature`/`creature_mut` pasan a `pub(crate)` para que `actions.rs` y `sim.rs` accedan O(1).
+Archivos tocados: `crates/instinct-core/src/world.rs`, `crates/instinct-core/src/sim.rs`, `crates/instinct-core/src/actions.rs`, `crates/instinct-core/src/interp.rs` (ningún cambio; solo revisado), tests `world_tests.rs`, `sim_tests.rs`, `annex_examples_tests.rs`, `actions_tests.rs`, `perception_tests.rs`, `interp_tests.rs`, `cli_run.rs`.
+Comportamiento no alterado: orden de turnos, límite de 100 líneas, fin de tick, eventos y semilla igual que antes del issue.
