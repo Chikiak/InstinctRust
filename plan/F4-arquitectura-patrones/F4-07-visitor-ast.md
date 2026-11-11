@@ -2,7 +2,7 @@
 id: F4-07
 title: Visitor sobre el AST, solo con consumidor real
 phase: F4
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -98,6 +98,17 @@ No hay bloqueo técnico: el issue termina con el documento del descarte si no ha
 
 ### Notas de implementación
 
-Rama: feat/f4-07-visitor-ast (sobre develop). Condicionado por decisión 4 de la fase.
-Evidencia AC por AC: pendiente.
-Resultado esperado: descartado por falta de consumidor real (candidato para fase futura).
+Rama: feat/f4-07-visitor-ast (sobre develop). Condicionado por decisión 4 de la fase (PHASE.md, sección "Decisiones de la fase", punto 4): Visitor sobre el AST solo si hay consumidor real.
+
+Descarte: se buscó en repo y planes pendientes (F4, F5, F6) un consumidor real (pretty-printer, type-checker estático, optimizador de constantes). Resultado: no existe. Solo referencias en docs/PATRONES_DISENO_ARQUITECTURA.md (sección 2.2), plan/MASTER.md y los archivos de fase; ningún `ExprVisitor`, impresor ni type-checker en código. Por tanto no se añade código Visitor: sin `trait ExprVisitor`, sin `Expr::accept`, sin cambios en `crates/instinct-core/src/expr.rs` ni en los tests. `Expr::eval` y el AST quedan intactos; misma semilla = misma historia.
+
+Coste asumido: ninguno en código; el patrón queda como candidato para una fase futura cuando aparezca un consumidor real. Motivación: decisión 4 de la fase + MASTER decisión 40 (refactor especulativo prohibido).
+
+Evidencia AC por AC (comando + resultado):
+- AC1 PASS: consumidor real inexistente documentado (grep sobre repo: solo docs/planes; ninguna implementación).
+- AC2 N/A: no hay consumidor.
+- AC3 PASS: sin código Visitor nuevo; descarte anotado con motivación y coste. `cargo test --workspace` → todo ok, 0 fallos.
+- AC4 PASS: `cargo test -p instinct-core --test expr_tests` → 10 tests ok, eval igual que antes.
+- AC5 PASS: cero unwrap/expect/panic! nuevos; `cargo clippy --workspace --all-targets -- -D warnings` → CLIPPY_OK; `cargo fmt --all --check` → FMT_OK.
+
+Commits: ninguno todavía (pendiente de cierre del issue).
