@@ -769,7 +769,7 @@ impl Action for Reproduce {
         }
         // `place_creature` valida bounds y celda libre: celda ocupada ->
         // aborto natural sin tocar a la madre.
-        let child_id = match world.place_creature(species, tx as usize, ty as usize) {
+        let child_id = match world.place_creature(&species, tx as usize, ty as usize) {
             Ok(id) => id,
             Err(_) => return Ok(abort_reproduction()),
         };

@@ -17,8 +17,9 @@ fn examples_dir() -> String {
     format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"))
 }
 
-/// Compiles an annex `.ins` and returns the `Species` with its program.
-fn load_annex_creature(name: &str) -> Species {
+/// Compiles an annex `.ins` and returns la `Species` con su programa,
+/// envuelta en `Rc` para compartirla por el catálogo del mundo (Flyweight).
+fn load_annex_creature(name: &str) -> Rc<Species> {
     let path = format!("{}/creatures/{}.ins", examples_dir(), name);
     let content =
         std::fs::read_to_string(&path).unwrap_or_else(|_| panic!("{name}.ins must exist"));
@@ -33,14 +34,14 @@ fn load_annex_creature(name: &str) -> Species {
     let header = result
         .header
         .unwrap_or_else(|| panic!("{name}.ins should have a header"));
-    Species::with_program(
+    Rc::new(Species::with_program(
         header.species_name,
         header.faction,
         header.health,
         header.vision,
         header.lifespan,
         Rc::new(result.program),
-    )
+    ))
 }
 
 fn grass_terrain() -> Terrain {
@@ -72,15 +73,15 @@ fn build_world(map: &Map, terrains: &[Terrain], objects: &[Object]) -> World {
     world
 }
 
-fn species_no_program(name: &str, health: i64, lifespan: i64) -> Species {
-    Species {
+fn species_no_program(name: &str, health: i64, lifespan: i64) -> Rc<Species> {
+    Rc::new(Species {
         name: name.to_string(),
         faction: "any".to_string(),
         health,
         vision: 3,
         lifespan,
         program: None,
-    }
+    })
 }
 
 /// Runs `n` ticks and returns all emitted events.
@@ -118,9 +119,9 @@ fn test_hobbit_flees_and_speaks() {
     // Hobbit at (2,2), enemy (other faction) at (3,2): enemy_dist == 1 >= 0.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let hobbit = load_annex_creature("hobbit");
-    let hobbit_id = world.place_creature(hobbit, 2, 2).expect("place hobbit");
+    let hobbit_id = world.place_creature(&hobbit, 2, 2).expect("place hobbit");
     let enemy = species_no_program("Enemy", 20, 100);
-    let _enemy_id = world.place_creature(enemy, 3, 2).expect("place enemy");
+    let _enemy_id = world.place_creature(&enemy, 3, 2).expect("place enemy");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(1);
@@ -164,7 +165,7 @@ fn test_hobbit_flees_and_speaks() {
 fn test_ent_feeds_and_stays() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let ent = load_annex_creature("ent");
-    let ent_id = world.place_creature(ent, 2, 2).expect("place ent");
+    let ent_id = world.place_creature(&ent, 2, 2).expect("place ent");
     // health < 150 so the Ent goes to `roots` and eats.
     world
         .set_creature_health(ent_id, 140)
@@ -227,7 +228,7 @@ fn test_dwarf_mines_adjacent_rock() {
 
     let dwarf = load_annex_creature("dwarf");
     // health < 100 so `object_dist == 1 and health < 100` leads to `mine`.
-    let dwarf_id = world.place_creature(dwarf, 0, 0).expect("place dwarf");
+    let dwarf_id = world.place_creature(&dwarf, 0, 0).expect("place dwarf");
     world
         .set_creature_health(dwarf_id, 90)
         .expect("set dwarf health");
@@ -275,9 +276,9 @@ fn test_uruk_hunts_and_breeds() {
     // --- Hunt: Uruk consumes an adjacent enemy -----------------------------
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let uruk = load_annex_creature("uruk");
-    let _uruk_id = world.place_creature(uruk, 0, 0).expect("place uruk");
+    let _uruk_id = world.place_creature(&uruk, 0, 0).expect("place uruk");
     let enemy = species_no_program("Enemy", 10, 100);
-    let _enemy_id = world.place_creature(enemy, 1, 0).expect("place enemy");
+    let _enemy_id = world.place_creature(&enemy, 1, 0).expect("place enemy");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(1);
@@ -315,7 +316,7 @@ fn test_uruk_hunts_and_breeds() {
     // --- Breed: Uruk alone breeds when conditions hold ---------------------
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let uruk = load_annex_creature("uruk");
-    let uruk_id = world.place_creature(uruk, 2, 2).expect("place uruk");
+    let uruk_id = world.place_creature(&uruk, 2, 2).expect("place uruk");
     world
         .set_creature_health(uruk_id, 80)
         .expect("set uruk health");
@@ -382,7 +383,7 @@ fn test_annex_seed7_sequence_unchanged() {
         let mut world1 = build_world(&empty_map(), &[grass_terrain()], &[]);
         let creature = load_annex_creature(name);
         let _id = world1
-            .place_creature(creature, 2, 2)
+            .place_creature(&creature, 2, 2)
             .expect("place creature");
         world1.set_rng_seed(7);
         let mut sim1 = Simulation::new(world1);
@@ -391,7 +392,7 @@ fn test_annex_seed7_sequence_unchanged() {
         let mut world2 = build_world(&empty_map(), &[grass_terrain()], &[]);
         let creature2 = load_annex_creature(name);
         let _id2 = world2
-            .place_creature(creature2, 2, 2)
+            .place_creature(&creature2, 2, 2)
             .expect("place creature");
         world2.set_rng_seed(7);
         let mut sim2 = Simulation::new(world2);

@@ -98,7 +98,7 @@ ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial
 | F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M | done | F4-02-estado-turno-creatura-state.md |
 | F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S | done | F4-03-prng-inyectable-strategy.md |
 | F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L | done | F4-04-almacenes-criaturas-ecs.md |
-| F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | todo | F4-05-flyweight-especies.md |
+| F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | done | F4-05-flyweight-especies.md |
 | F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S | todo | F4-06-memento-estado-turno.md |
 | F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M | todo | F4-07-visitor-ast.md |
 | F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3, F4-04 | S | todo | F4-08-capas-modulos-limites.md |

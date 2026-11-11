@@ -2,7 +2,7 @@
 id: F4-05
 title: Flyweight para especies (y catálogos compartidos)
 phase: F4
-status: todo
+status: done
 depends_on: [F4-04]
 size: M
 ---
@@ -108,6 +108,26 @@ Si `Rc<Species>` obliga a cambiar muchas firmas que reciben `&Species`, para y r
 
 ### Notas de implementación
 
-Rama: feat/f4-05-flyweight-especies (sobre develop). Depende de F4-04.
-Evidencia AC por AC: pendiente.
-Cambios de firma autorizados: `Creature.species` de `Species` a `Rc<Species>`.
+Rama: feat/f4-05-flyweight-especies (sobre develop). Depende de F4-04 (mergeada en develop).
+Commit: acd16ac `feat: flyweight para especies con Rc<Species> compartido (F4-05)`.
+
+Diseño (documentado en `crates/instinct-core/src/species.rs`): `Rc<Species>` elegido sobre
+`SpeciesId` porque el programa de la especie (`Option<Rc<Program>>`) se comparte por referencia;
+clonar la criatura clona solo el `Rc`.
+
+Comando + resultado por AC:
+- AC1 `test_creatures_share_species_rc` (`world_tests`): `cargo test -p instinct-core --test world_tests` → exit 0; `Rc::ptr_eq(c1.species, c2.species)` true y el catálogo `World.species` dueña del mismo `Rc`.
+- AC2 `test_species_is_immutable_shared` (`species_tests`): `cargo test -p instinct-core --test species_tests` → exit 0; sin setters, `program: Option<Rc<Program>>`, mismo puntero de programa entre especies.
+- AC3 `place_creature(&Rc<Species>, ...)` envuelve con `Rc::clone` sin clonar `Species`; `World.species: Vec<Rc<Species>>` registro por puntero (`Rc::ptr_eq`). Cubierto por suite completa.
+- AC4 `cargo test -p instinct-core --test annex_examples_tests` → exit 0 (`test_annex_seed7_sequence_unchanged`); `test_cli_annex_is_deterministic` → dos corridas `--seed 7` byte-identicas (exit 0).
+- AC5 `cargo test --workspace` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0; cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario o archivo.
+
+Archivos tocados:
+- `crates/instinct-core/src/species.rs` (doc: flyweight/inmutabilidad; sin cambio de contrato).
+- `crates/instinct-core/src/world.rs`: `Creature.species: Rc<Species>`, `World.species: Vec<Rc<Species>>` (catálogo dueño), `place_creature(&mut self, species: &Rc<Species>, x, y)` registra por puntero y guarda `Rc::clone(species)`; `Clone`/`Debug` actualizados.
+- `crates/instinct-core/src/actions.rs`: `reproduce` pasa `&species` (`Rc::clone` de `mother.species`).
+- `crates/instinct-cli/src/main.rs`: `placements: Vec<(Placement, Rc<Species>)>`, `place_creature(species, ...)`.
+- Tests actualizados al nuevo API: `world_tests`, `species_tests` (nuevo `test_species_is_immutable_shared`), `annex_examples_tests`, `sim_tests`, `actions_tests`, `perception_tests` (se elimina `set_vision` que mutaba `Rc`), `functions_tests`, `interp_tests`, `cli_run`.
+
+Desviación: ninguna; el alcance y los criterios de aceptación no se modificaron. `resources.rs` y `sim.rs` no requirieron cambio (ya devolvían especies dueñas y leen por deref).
+Evidencia completa: `run6.log` (suite completa verde), clippy y fmt en verde (exit 0).

@@ -32,7 +32,7 @@ fn world_with_grass() -> (World, Vec<Terrain>, Vec<Object>) {
 
 fn place_walker(world: &mut World) -> CreatureId {
     world
-        .place_creature(Species::new("Walker"), 1, 1)
+        .place_creature(&Rc::new(Species::new("Walker")), 1, 1)
         .expect("place creature")
 }
 
@@ -305,7 +305,7 @@ fn test_move_stops_before_obstacles() {
     for case in cases {
         let (mut world, terrains, objects) = rock_world();
         let id = world
-            .place_creature(Species::new("Walker"), case.sx, case.sy)
+            .place_creature(&Rc::new(Species::new("Walker")), case.sx, case.sy)
             .unwrap_or_else(|e| panic!("{}: place: {e:?}", case.desc));
         let r = mv
             .apply(
@@ -356,7 +356,7 @@ fn test_move_zero_direction_or_speed_does_not_move() {
     for (dx, dy, speed, desc) in cases {
         let (mut world, _, _) = rock_world();
         let id = world
-            .place_creature(Species::new("Walker"), 0, 0)
+            .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
             .unwrap_or_else(|e| panic!("{desc}: place: {e:?}"));
         let r = mv
             .apply(
@@ -376,7 +376,7 @@ fn test_move_argument_errors_name_the_argument() {
     let mv = Move;
     let (mut world, _, _) = rock_world();
     let id = world
-        .place_creature(Species::new("Walker"), 0, 0)
+        .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
         .expect("place walker at free cell");
 
     // dx outside {-1,0,1}.
@@ -426,8 +426,9 @@ fn test_move_argument_errors_name_the_argument() {
 
 /// Coloca una criatura y le fija la salud (Species::new tiene health 0).
 fn place_creature_with_health(world: &mut World, x: usize, y: usize, health: i64) -> CreatureId {
+    let species = Rc::new(Species::new("Walker"));
     let id = world
-        .place_creature(Species::new("Walker"), x, y)
+        .place_creature(&species, x, y)
         .expect("place creature");
     for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
