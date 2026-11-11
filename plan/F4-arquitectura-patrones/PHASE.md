@@ -96,7 +96,7 @@ ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial
 |----|--------|-----------------------------|------------|--------|--------|------------------|
 | F4-01 | Bus de eventos formal y puerto de salida del mundo | I6 (Observer / bus), 1.2 y 4.3 del documento | F3 | M | done | F4-01-bus-eventos-puerto-salida.md |
 | F4-02 | Estado de turno de criatura con patrón State | I3, sección 3.2 | F3 | M | done | F4-02-estado-turno-creatura-state.md |
-| F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S | todo | F4-03-prng-inyectable-strategy.md |
+| F4-03 | Estrategia de PRNG inyectable en pruebas | Sección 8.1 | F3 | S | done | F4-03-prng-inyectable-strategy.md |
 | F4-04 | Almacenes de criaturas indexados por identificador (ECS ligero) | W5, sección 4.1 | F3, F4-02 | L | todo | F4-04-almacenes-criaturas-ecs.md |
 | F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | todo | F4-05-flyweight-especies.md |
 | F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S | todo | F4-06-memento-estado-turno.md |

@@ -5,6 +5,19 @@
 //! operation). Each call to `next_u64` advances the internal state and
 //! returns a new value.
 
+/// Source of pseudo-randomness. The `Strategy` pattern lets tests inject a
+/// deterministic `TestRng` while production uses `Rng` (SplitMix64).
+pub trait RngSource: std::fmt::Debug {
+    /// Returns an integer between 0 and `max` inclusive (maximum included).
+    /// `max` must be >= 0; if negative it is treated as 0.
+    fn next_bounded(&mut self, max: i64) -> i64;
+
+    /// Shuffles `list` (a slice of indices) in-place using Fisher–Yates with
+    /// this same generator. Preserves all elements and with the same seed
+    /// produces the same order.
+    fn shuffle(&mut self, list: &mut [usize]);
+}
+
 /// Seeded pseudo-random number generator with a 64-bit seed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rng {
@@ -41,6 +54,21 @@ impl Rng {
     /// Shuffles `lista` in-place using Fisher–Yates with this same generator.
     /// Preserves all elements and with the same seed produces the same order.
     pub fn shuffle<T>(&mut self, list: &mut [T]) {
+        let mut i = list.len();
+        while i > 1 {
+            i -= 1;
+            let j = self.next_bounded(i as i64) as usize;
+            list.swap(i, j);
+        }
+    }
+}
+
+impl RngSource for Rng {
+    fn next_bounded(&mut self, max: i64) -> i64 {
+        Rng::next_bounded(self, max)
+    }
+
+    fn shuffle(&mut self, list: &mut [usize]) {
         let mut i = list.len();
         while i > 1 {
             i -= 1;

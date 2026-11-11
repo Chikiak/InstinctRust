@@ -2,7 +2,7 @@
 id: F4-03
 title: Estrategia de PRNG inyectable en pruebas
 phase: F4
-status: todo
+status: done
 depends_on: []
 size: S
 ---
@@ -110,5 +110,16 @@ Si `Box<dyn RngSource>` complica `Simulation::new(world: World)` (el mundo ya tr
 ### Notas de implementación
 
 Rama: feat/f4-03-prng-inyectable-strategy (sobre develop).
-Evidencia AC por AC: pendiente.
-Cambios de firma autorizados: `World.rng` de `RefCell<Rng>` a `Box<dyn RngSource>`.
+Commit: a265116 feat: estrategia de PRNG inyectable (Strategy) en World y Simulation (F4-03)
+
+Evidencia AC por AC:
+- AC1 (PASS): `pub trait RngSource: std::fmt::Debug { next_bounded; shuffle }` en `crates/instinct-core/src/rng.rs`; `impl RngSource for Rng` delega a los métodos inherent de `Rng` sin cambiar la secuencia SplitMix64. Verif: `cargo test -p instinct-core --test rng_tests` → `test_rng_source_trait_is_implemented_by_rng` ok.
+- AC2 (PASS): `World.rng` de `RefCell<Rng>` a `RefCell<Box<dyn RngSource>>` en `crates/instinct-core/src/world.rs`; `set_rng_seed(seed)` hace `*self.rng.borrow_mut() = Box::new(Rng::new(seed))`; agregado `set_rng_source(Box<dyn RngSource>)` para inyección. `Simulation` no toca el RNG directamente (viaja dentro de `World`). Verif: `cargo test -p instinct-core --test rng_tests` → `test_world_uses_rng_source_trait` ok.
+- AC3 (PASS): `TestRng` (secuencia fija) implementa `RngSource`; inyectado en `World.rng` controla `shuffle` (orden de turnos) y `next_bounded` (percepción `random`). Dos corridas con el mismo `TestRng` dan la misma historia. Verif: `cargo test -p instinct-core --test sim_tests` → `test_simulation_with_injected_rng_is_deterministic` ok.
+- AC4 (PASS): `Rng::new(7)` produce `next_bounded(99)` = 87,4,46,3,74,5,98,82 y shuffle [0..6] → [2,4,1,3,0,5] (mismos valores que antes del issue). Los cuatro ejemplos con `--seed 7` son deterministas (dos corridas iguales). Verif: `cargo test -p instinct-core --test annex_examples_tests` → `test_annex_seed7_sequence_unchanged` ok.
+- AC5 (PASS): cero `unwrap`/`expect`/`panic!` nuevos sobre datos de usuario o archivo. `cargo test --workspace` (201 tests ok), `cargo clippy --workspace --all-targets -- -D warnings` (exit 0), `cargo fmt --all --check` (exit 0).
+
+Desviaciones del issue:
+- `shuffle` del trait opera sobre `&mut [usize]` (no `&mut [T]` genérico) porque `shuffle<T>` no es `dyn`-compatible. En `sim.rs` los `CreatureId` se convierten a índices `usize`, se shufflean, y se mapean de vuelta. Comportamiento idéntico (Fisher–Yates con `next_bounded`).
+- `clone_box` se omitió del trait (no requerido por el issue ni por `dyn`). `World::clone` resetea el RNG a `Rng::new(0)`; los tests que clonan llaman `set_rng_seed` después, por lo que no hay cambio de comportamiento observable.
+- Archivo `plan/F4-arquitectura-patrones/LEDGER_NOCHE_F4.md` preexistente (no rastreado) incluido en el commit.

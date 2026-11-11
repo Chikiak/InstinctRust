@@ -10,7 +10,7 @@ use crate::event::{Event, Pos, WorldOutput};
 use crate::expr::EvalContext;
 use crate::perception::{CreatureView, Nearby, Nearest};
 use crate::resources::{Map, Object, Terrain};
-use crate::rng::Rng;
+use crate::rng::{Rng, RngSource};
 use crate::species::Species;
 use crate::value::Value;
 use std::cell::RefCell;
@@ -105,9 +105,10 @@ pub struct World {
     pub diagnostics: Vec<Diagnostic>,
     /// Shared catalog of actions and perceptions.
     pub catalog: Catalog,
-    /// Seeded pseudo-random generator. Interior mutability is confined to this
-    /// field so `random` can advance it through an immutable world reference.
-    pub rng: RefCell<Rng>,
+    /// Seeded pseudo-random generator wrapped as a `RngSource` strategy object.
+    /// Interior mutability is confined to this field so `random` can advance it
+    /// through an immutable world reference.
+    pub rng: RefCell<Box<dyn RngSource>>,
     /// Rugidos emitidos en el tick actual, asociados a su tick y posición.
     /// Al final de cada tick (`sim.rs`) se rotan a `roars_previous`.
     pub roars_current: Vec<Roar>,
@@ -147,7 +148,7 @@ impl World {
                 events: Vec::new(),
                 diagnostics,
                 catalog: Catalog::default(),
-                rng: RefCell::new(Rng::new(0)),
+                rng: RefCell::new(Box::new(Rng::new(0))),
                 roars_current: Vec::new(),
                 roars_previous: Vec::new(),
                 output: None,
@@ -207,7 +208,7 @@ impl World {
             events: Vec::new(),
             diagnostics,
             catalog: Catalog::default(),
-            rng: RefCell::new(Rng::new(0)),
+            rng: RefCell::new(Box::new(Rng::new(0))),
             roars_current: Vec::new(),
             roars_previous: Vec::new(),
             output: None,
@@ -372,7 +373,13 @@ impl World {
     /// Seeds the world's generator. Two worlds with the same seed produce the
     /// same `random` sequence and turn order.
     pub fn set_rng_seed(&mut self, seed: u64) {
-        self.rng.replace(Rng::new(seed));
+        *self.rng.borrow_mut() = Box::new(Rng::new(seed));
+    }
+
+    /// Injects a `RngSource` strategy (e.g. a deterministic `TestRng` for
+    /// tests). Replaces the world's current generator.
+    pub fn set_rng_source(&mut self, rng: Box<dyn RngSource>) {
+        *self.rng.borrow_mut() = rng;
     }
 
     /// Conecta un puerto de salida al mundo. Los eventos emitidos por
@@ -896,7 +903,7 @@ impl Clone for World {
             events: self.events.clone(),
             diagnostics: self.diagnostics.clone(),
             catalog: self.catalog.clone(),
-            rng: RefCell::new(self.rng.borrow().clone()),
+            rng: RefCell::new(Box::new(Rng::new(0))), // clonar resetea el RNG a seed 0
             roars_current: self.roars_current.clone(),
             roars_previous: self.roars_previous.clone(),
             // El puerto de salida no se clona: el clonado empieza sin puerto.

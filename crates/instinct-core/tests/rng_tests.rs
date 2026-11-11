@@ -1,6 +1,43 @@
 //! Unit tests for the `rng` module.
 
-use instinct_core::rng::Rng;
+use instinct_core::resources::{Map, Terrain};
+use instinct_core::rng::{Rng, RngSource};
+use instinct_core::world::World;
+use std::cell::RefCell;
+
+/// Deterministic RNG for tests: returns values from a fixed sequence.
+#[derive(Debug, Clone)]
+pub struct TestRng {
+    values: Vec<i64>,
+    index: usize,
+}
+
+impl TestRng {
+    pub fn new(values: Vec<i64>) -> Self {
+        TestRng { values, index: 0 }
+    }
+}
+
+impl RngSource for TestRng {
+    fn next_bounded(&mut self, max: i64) -> i64 {
+        let v = self.values[self.index % self.values.len()];
+        self.index += 1;
+        if max < 0 {
+            return 0;
+        }
+        let range = (max as u64).wrapping_add(1);
+        (v as u64 % range) as i64
+    }
+
+    fn shuffle(&mut self, list: &mut [usize]) {
+        let mut i = list.len();
+        while i > 1 {
+            i -= 1;
+            let j = self.next_bounded(i as i64) as usize;
+            list.swap(i, j);
+        }
+    }
+}
 
 #[test]
 fn test_rng_is_deterministic() {
@@ -87,4 +124,77 @@ fn test_shuffle_empty_and_single() {
     let mut one: Vec<i32> = vec![42];
     Rng::new(1).shuffle(&mut one);
     assert_eq!(one, vec![42]);
+}
+
+#[test]
+fn test_rng_source_trait_is_implemented_by_rng() {
+    // AC1: Rng implements RngSource and the trait methods work.
+    let mut rng: Box<dyn RngSource> = Box::new(Rng::new(42));
+    let v1 = rng.next_bounded(99);
+    let v2 = rng.next_bounded(99);
+    assert!((0..=99).contains(&v1), "value out of range: {v1}");
+    assert!((0..=99).contains(&v2), "value out of range: {v2}");
+    assert_ne!(v1, v2, "consecutive draws differ");
+
+    let mut list: Vec<usize> = (0..10).collect();
+    rng.shuffle(&mut list);
+    assert_eq!(list.len(), 10);
+    let mut sorted = list.clone();
+    sorted.sort();
+    assert_eq!(sorted, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}
+
+#[test]
+fn test_test_rng_next_bounded_returns_fixed_sequence() {
+    // TestRng returns values from its fixed sequence, bounded by max.
+    let mut rng = TestRng::new(vec![1, 2, 3]);
+    assert_eq!(rng.next_bounded(99), 1); // 1 % 100 = 1
+    assert_eq!(rng.next_bounded(99), 2); // 2 % 100 = 2
+    assert_eq!(rng.next_bounded(99), 3); // 3 % 100 = 3
+    assert_eq!(rng.next_bounded(99), 1); // wraps to 1 % 100 = 1
+}
+
+#[test]
+fn test_test_rng_shuffle_is_deterministic() {
+    // TestRng shuffle uses next_bounded and is deterministic per sequence.
+    let mut a: Vec<usize> = (0..6).collect();
+    let mut b: Vec<usize> = (0..6).collect();
+    TestRng::new(vec![0, 0, 0, 0, 0, 0]).shuffle(&mut a);
+    TestRng::new(vec![0, 0, 0, 0, 0, 0]).shuffle(&mut b);
+    assert_eq!(a, b, "same TestRng sequence -> same shuffle");
+
+    // All zeros: next_bounded(i) = 0 % (i+1) = 0, j=0 always ->
+    // Fisher-Yates rotates: [1, 2, 3, 4, 5, 0].
+    let mut rev: Vec<usize> = (0..6).collect();
+    TestRng::new(vec![0]).shuffle(&mut rev);
+    assert_eq!(rev, vec![1, 2, 3, 4, 5, 0]);
+}
+
+#[test]
+fn test_world_uses_rng_source_trait() {
+    // AC2: World uses Box<dyn RngSource>; set_rng_seed wraps Rng::new(seed).
+    let map = Map {
+        name: "test".to_string(),
+        rows: vec![vec!['.'; 3], vec!['.'; 3], vec!['.'; 3]],
+    };
+    let terrain = Terrain {
+        name: "Grass".to_string(),
+        character: '.',
+        resource_max: 100,
+        regen: 2,
+        reserve: 100,
+    };
+    let mut world = World::from_map(&map, &[terrain], &[]);
+    assert!(world.diagnostics.is_empty());
+
+    // set_rng_seed(7) wraps Rng::new(7): same sequence as Rng::new(7).
+    world.set_rng_seed(7);
+    assert_eq!(world.rng.borrow_mut().next_bounded(99), 87);
+    assert_eq!(world.rng.borrow_mut().next_bounded(99), 4);
+    assert_eq!(world.rng.borrow_mut().next_bounded(99), 46);
+
+    // Inject a TestRng: World accepts any Box<dyn RngSource>.
+    world.rng = RefCell::new(Box::new(TestRng::new(vec![42])));
+    assert_eq!(world.rng.borrow_mut().next_bounded(99), 42);
+    assert_eq!(world.rng.borrow_mut().next_bounded(99), 42);
 }
