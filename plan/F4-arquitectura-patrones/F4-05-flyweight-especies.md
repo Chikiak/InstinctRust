@@ -109,7 +109,7 @@ Si `Rc<Species>` obliga a cambiar muchas firmas que reciben `&Species`, para y r
 ### Notas de implementación
 
 Rama: feat/f4-05-flyweight-especies (sobre develop). Depende de F4-04 (mergeada en develop).
-Commit: 566d4a9 (ver más abajo).
+Commit: acd16ac `feat: flyweight para especies con Rc<Species> compartido (F4-05)`.
 
 Diseño (documentado en `crates/instinct-core/src/species.rs`): `Rc<Species>` elegido sobre
 `SpeciesId` porque el programa de la especie (`Option<Rc<Program>>`) se comparte por referencia;
