@@ -82,6 +82,37 @@ pub struct Creature {
     pub variables: HashMap<String, Value>,
 }
 
+/// Memento del estado mutable de una criatura al inicio de un turno.
+/// Captura una copia del estado para poder restaurar o diagnosticar tras
+/// un turno fallido sin dejar el mundo en un estado intermedio corrupto.
+#[derive(Debug, Clone)]
+pub struct CreatureMemento {
+    pub id: CreatureId,
+    pub health: i64,
+    pub age: i64,
+    pub x: usize,
+    pub y: usize,
+    pub pc: usize,
+    pub state: CreatureState,
+    pub variables: HashMap<String, Value>,
+}
+
+impl Creature {
+    /// Captura el estado mutable actual de esta criatura en un memento.
+    pub fn memento(&self) -> CreatureMemento {
+        CreatureMemento {
+            id: self.id,
+            health: self.health,
+            age: self.age,
+            x: self.x,
+            y: self.y,
+            pc: self.pc,
+            state: self.state.clone(),
+            variables: self.variables.clone(),
+        }
+    }
+}
+
 /// The world: terrain grid, objects, creatures, tick counter, and event log.
 ///
 /// `output` (puerto de salida) se excluye de `Clone` y se omite de `Debug`
@@ -399,6 +430,25 @@ impl World {
         })?;
         creature.variables.insert(name.to_string(), value);
         Ok(())
+    }
+
+    /// Restaura el estado de una criatura desde un memento capturado al
+    /// inicio del turno. Devuelve `false` si la criatura ya no existe
+    /// (sin hacer nada). Se usa para deshacer cambios parciales cuando un
+    /// turno falla con error de ejecución.
+    pub fn restore_creature_from_memento(&mut self, memento: &CreatureMemento) -> bool {
+        if let Some(creature) = self.creature_mut(memento.id) {
+            creature.health = memento.health;
+            creature.age = memento.age;
+            creature.x = memento.x;
+            creature.y = memento.y;
+            creature.pc = memento.pc;
+            creature.state = memento.state.clone();
+            creature.variables = memento.variables.clone();
+            true
+        } else {
+            false
+        }
     }
 
     /// Seeds the world's generator. Two worlds with the same seed produce the

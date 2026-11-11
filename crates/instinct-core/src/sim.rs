@@ -105,12 +105,20 @@ impl Simulation {
     /// Runs a single creature's turn. The turn loops while `say` actions are
     /// executed (they don't consume the turn). A runtime error kills the
     /// creature.
+    ///
+    /// Un `CreatureMemento` se captura al inicio del turno. Si el turno falla
+    /// con error de ejecución, el estado de la criatura se restaura desde el
+    /// memento y luego la criatura muere limpiamente (semántica de F2/F3), de
+    /// modo que el mundo nunca queda en un estado intermedio corrupto.
     fn run_creature_turn(&mut self, id: CreatureId) {
         // Snapshot the creature (owned data, no borrow of self.world held).
         let creature = match self.world.creature(id).cloned() {
             Some(c) => c,
             None => return, // died earlier this tick
         };
+
+        // Memento del estado al inicio del turno (patrón Memento).
+        let memento = creature.memento();
 
         let program: &Program = match &creature.species.program {
             Some(p) => p.as_ref(),
@@ -131,6 +139,9 @@ impl Simulation {
             let result = match execute_turn(program, &ctx, &mut state) {
                 Ok(r) => r,
                 Err((diagnostic, line)) => {
+                    // Restaura el estado al memento antes de morir, para
+                    // garantizar que no queden cambios parciales en el mundo.
+                    let _ = self.world.restore_creature_from_memento(&memento);
                     self.die_by_error(id, &creature, diagnostic.message, line);
                     return;
                 }

@@ -2,7 +2,7 @@
 id: F4-06
 title: Memento del estado de criatura para el turno
 phase: F4
-status: todo
+status: done
 depends_on: [F4-02]
 size: S
 ---
@@ -109,5 +109,25 @@ Si `restore` es complejo por `variables: Rc<RefCell<...>>`, para y repórtalo: l
 ### Notas de implementación
 
 Rama: feat/f4-06-memento-estado-turno (sobre develop). Depende de F4-02.
-Evidencia AC por AC: pendiente.
-Cambios de firma autorizados: `sim.run_creature_turn` puede devolver el memento o manejar la restauración internamente; `World` gana `creature_memento(id)` o similar.
+Commit: pendiente (se hará al cerrar el issue).
+
+Cambios realizados:
+- `crates/instinct-core/src/world.rs`: añadido `struct CreatureMemento { id, health, age, x, y, pc, state, variables }` con `Creature::memento()` para capturar estado y `World::restore_creature_from_memento(&memento) -> bool` para restaurar.
+- `crates/instinct-core/src/sim.rs`: `run_creature_turn` captura un `CreatureMemento` al inicio del turno; en error de ejecución restaura desde el memento y luego llama `die_by_error` (muerte limpia con eventos `RuntimeError` + `Died` causa "error").
+
+Comandos ejecutados y resultados:
+- `cargo test -p instinct-core --test world_tests` → 18 passed (incluye test_creature_memento_captures_state, test_restore_creature_from_memento, test_restore_creature_from_memento_unknown_id).
+- `cargo test -p instinct-core --test sim_tests` → 19 passed (incluye test_turn_failure_rolls_back_or_dies_cleanly, test_variables_not_leaked_on_failed_turn).
+- `cargo test --workspace` → todo en verde (0 fallos en todos los crates/tests).
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0, sin warnings.
+- `cargo fmt --all --check` → exit 0, sin diffs.
+- Determinismo seed 7: `test_annex_seed7_sequence_unchanged` passed (misma historia en dos corridas).
+
+Evidencia AC por AC:
+- AC1 PASS: `CreatureMemento` existe en world.rs con todos los campos (id, health, age, x, y, pc, state, variables). Verificado con test_creature_memento_captures_state.
+- AC2 PASS: `run_creature_turn` crea memento antes de ejecutar; en error restaura y muere limpiamente. Verificado con test_turn_failure_rolls_back_or_dies_cleanly.
+- AC3 PASS: variables no se filtran tras turno fallido (criatura muere, su mapa de variables desaparece). Verificado con test_variables_not_leaked_on_failed_turn.
+- AC4 PASS: determinismo con seed 7 (dos corridas iguales). Verificado con test_annex_seed7_sequence_unchanged.
+- AC5 PASS: cero unwrap/expect/panic! nuevos; suite + clippy + fmt en verde.
+
+Desviaciones: ninguna. Política adoptada: en error de ejecución, restaurar desde memento y luego morir limpiamente (semántica de F2/F3 mantenida).
