@@ -13,6 +13,7 @@ use instinct_core::value::Value;
 use instinct_core::world::{CellContent, World};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 fn grass_terrain() -> Terrain {
     Terrain {
@@ -46,14 +47,15 @@ fn build_world(map: &Map, terrains: &[Terrain], objects: &[Object]) -> World {
     world
 }
 
-/// Compiles an `.ins` body and returns a Species with the compiled program.
+/// Compiles un `.ins` y devuelve la `Species` con su programa envuelta en
+/// `Rc` para compartirla por el catálogo del mundo (Flyweight).
 fn species_with_program(
     name: &str,
     faction: &str,
     health: i64,
     lifespan: i64,
     body: &str,
-) -> Species {
+) -> Rc<Species> {
     let cat = Catalog::default();
     let pc = PerceptionCatalog::default();
     let text = format!(
@@ -66,17 +68,15 @@ fn species_with_program(
         result.diagnostics
     );
     let header = result.header.expect("header");
-    Species::with_program(
+    Rc::new(Species::with_program(
         header.species_name,
         header.faction,
         header.health,
         header.vision,
         header.lifespan,
         Rc::new(result.program),
-    )
+    ))
 }
-
-use std::rc::Rc;
 
 // ---------------------------------------------------------------------------
 // AC1: see returns GROUND/OBJECT/ALLY/ENEMY per content
@@ -86,10 +86,15 @@ use std::rc::Rc;
 fn test_see_returns_constant_per_content() {
     let rock = rock_object();
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[rock]);
-    let mut sp = Species::new("Tester");
-    sp.faction = "A".to_string();
-    sp.vision = 3;
-    let id = world.place_creature(sp.clone(), 2, 2).expect("place");
+    let sp = Rc::new(Species {
+        name: "Tester".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 3,
+        lifespan: 0,
+        program: None,
+    });
+    let id = world.place_creature(&sp, 2, 2).expect("place");
 
     // GROUND: celda vacía dentro del mapa y del radio (4, 2), distancia 2 <= vision 3
     assert_eq!(
@@ -110,15 +115,27 @@ fn test_see_returns_constant_per_content() {
     assert_eq!(see_at(&world, id, 2, 2), Value::Int(2), "own cell is ALLY");
 
     // ALLY: place ally at (1, 2)
-    let mut ally = Species::new("Ally");
-    ally.faction = "A".to_string();
-    world.place_creature(ally, 1, 2).expect("place ally");
+    let ally = Rc::new(Species {
+        name: "Ally".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
+    world.place_creature(&ally, 1, 2).expect("place ally");
     assert_eq!(see_at(&world, id, 1, 2), Value::Int(2), "ally cell is ALLY");
 
     // ENEMY: place enemy at (3, 2)
-    let mut enemy = Species::new("Enemy");
-    enemy.faction = "B".to_string();
-    world.place_creature(enemy, 3, 2).expect("place enemy");
+    let enemy = Rc::new(Species {
+        name: "Enemy".to_string(),
+        faction: "B".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
+    world.place_creature(&enemy, 3, 2).expect("place enemy");
     assert_eq!(
         see_at(&world, id, 3, 2),
         Value::Int(3),
@@ -150,10 +167,15 @@ fn see_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) -
 #[test]
 fn test_see_outside_radius_and_map() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
-    let mut sp = Species::new("Tester");
-    sp.faction = "A".to_string();
-    sp.vision = 1;
-    let id = world.place_creature(sp.clone(), 2, 2).expect("place");
+    let sp = Rc::new(Species {
+        name: "Tester".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 1,
+        lifespan: 0,
+        program: None,
+    });
+    let id = world.place_creature(&sp, 2, 2).expect("place");
 
     // Out of radius: (4, 2) distance = 2 > vision 1 -> NONE (-1)
     assert_eq!(
@@ -163,10 +185,15 @@ fn test_see_outside_radius_and_map() {
     );
 
     // Out of map but within radius: (-1, 2) distance = 3 > vision 1... let's use vision 3
-    let mut sp2 = Species::new("Tester2");
-    sp2.faction = "A".to_string();
-    sp2.vision = 3;
-    let id2 = world.place_creature(sp2.clone(), 0, 0).expect("place 2");
+    let sp2 = Rc::new(Species {
+        name: "Tester2".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 3,
+        lifespan: 0,
+        program: None,
+    });
+    let id2 = world.place_creature(&sp2, 0, 0).expect("place 2");
     // (-1, 0): distance = 1 <= vision 3, out of map -> OBJECT (1)
     assert_eq!(
         see_at(&world, id2, -1, 0),
@@ -183,10 +210,15 @@ fn test_see_outside_radius_and_map() {
 fn test_name_returns_element_name() {
     let rock = rock_object();
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[rock]);
-    let mut sp = Species::new("Tester");
-    sp.faction = "A".to_string();
-    sp.vision = 3;
-    let id = world.place_creature(sp.clone(), 2, 2).expect("place");
+    let sp = Rc::new(Species {
+        name: "Tester".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 3,
+        lifespan: 0,
+        program: None,
+    });
+    let id = world.place_creature(&sp, 2, 2).expect("place");
 
     // name of own cell: species name "Tester"
     assert_eq!(
@@ -242,10 +274,15 @@ fn name_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) 
 #[test]
 fn test_constants_compare_with_see() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
-    let mut sp = Species::new("Tester");
-    sp.faction = "A".to_string();
-    sp.vision = 3;
-    let id = world.place_creature(sp.clone(), 2, 2).expect("place");
+    let sp = Rc::new(Species {
+        name: "Tester".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 3,
+        lifespan: 0,
+        program: None,
+    });
+    let id = world.place_creature(&sp, 2, 2).expect("place");
 
     // Constant values
     assert_eq!(const_value("NONE"), -1);
@@ -299,7 +336,7 @@ fn test_creature_uses_see_and_name() {
         1000,
         "say(see(1, 0))\nsay(name(1, 0))\nwait(1)\ngoto start\n",
     );
-    let _id = world.place_creature(sp, 0, 0).expect("place watcher");
+    let _id = world.place_creature(&sp, 0, 0).expect("place watcher");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(7);

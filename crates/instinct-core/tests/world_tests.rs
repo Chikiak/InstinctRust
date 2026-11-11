@@ -6,6 +6,7 @@ use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
 use instinct_core::world::{CellContent, CreatureId, World};
+use std::rc::Rc;
 
 fn vision_world() -> World {
     let map = Map {
@@ -23,12 +24,18 @@ fn vision_world() -> World {
     World::from_map(&map, &terrains, &objects)
 }
 
-fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
-    for c in world.creatures.iter_mut().flatten() {
-        if c.id == id {
-            c.species.vision = vision;
-        }
-    }
+/// Construye una especie con la visión indicada, lista para compartir por `Rc`.
+/// El estado extrínseco (salud, edad, posición...) sigue en la criatura; la
+/// visión es dato intrínseco de la especie y no se muta tras compartirla.
+fn species_with_vision(name: &str, vision: i64) -> Rc<Species> {
+    Rc::new(Species {
+        name: name.to_string(),
+        faction: String::new(),
+        health: 0,
+        vision,
+        lifespan: 0,
+        program: None,
+    })
 }
 
 fn terrain_grass() -> Terrain {
@@ -108,10 +115,10 @@ fn test_unknown_character_generates_diagnostic() {
 #[test]
 fn test_place_rejects_invalid_cells() {
     let mut world = empty_world();
-    let species = Species::new("Walker");
+    let species = Rc::new(Species::new("Walker"));
 
     // Outside the map.
-    let err = world.place_creature(species.clone(), 5, 5).unwrap_err();
+    let err = world.place_creature(&species, 5, 5).unwrap_err();
     assert!(
         err.message.contains("(5,5)"),
         "error names coordinates: {err:?}"
@@ -125,10 +132,10 @@ fn test_place_rejects_invalid_cells() {
     // Place a rock object on the grid manually: cell (0,0) is grass only.
     // Instead, place a creature first, then try to place another on top.
     let id1 = world
-        .place_creature(species.clone(), 1, 1)
+        .place_creature(&species, 1, 1)
         .expect("place first creature");
     assert_eq!(world.creatures.len(), 1);
-    let err = world.place_creature(species.clone(), 1, 1).unwrap_err();
+    let err = world.place_creature(&species, 1, 1).unwrap_err();
     assert!(
         err.message.contains("(1,1)"),
         "error names coordinates: {err:?}"
@@ -145,10 +152,10 @@ fn test_place_rejects_invalid_cells() {
 fn test_place_creature_returns_stable_id_and_reuses_slot() {
     let mut world = empty_world();
     let id1 = world
-        .place_creature(Species::new("A"), 0, 0)
+        .place_creature(&Rc::new(Species::new("A")), 0, 0)
         .expect("place A");
     let id2 = world
-        .place_creature(Species::new("B"), 2, 2)
+        .place_creature(&Rc::new(Species::new("B")), 2, 2)
         .expect("place B");
     assert_eq!(id1, CreatureId(0));
     assert_eq!(id2, CreatureId(1));
@@ -182,7 +189,7 @@ fn test_place_creature_returns_stable_id_and_reuses_slot() {
 
     // Un place posterior reusa ese mismo id (0).
     let id3 = world
-        .place_creature(Species::new("C"), 0, 0)
+        .place_creature(&Rc::new(Species::new("C")), 0, 0)
         .expect("place C");
     assert_eq!(id3, id1, "el hueco libre se reusa con el mismo id");
     assert_ne!(id3, id2);
@@ -210,7 +217,7 @@ fn test_place_creature_returns_stable_id_and_reuses_slot() {
 fn test_render_shows_creature() {
     let mut world = empty_world();
     world
-        .place_creature(Species::new("Walker"), 1, 1)
+        .place_creature(&Rc::new(Species::new("Walker")), 1, 1)
         .expect("place Walker");
     let drawing = world.draw().unwrap();
     let lines: Vec<&str> = drawing.lines().collect();
@@ -224,7 +231,7 @@ fn test_render_shows_creature() {
     // El catálogo del mundo tiene roca, pero la rejilla no tiene objetos:
     // solo confirma que la criatura dibuja sobre el terreno.
     world2
-        .place_creature(Species::new("Ent"), 0, 0)
+        .place_creature(&Rc::new(Species::new("Ent")), 0, 0)
         .expect("place Ent");
     let drawing2 = world2.draw().unwrap();
     let lines2: Vec<&str> = drawing2.lines().collect();
@@ -235,7 +242,7 @@ fn test_render_shows_creature() {
 fn test_remove_creature_frees_cell() {
     let mut world = empty_world();
     let id = world
-        .place_creature(Species::new("Walker"), 1, 1)
+        .place_creature(&Rc::new(Species::new("Walker")), 1, 1)
         .expect("place");
     assert!(matches!(
         world.content[1][1],
@@ -258,8 +265,8 @@ fn test_remove_creature_frees_cell() {
 fn test_end_of_tick_min_health_no_panic() {
     // Vida en i64::MIN: health - 1 desborda; no debe pánico, la criatura muere.
     let mut world = empty_world();
-    let species = Species::new("Walker");
-    let id = world.place_creature(species, 0, 0).expect("place");
+    let species = Rc::new(Species::new("Walker"));
+    let id = world.place_creature(&species, 0, 0).expect("place");
     for c in world.creatures.iter_mut().flatten() {
         if c.id == id {
             c.health = i64::MIN;
@@ -303,8 +310,8 @@ fn test_damage_cell_overflow_and_out_of_map() {
 #[test]
 fn test_move_creature_invalid_inputs_error() {
     let mut world = empty_world();
-    let species = Species::new("Walker");
-    let id = world.place_creature(species, 1, 1).expect("place");
+    let species = Rc::new(Species::new("Walker"));
+    let id = world.place_creature(&species, 1, 1).expect("place");
 
     // Identificador inexistente.
     let err = world.move_creature_to(CreatureId(9999), 1, 1).unwrap_err();
@@ -368,7 +375,7 @@ fn test_world_setters_unknown_id_error() {
 fn test_draw_no_orphan_panic() {
     let mut world = empty_world();
     let id = world
-        .place_creature(Species::new("Walker"), 1, 1)
+        .place_creature(&Rc::new(Species::new("Walker")), 1, 1)
         .expect("place Walker");
     // Huérfano: la celda apunta a un id cuyo hueco ya se liberó; draw debe
     // reportarlo como error, nunca pánico.
@@ -431,9 +438,8 @@ fn test_vision_radius_is_chebyshev() {
     // enters; cell at vision + 1 stays out.
     let mut world = vision_world(); // 5x5, all grass
     let id = world
-        .place_creature(Species::new("Walker"), 2, 2)
+        .place_creature(&species_with_vision("Walker", 1), 2, 2)
         .expect("place center");
-    set_vision(&mut world, id, 1);
 
     // All 8 neighbors at Chebyshev distance 1 should be within vision 1.
     for (x, y) in [
@@ -447,7 +453,7 @@ fn test_vision_radius_is_chebyshev() {
         (3, 3),
     ] {
         world
-            .place_creature(Species::new("Ally"), x, y)
+            .place_creature(&Rc::new(Species::new("Ally")), x, y)
             .expect("place neighbor");
     }
     let nb = world.nearby(id);
@@ -455,7 +461,7 @@ fn test_vision_radius_is_chebyshev() {
 
     // Cells at distance 2 should be out of vision 1: (0, 2) is at distance 2.
     let _id_out = world
-        .place_creature(Species::new("Far"), 0, 2)
+        .place_creature(&Rc::new(Species::new("Far")), 0, 2)
         .expect("place at distance 2");
     let nb = world.nearby(id);
     assert_eq!(nb.allies, 8, "distance 2 (vision + 1) is out of vision 1");
@@ -463,11 +469,10 @@ fn test_vision_radius_is_chebyshev() {
     // With vision 2, the cell at distance 2 enters.
     let mut world2 = vision_world();
     let id2 = world2
-        .place_creature(Species::new("Walker"), 2, 2)
+        .place_creature(&species_with_vision("Walker", 2), 2, 2)
         .expect("place center");
-    set_vision(&mut world2, id2, 2);
     let _id_at_dist2 = world2
-        .place_creature(Species::new("Ally"), 0, 2)
+        .place_creature(&Rc::new(Species::new("Ally")), 0, 2)
         .expect("place at distance 2");
     let nb2 = world2.nearby(id2);
     assert_eq!(nb2.allies, 1, "cell at distance exactly vision enters");
@@ -482,17 +487,16 @@ fn test_vision_radius_is_chebyshev() {
 fn test_nearest_tie_break_is_stable() {
     let mut world = vision_world(); // 5x5
     let id = world
-        .place_creature(Species::new("Walker"), 2, 2)
+        .place_creature(&species_with_vision("Walker", 2), 2, 2)
         .expect("place center");
-    set_vision(&mut world, id, 2);
 
     // Two allies at the same distance (2): (0, 2) has lower id than (4, 2)
     // since it's placed first. Both at Chebyshev distance 2.
     let _id_a1 = world
-        .place_creature(Species::new("Ally1"), 0, 2)
+        .place_creature(&Rc::new(Species::new("Ally1")), 0, 2)
         .expect("place ally at (0,2)");
     let _id_a2 = world
-        .place_creature(Species::new("Ally2"), 4, 2)
+        .place_creature(&Rc::new(Species::new("Ally2")), 4, 2)
         .expect("place ally at (4,2)");
 
     let nb = world.nearby(id);
@@ -506,4 +510,44 @@ fn test_nearest_tie_break_is_stable() {
     let nb2 = world.nearby(id);
     assert_eq!(nb2.ally, nb.ally);
     assert_eq!(nb2.allies, nb.allies);
+}
+
+// ---------------------------------------------------------------------------
+// AC1: dos criaturas de la misma especie comparten el mismo Rc<Species>
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_creatures_share_species_rc() {
+    let mut world = empty_world();
+    let grass = Rc::new(Species::new("Grass"));
+
+    let id1 = world
+        .place_creature(&grass, 0, 0)
+        .expect("place primera criatura");
+    let id2 = world
+        .place_creature(&grass, 1, 1)
+        .expect("place segunda criatura");
+
+    let c1 = world.creatures[id1.0].as_ref().expect("criatura 1 viva");
+    let c2 = world.creatures[id2.0].as_ref().expect("criatura 2 viva");
+
+    // Ambas criaturas apuntan a la misma instancia de Species.
+    assert!(
+        Rc::ptr_eq(&c1.species, &c2.species),
+        "criaturas de la misma especie deben compartir el Rc<Species>"
+    );
+    // Y el mundo registró su propia copia en el catálogo con el mismo puntero.
+    assert!(
+        world
+            .species
+            .iter()
+            .any(|owned| Rc::ptr_eq(owned, &c1.species)),
+        "el catálogo del mundo es dueño del Rc<Species> compartido"
+    );
+    // draw sigue mostrando la primera letra de la especie compartida.
+    let drawing = world.draw().unwrap();
+    let lines: Vec<&str> = drawing.lines().collect();
+    assert_eq!(lines[0], "G..");
+    assert_eq!(lines[1], ".G.");
+    assert_eq!(lines[2], "...");
 }

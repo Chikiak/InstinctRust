@@ -57,10 +57,14 @@ pub enum CreatureState {
 }
 
 /// A living creature placed on the map.
+///
+/// `species` es una referencia compartida (`Rc<Species>`) al catálogo del
+/// mundo (patrón Flyweight): dos criaturas de la misma especie apuntan a la
+/// misma instancia y clonar la criatura clona solo el `Rc`, nunca el `Species`.
 #[derive(Debug, Clone)]
 pub struct Creature {
     pub id: CreatureId,
-    pub species: Species,
+    pub species: Rc<Species>,
     pub x: usize,
     pub y: usize,
     /// Current health.
@@ -94,6 +98,10 @@ pub struct World {
     pub objects: Vec<Object>,
     /// Optional content (object or creature) of each cell.
     pub content: Vec<Vec<CellContent>>,
+    /// Catálogo de especies debido por el mundo (Flyweight). Cada entrada es un
+    /// `Rc<Species>` compartido; las criaturas guardan clones baratos del mismo
+    /// `Rc` sin clonar nunca el `Species` completo.
+    pub species: Vec<Rc<Species>>,
     /// Creatures by id: `creatures[id.0]` is `Some(creature)` while the
     /// creature lives and `None` is a free slot ready for reuse. The index is
     /// the stable `CreatureId`, so `creature(id)`/`creature_mut(id)` are O(1)
@@ -148,6 +156,7 @@ impl World {
                 terrains: terrains.to_vec(),
                 objects: objects.to_vec(),
                 content: Vec::new(),
+                species: Vec::new(),
                 creatures: Vec::new(),
                 free_ids: Vec::new(),
                 ticks: 0,
@@ -208,6 +217,7 @@ impl World {
             terrains: terrains.to_vec(),
             objects: objects.to_vec(),
             content,
+            species: Vec::new(),
             creatures: Vec::new(),
             free_ids: Vec::new(),
             ticks: 0,
@@ -228,9 +238,13 @@ impl World {
     /// Places a creature on a free cell. Returns the assigned `CreatureId` or
     /// a `Diagnostic` naming the coordinates when the cell is out of bounds or
     /// already occupied. The world is unchanged on failure.
+    ///
+    /// `species` es una referencia al catálogo compartido (Flyweight): la
+    /// criatura guarda `Rc::clone(species)`, nunca un `Species` clonado, y el
+    /// mundo asegura tener su propio `Rc` en `species` (el catálogo dueño).
     pub fn place_creature(
         &mut self,
-        species: Species,
+        species: &Rc<Species>,
         x: usize,
         y: usize,
     ) -> Result<CreatureId, Diagnostic> {
@@ -252,6 +266,12 @@ impl World {
             ));
         }
 
+        // El mundo es dueño de su copia del `Rc<Species>` en el catálogo;
+        // si ya está registrado (mismo puntero) se reutiliza la entrada.
+        if !self.species.iter().any(|owned| Rc::ptr_eq(owned, species)) {
+            self.species.push(Rc::clone(species));
+        }
+
         // Reusa un hueco libre si hay uno; si no, crece el almacén. El índice
         // es el id estable de la nueva criatura.
         let id = match self.free_ids.pop() {
@@ -265,7 +285,7 @@ impl World {
         let lifespan = species.lifespan;
         let creature = Creature {
             id: CreatureId(id),
-            species,
+            species: Rc::clone(species), // flyweight: clona el Rc, no el Species
             x,
             y,
             health,
@@ -910,6 +930,7 @@ impl Clone for World {
             terrains: self.terrains.clone(),
             objects: self.objects.clone(),
             content: self.content.clone(),
+            species: self.species.clone(),
             creatures: self.creatures.clone(),
             free_ids: self.free_ids.clone(),
             ticks: self.ticks,
@@ -935,6 +956,7 @@ impl std::fmt::Debug for World {
             .field("terrains", &self.terrains)
             .field("objects", &self.objects)
             .field("content", &self.content)
+            .field("species", &self.species)
             .field("creatures", &self.creatures)
             .field("free_ids", &self.free_ids)
             .field("ticks", &self.ticks)

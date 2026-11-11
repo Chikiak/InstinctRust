@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::exit;
+use std::rc::Rc;
 
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
@@ -168,7 +169,7 @@ fn execute_run(args: &RunArgs) -> i32 {
 
     // Parse every --place value. A malformed placement or an unknown species
     // aborts with exit code 1 before simulating.
-    let mut placements: Vec<(Placement, Species)> = Vec::new();
+    let mut placements: Vec<(Placement, Rc<Species>)> = Vec::new();
     for place_str in &args.places {
         let placement = match parse_place(place_str) {
             Ok(p) => p,
@@ -182,7 +183,7 @@ fn execute_run(args: &RunArgs) -> i32 {
             .iter()
             .find(|s| s.name == placement.species)
         {
-            Some(s) => s.clone(),
+            Some(s) => Rc::new(s.clone()),
             None => {
                 eprintln!("especie desconocida: '{}'", placement.species);
                 return 1;
@@ -191,14 +192,15 @@ fn execute_run(args: &RunArgs) -> i32 {
         placements.push((placement, species));
     }
 
-    // Build the world and place creatures.
+    // Build the world and place creatures. Cada criatura apunta al mismo
+    // `Rc<Species>` que el mundo registra en su catálogo (flyweight).
     let mut world = world::World::from_map(map, &resources.terrains, &resources.objects);
     for d in &world.diagnostics {
         eprintln!("{d}");
     }
 
     for (placement, species) in &placements {
-        match world.place_creature(species.clone(), placement.x, placement.y) {
+        match world.place_creature(species, placement.x, placement.y) {
             Ok(_) => {}
             Err(d) => {
                 eprintln!("{d}");

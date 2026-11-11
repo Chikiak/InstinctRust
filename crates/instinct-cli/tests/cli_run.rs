@@ -3,6 +3,7 @@ use instinct_core::resources::{Map, Terrain};
 use instinct_core::value::Value;
 use instinct_core::world::World;
 use std::process::{Command, Stdio};
+use std::rc::Rc;
 
 /// Example resources root directory, relative to this crate's manifest.
 fn examples_dir() -> String {
@@ -155,8 +156,9 @@ fn place_with_health(
     y: usize,
     health: i64,
 ) -> instinct_core::world::CreatureId {
+    let species = Rc::new(instinct_core::species::Species::new("Walker"));
     let id = world
-        .place_creature(instinct_core::species::Species::new("Walker"), x, y)
+        .place_creature(&species, x, y)
         .expect("place creature");
     for c in world.creatures.iter_mut().flatten() {
         if c.id == id {

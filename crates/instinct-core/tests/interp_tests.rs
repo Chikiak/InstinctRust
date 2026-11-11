@@ -676,7 +676,7 @@ fn test_arithmetic_extremes_are_runtime_errors() {
 // AC3: I6 - error de ejecución del intérprete produce RuntimeError en el bus
 // ---------------------------------------------------------------------------
 
-fn species_with_div_zero_program() -> Species {
+fn species_with_div_zero_program() -> Rc<Species> {
     let cat = Catalog::default();
     let pc = PerceptionCatalog::default();
     let text =
@@ -688,14 +688,14 @@ fn species_with_div_zero_program() -> Species {
         result.diagnostics
     );
     let header = result.header.expect("header");
-    Species::with_program(
+    Rc::new(Species::with_program(
         header.species_name,
         header.faction,
         header.health,
         header.vision,
         header.lifespan,
         Rc::new(result.program),
-    )
+    ))
 }
 
 #[test]
@@ -724,7 +724,9 @@ fn test_interpreter_emits_runtime_error_to_bus() {
     }));
 
     let species = species_with_div_zero_program();
-    let id = world.place_creature(species, 0, 0).expect("place creature");
+    let id = world
+        .place_creature(&species, 0, 0)
+        .expect("place creature");
 
     // Verifica que la criatura está viva antes de crear la simulación.
     assert!(world.creatures.iter().flatten().any(|c| c.id == id));

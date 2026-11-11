@@ -33,8 +33,21 @@ fn empty_world() -> World {
 
 fn place_walker(world: &mut World) -> CreatureId {
     world
-        .place_creature(Species::new("Walker"), 4, 2)
+        .place_creature(&Rc::new(Species::new("Walker")), 4, 2)
         .expect("place walker")
+}
+
+/// Especies con visión dada, lista para compartir por `Rc` (Flyweight). La
+/// visión es dato intrínseco: se fija al crear y no se muta después.
+fn species_with_vision(name: &str, vision: i64) -> Rc<Species> {
+    Rc::new(Species {
+        name: name.to_string(),
+        faction: String::new(),
+        health: 0,
+        vision,
+        lifespan: 0,
+        program: None,
+    })
 }
 
 fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world::Creature {
@@ -44,14 +57,6 @@ fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world:
         .flatten()
         .find(|c| c.id == id)
         .expect("creature exists")
-}
-
-fn set_vision(world: &mut World, id: CreatureId, vision: i64) {
-    for c in world.creatures.iter_mut().flatten() {
-        if c.id == id {
-            c.species.vision = vision;
-        }
-    }
 }
 
 fn eval(world: &World, id: CreatureId, text: &str) -> Result<Value, String> {
@@ -200,7 +205,7 @@ fn test_variables_are_per_creature() {
     let mut world = empty_world();
     let id1 = place_walker(&mut world);
     let id2 = world
-        .place_creature(Species::new("Walker2"), 0, 0)
+        .place_creature(&Rc::new(Species::new("Walker2")), 0, 0)
         .expect("place second walker");
 
     world
@@ -353,11 +358,17 @@ fn test_catalog_accepts_extra_perception() {
 #[test]
 fn test_self_perceptions_report_species_data() {
     let mut world = empty_world();
-    let id = place_walker(&mut world); // (4, 2) sobre Grass
-    let c = creature_mut(&mut world, id);
-    c.species.name = "Hobbit".to_string();
-    c.species.faction = "Comarca".to_string();
-    c.species.vision = 2;
+    // La especie se construye con sus datos intrínsecos y se comparte por Rc;
+    // no se muta tras colocarla.
+    let species = Rc::new(Species {
+        name: "Hobbit".to_string(),
+        faction: "Comarca".to_string(),
+        health: 0,
+        vision: 2,
+        lifespan: 0,
+        program: None,
+    });
+    let id = world.place_creature(&species, 4, 2).expect("place hobbit");
 
     assert_eq!(
         eval(&world, id, "species").unwrap(),
@@ -395,7 +406,7 @@ fn test_terrain_here_tracks_reserve() {
 
     // Vuelve a colocar en la misma casilla (nuevo id) y lee la reserva dañada.
     let id2 = world
-        .place_creature(Species::new("Walker"), 4, 2)
+        .place_creature(&Rc::new(Species::new("Walker")), 4, 2)
         .expect("colocar de nuevo");
     assert_eq!(unwrap_int(eval(&world, id2, "reserve_here").unwrap()), 70);
 
@@ -412,22 +423,35 @@ fn test_terrain_here_tracks_reserve() {
 fn test_totals_count_world_excluding_self() {
     let mut world = empty_world(); // 5x5
 
-    let mut faction_a = Species::new("A");
-    faction_a.faction = "A".to_string();
+    let faction_a = Rc::new(Species {
+        name: "A".to_string(),
+        faction: "A".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
     let id_self = world
-        .place_creature(faction_a.clone(), 0, 0)
+        .place_creature(&faction_a, 0, 0)
         .expect("colocar self");
 
-    let mut faction_b = Species::new("B");
-    faction_b.faction = "B".to_string();
     let _id_ally = world
-        .place_creature(faction_a.clone(), 1, 0)
+        .place_creature(&faction_a, 1, 0)
         .expect("colocar aliado");
+
+    let faction_b = Rc::new(Species {
+        name: "B".to_string(),
+        faction: "B".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
     let _id_enemy1 = world
-        .place_creature(faction_b.clone(), 2, 0)
+        .place_creature(&faction_b, 2, 0)
         .expect("colocar enemigo 1");
     let _id_enemy2 = world
-        .place_creature(faction_b, 3, 0)
+        .place_creature(&faction_b, 3, 0)
         .expect("colocar enemigo 2");
 
     assert_eq!(unwrap_int(eval(&world, id_self, "width").unwrap()), 5);
@@ -487,25 +511,32 @@ fn test_default_catalogs_resolve_self_and_world_perceptions() {
 #[test]
 fn test_near_counts_exclude_own_cell() {
     let mut world = empty_world(); // 5x5 grass
-    let id = place_walker(&mut world); // (4, 2)
-    set_vision(&mut world, id, 2);
+    let id = world
+        .place_creature(&species_with_vision("Walker", 2), 4, 2)
+        .expect("place walker");
 
     // Two allies at (3, 2) and (2, 2) — both distance <= 2
     let _id_ally1 = world
-        .place_creature(Species::new("Ally1"), 3, 2)
+        .place_creature(&Rc::new(Species::new("Ally1")), 3, 2)
         .expect("place ally 1");
     let _id_ally2 = world
-        .place_creature(Species::new("Ally2"), 2, 2)
+        .place_creature(&Rc::new(Species::new("Ally2")), 2, 2)
         .expect("place ally 2");
 
     // One enemy at (1, 2) — distance 3 from (4, 2), out of vision 2
     // Let me use distance 2 instead: (2, 2) is distance 2, but that's where ally2 is.
     // Place enemy at (0, 2): distance = max(4, 0) = 4 > 2, out of range.
     // Place enemy at (3, 0): distance = max(1, 2) = 2 <= 2, in range.
-    let mut sp_e = Species::new("Enemy");
-    sp_e.faction = "B".to_string();
+    let sp_e = Rc::new(Species {
+        name: "Enemy".to_string(),
+        faction: "B".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
     let _id_enemy = world
-        .place_creature(sp_e, 3, 0)
+        .place_creature(&sp_e, 3, 0)
         .expect("place enemy at distance 2");
 
     // One object: empty_world has no objects on grid. Place one manually.
@@ -536,21 +567,28 @@ fn test_near_counts_exclude_own_cell() {
 #[test]
 fn test_nearest_target_reports_direction() {
     let mut world = empty_world(); // 5x5 grass
-    let id = place_walker(&mut world); // (4, 2)
-    set_vision(&mut world, id, 3);
+    let id = world
+        .place_creature(&species_with_vision("Walker", 3), 4, 2)
+        .expect("place walker");
 
     // Enemy at (1, 2): distance = max(3, 0) = 3 = vision, IN
     // dx = 1-4 = -3 -> signum -1, dy = 0
-    let mut sp_e = Species::new("Enemy");
-    sp_e.faction = "B".to_string();
+    let sp_e = Rc::new(Species {
+        name: "Enemy".to_string(),
+        faction: "B".to_string(),
+        health: 0,
+        vision: 0,
+        lifespan: 0,
+        program: None,
+    });
     let _id_enemy = world
-        .place_creature(sp_e, 1, 2)
+        .place_creature(&sp_e, 1, 2)
         .expect("place enemy at distance 3");
 
     // Ally at (3, 2): distance = max(1, 0) = 1
     // dx = -1, dy = 0
     let _id_ally = world
-        .place_creature(Species::new("Ally"), 3, 2)
+        .place_creature(&Rc::new(Species::new("Ally")), 3, 2)
         .expect("place ally at distance 1");
 
     // Object at (4, 0): distance = max(0, 2) = 2
@@ -617,8 +655,9 @@ fn test_nearest_target_reports_direction() {
 #[test]
 fn test_nearest_target_none_visible() {
     let mut world = empty_world(); // 5x5 grass, no other creatures
-    let id = place_walker(&mut world); // (4, 2)
-    set_vision(&mut world, id, 1);
+    let id = world
+        .place_creature(&species_with_vision("Walker", 1), 4, 2)
+        .expect("place walker");
 
     // No allies, enemies, or objects within vision 1
     assert_eq!(

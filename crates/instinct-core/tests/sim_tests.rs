@@ -73,8 +73,9 @@ fn empty_map() -> Map {
     }
 }
 
-/// Compiles an `.ins` body and returns a Species with the compiled program.
-fn species_with_program(name: &str, health: i64, lifespan: i64, body: &str) -> Species {
+/// Compiles un `.ins` y devuelve la `Species` con su programa envuelta en
+/// `Rc` para compartirla por el catálogo del mundo (Flyweight).
+fn species_with_program(name: &str, health: i64, lifespan: i64, body: &str) -> Rc<Species> {
     let cat = Catalog::default();
     let pc = PerceptionCatalog::default();
     let text = format!(
@@ -87,36 +88,37 @@ fn species_with_program(name: &str, health: i64, lifespan: i64, body: &str) -> S
         result.diagnostics
     );
     let header = result.header.expect("header");
-    Species::with_program(
+    Rc::new(Species::with_program(
         header.species_name,
         header.faction,
         header.health,
         header.vision,
         header.lifespan,
         Rc::new(result.program),
-    )
+    ))
 }
 
-fn species_no_program(name: &str, health: i64, lifespan: i64) -> Species {
-    Species {
+fn species_no_program(name: &str, health: i64, lifespan: i64) -> Rc<Species> {
+    Rc::new(Species {
         name: name.to_string(),
         faction: "any".to_string(),
         health,
         vision: 3,
         lifespan,
         program: None,
-    }
+    })
 }
 
 /// Compila un `.ins` con la facción indicada y devuelve la `Species` con su
-/// programa. Sirve para probar percepciones que leen el mundo (facción, totales).
+/// programa envuelta en `Rc`. Sirve para probar percepciones que leen el
+/// mundo (facción, totales).
 fn species_with_program_and_faction(
     name: &str,
     faction: &str,
     health: i64,
     lifespan: i64,
     body: &str,
-) -> Species {
+) -> Rc<Species> {
     let cat = Catalog::default();
     let pc = PerceptionCatalog::default();
     let text = format!(
@@ -129,14 +131,14 @@ fn species_with_program_and_faction(
         result.diagnostics
     );
     let header = result.header.expect("header");
-    Species::with_program(
+    Rc::new(Species::with_program(
         header.species_name,
         header.faction,
         header.health,
         header.vision,
         header.lifespan,
         Rc::new(result.program),
-    )
+    ))
 }
 
 fn build_world(map: &Map, terrains: &[Terrain], objects: &[Object]) -> World {
@@ -154,7 +156,7 @@ fn test_death_by_health_and_by_age() {
     // Creature A: health 10, lifespan 100 -> dies by salud at end of tick 10.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp_a = species_no_program("A", 10, 100);
-    let id_a = world.place_creature(sp_a, 0, 0).expect("place A");
+    let id_a = world.place_creature(&sp_a, 0, 0).expect("place A");
 
     let mut sim = Simulation::new(world);
 
@@ -204,7 +206,7 @@ fn test_death_by_health_and_by_age() {
     // Creature B: health 100, lifespan 5 -> dies by edad at end of tick 5.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp_b = species_no_program("B", 100, 5);
-    let id_b = world.place_creature(sp_b, 0, 0).expect("place B");
+    let id_b = world.place_creature(&sp_b, 0, 0).expect("place B");
     let mut sim = Simulation::new(world);
 
     for _ in 0..4 {
@@ -256,9 +258,9 @@ fn test_death_by_health_and_by_age() {
 fn test_sim_iterates_live_ids_only() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp = species_no_program("Walker", 100, 1000);
-    let id_a = world.place_creature(sp.clone(), 0, 0).expect("place A");
-    let id_b = world.place_creature(sp.clone(), 1, 0).expect("place B");
-    let id_c = world.place_creature(sp, 2, 0).expect("place C");
+    let id_a = world.place_creature(&sp, 0, 0).expect("place A");
+    let id_b = world.place_creature(&sp, 1, 0).expect("place B");
+    let id_c = world.place_creature(&sp, 2, 0).expect("place C");
 
     // Liberar el hueco del medio antes del tick: id_b deja de existir.
     world.remove_creature(id_b).expect("remove B");
@@ -379,7 +381,7 @@ fn test_object_exhausted_still_removed() {
 // AC8: determinism and seed-dependent turn order.
 // ---------------------------------------------------------------------------
 
-fn walker_species() -> Species {
+fn walker_species() -> Rc<Species> {
     species_with_program(
         "Walker",
         100,
@@ -396,8 +398,8 @@ fn two_walker_world() -> World {
     };
     let mut world = build_world(&map, &[grass_terrain()], &[]);
     let sp = walker_species();
-    let id_a = world.place_creature(sp.clone(), 0, 0).expect("place A");
-    let id_b = world.place_creature(sp, 1, 0).expect("place B");
+    let id_a = world.place_creature(&sp, 0, 0).expect("place A");
+    let id_b = world.place_creature(&sp, 1, 0).expect("place B");
     assert_ne!(id_a, id_b);
     world
 }
@@ -436,9 +438,7 @@ fn test_reproduce_offspring_starts_at_start_next_tick() {
     // Madre: start: reproduce(0, 1, 5) goto start
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp = species_with_program("Walker", 100, 1000, "reproduce(0, 1, 5)\ngoto start\n");
-    let mother = world
-        .place_creature(sp.clone(), 1, 1)
-        .expect("place mother");
+    let mother = world.place_creature(&sp, 1, 1).expect("place mother");
     let mut sim = Simulation::new(world);
 
     // Tick 0: la madre paría; la cría nace en (1,2) pero el snapshot de
@@ -529,7 +529,7 @@ fn test_roar_rotates_to_previous_tick() {
     // roars_near/last_roar en el tick siguiente.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp = species_no_program("Walker", 100, 1000);
-    let id = world.place_creature(sp, 1, 1).expect("place walker");
+    let id = world.place_creature(&sp, 1, 1).expect("place walker");
     let mut sim = Simulation::new(world);
 
     sim.world.add_roar(
@@ -582,10 +582,10 @@ fn test_simulation_reads_self_and_world_perceptions() {
         1000,
         "say(species)\nsay(faction)\nsay(total_enemies)\nwait(1)\ngoto start\n",
     );
-    let _id_x = world.place_creature(sp_x, 0, 0).expect("place X");
+    let _id_x = world.place_creature(&sp_x, 0, 0).expect("place X");
     let sp_b = species_no_program("B", 100, 1000);
-    let _id_b1 = world.place_creature(sp_b.clone(), 1, 0).expect("place B 1");
-    let _id_b2 = world.place_creature(sp_b, 2, 0).expect("place B 2");
+    let _id_b1 = world.place_creature(&sp_b, 1, 0).expect("place B 1");
+    let _id_b2 = world.place_creature(&sp_b, 2, 0).expect("place B 2");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(7);
@@ -628,17 +628,17 @@ fn test_text_semantics_kill_on_type_error() {
         1000,
         "say(\"hola\" == \"hola\")\nsay(\"hola\" == \"mundo\")\nwait(1)\ngoto start\n",
     );
-    let _id_t = world.place_creature(sp_t, 0, 1).expect("place T");
+    let _id_t = world.place_creature(&sp_t, 0, 1).expect("place T");
 
     // D1: texto donde espera un entero (argumento de acción) -> muere en la línea 2.
     let sp_d1 =
         species_with_program_and_faction("D1", "A", 100, 1000, "wait(\"hola\")\ngoto start\n");
-    let _id_d1 = world.place_creature(sp_d1, 1, 1).expect("place D1");
+    let _id_d1 = world.place_creature(&sp_d1, 1, 1).expect("place D1");
 
     // D2: texto + entero en aritmética -> muere en la línea 2.
     let sp_d2 =
         species_with_program_and_faction("D2", "A", 100, 1000, "say(1 + \"a\")\ngoto start\n");
-    let _id_d2 = world.place_creature(sp_d2, 2, 1).expect("place D2");
+    let _id_d2 = world.place_creature(&sp_d2, 2, 1).expect("place D2");
 
     // D3: texto en comparación de orden -> muere en la línea 2.
     let sp_d3 = species_with_program_and_faction(
@@ -648,17 +648,17 @@ fn test_text_semantics_kill_on_type_error() {
         1000,
         "if \"a\" < 5 goto start\ngoto start\n",
     );
-    let _id_d3 = world.place_creature(sp_d3, 3, 1).expect("place D3");
+    let _id_d3 = world.place_creature(&sp_d3, 3, 1).expect("place D3");
 
     // D4: texto como argumento numérico de move -> muere en la línea 2.
     let sp_d4 =
         species_with_program_and_faction("D4", "A", 100, 1000, "move(\"a\", 0, 1)\ngoto start\n");
-    let _id_d4 = world.place_creature(sp_d4, 4, 1).expect("place D4");
+    let _id_d4 = world.place_creature(&sp_d4, 4, 1).expect("place D4");
 
     // S: say(42) muestra el número como texto y sobrevive.
     let sp_s =
         species_with_program_and_faction("S", "A", 100, 1000, "say(42)\nwait(1)\ngoto start\n");
-    let _id_s = world.place_creature(sp_s, 0, 0).expect("place S");
+    let _id_s = world.place_creature(&sp_s, 0, 0).expect("place S");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(11);
@@ -746,7 +746,7 @@ fn test_roars_near_and_last_roar() {
         1000,
         "roar(\"hola mundo\")\nwait(100)\ngoto start\n",
     );
-    let _id_e = world.place_creature(sp_e, 0, 0).expect("place emitter");
+    let _id_e = world.place_creature(&sp_e, 0, 0).expect("place emitter");
 
     let sp_l = species_with_program_and_faction(
         "L",
@@ -756,7 +756,7 @@ fn test_roars_near_and_last_roar() {
         "say(roars_near)\nsay(last_roar)\nmove(0, 0, 0)\ngoto start\n",
     );
     let _id_l = world
-        .place_creature(sp_l, 1, 0)
+        .place_creature(&sp_l, 1, 0)
         .expect("place listener at distance 1");
 
     let mut sim = Simulation::new(world);
@@ -819,7 +819,7 @@ fn test_roar_is_heard_one_tick_only() {
         "roar(\"hola\")\nwait(100)\ngoto start\n",
     );
     let _id_e = world
-        .place_creature(sp_e, 0, 0)
+        .place_creature(&sp_e, 0, 0)
         .expect("place emitter at (0,0)");
 
     let sp_l = species_with_program_and_faction(
@@ -830,7 +830,7 @@ fn test_roar_is_heard_one_tick_only() {
         "roar(\"propio\")\nsay(roars_near)\nsay(last_roar)\ngoto start\n",
     );
     let _id_l = world
-        .place_creature(sp_l, 1, 0)
+        .place_creature(&sp_l, 1, 0)
         .expect("place listener at (1,0)");
 
     let mut sim = Simulation::new(world);
@@ -913,8 +913,8 @@ fn test_near_perceptions_are_deterministic() {
             1000,
             "say(enemy_dist)\nwait(1)\ngoto start\n",
         );
-        world.place_creature(sp_a, 0, 0).expect("place A");
-        world.place_creature(sp_b, 3, 0).expect("place B");
+        world.place_creature(&sp_a, 0, 0).expect("place A");
+        world.place_creature(&sp_b, 3, 0).expect("place B");
         world
     }
 
@@ -957,7 +957,7 @@ fn test_see_with_text_argument_kills_creature() {
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
     let sp =
         species_with_program_and_faction("D", "A", 100, 1000, "if see(\"a\", 0) == 0 goto start\n");
-    let _id = world.place_creature(sp, 0, 0).expect("place D");
+    let _id = world.place_creature(&sp, 0, 0).expect("place D");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(1);
@@ -991,7 +991,7 @@ fn test_creature_uses_see_and_name() {
         1000,
         "say(see(1, 0))\nsay(name(1, 0))\nwait(1)\ngoto start\n",
     );
-    let _id = world.place_creature(sp, 0, 0).expect("place watcher");
+    let _id = world.place_creature(&sp, 0, 0).expect("place watcher");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(7);
@@ -1044,7 +1044,7 @@ fn test_simulation_with_injected_rng_is_deterministic() {
         let mut world = World::from_map(&map, &[terrain], &[]);
         assert!(world.diagnostics.is_empty());
         let sp = species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
-        let _id = world.place_creature(sp, 0, 0).expect("place walker");
+        let _id = world.place_creature(&sp, 0, 0).expect("place walker");
         world
     }
 
