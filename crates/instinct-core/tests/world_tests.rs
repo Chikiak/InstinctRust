@@ -5,7 +5,8 @@ use instinct_core::event::Event;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
-use instinct_core::world::{CellContent, CreatureId, World};
+use instinct_core::world::{CellContent, CreatureId, CreatureMemento, CreatureState, World};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 fn vision_world() -> World {
@@ -510,6 +511,105 @@ fn test_nearest_tie_break_is_stable() {
     let nb2 = world.nearby(id);
     assert_eq!(nb2.ally, nb.ally);
     assert_eq!(nb2.allies, nb.allies);
+}
+
+// ---------------------------------------------------------------------------
+// Memento: captura y restauración de estado de criatura para el turno
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_creature_memento_captures_state() {
+    let mut world = empty_world();
+    let species = Rc::new(Species::new("Walker"));
+    let id = world
+        .place_creature(&species, 2, 2)
+        .expect("place creature");
+    for c in world.creatures.iter_mut().flatten() {
+        if c.id == id {
+            c.health = 42;
+            c.age = 7;
+            c.pc = 5;
+            c.state = CreatureState::Sleeping(3);
+            c.variables.insert("oro".to_string(), Value::Int(100));
+            c.variables.insert("vida_extra".to_string(), Value::Int(10));
+        }
+    }
+
+    let memento = world.creatures[id.0].as_ref().expect("creature").memento();
+
+    assert_eq!(memento.id, id);
+    assert_eq!(memento.health, 42);
+    assert_eq!(memento.age, 7);
+    assert_eq!(memento.x, 2);
+    assert_eq!(memento.y, 2);
+    assert_eq!(memento.pc, 5);
+    assert_eq!(memento.state, CreatureState::Sleeping(3));
+    assert_eq!(memento.variables.get("oro"), Some(&Value::Int(100)));
+    assert_eq!(memento.variables.get("vida_extra"), Some(&Value::Int(10)));
+}
+
+#[test]
+fn test_restore_creature_from_memento() {
+    let mut world = empty_world();
+    let species = Rc::new(Species::new("Walker"));
+    let id = world
+        .place_creature(&species, 1, 1)
+        .expect("place creature");
+    for c in world.creatures.iter_mut().flatten() {
+        if c.id == id {
+            c.health = 10;
+            c.age = 0;
+            c.pc = 0;
+            c.state = CreatureState::Awake;
+        }
+    }
+    let memento = world.creatures[id.0].as_ref().expect("creature").memento();
+
+    // Mutar el estado de la criatura.
+    for c in world.creatures.iter_mut().flatten() {
+        if c.id == id {
+            c.health = 1;
+            c.age = 99;
+            c.x = 9;
+            c.y = 9;
+            c.pc = 99;
+            c.state = CreatureState::Sleeping(5);
+            c.variables.insert("basura".to_string(), Value::Int(-1));
+        }
+    }
+
+    let restored = world.restore_creature_from_memento(&memento);
+    assert!(restored, "la restauración debe tener éxito");
+
+    let c = world.creatures[id.0].as_ref().expect("creature");
+    assert_eq!(c.health, 10);
+    assert_eq!(c.age, 0);
+    assert_eq!((c.x, c.y), (1, 1));
+    assert_eq!(c.pc, 0);
+    assert_eq!(c.state, CreatureState::Awake);
+    assert!(
+        c.variables.is_empty(),
+        "las variables deben restaurarse vacías"
+    );
+}
+
+#[test]
+fn test_restore_creature_from_memento_unknown_id() {
+    let mut world = empty_world();
+    let memento = CreatureMemento {
+        id: CreatureId(9999),
+        health: 0,
+        age: 0,
+        x: 0,
+        y: 0,
+        pc: 0,
+        state: CreatureState::Awake,
+        variables: HashMap::new(),
+    };
+    assert!(
+        !world.restore_creature_from_memento(&memento),
+        "restaurar id desconocido debe fallar sin pánico"
+    );
 }
 
 // ---------------------------------------------------------------------------

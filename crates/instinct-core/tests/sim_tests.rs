@@ -1106,3 +1106,125 @@ fn test_simulation_with_injected_rng_is_deterministic() {
         "different injected TestRng produces different history"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Memento: turno fallido no corrompe el mundo ni filtra variables
+// ---------------------------------------------------------------------------
+
+/// Una criatura ejecuta `set("x", 1)` y luego una acción con argumento de
+/// texto que falla (error de ejecución). La criatura debe morir limpiamente
+/// y el mundo no debe quedar corrupto: las otras criaturas siguen vivas.
+#[test]
+fn test_turn_failure_rolls_back_or_dies_cleanly() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+
+    // Criatura que falla: contador = 1 luego wait con texto -> error de ejecución.
+    let sp_fail = species_with_program_and_faction(
+        "Failing",
+        "A",
+        100,
+        1000,
+        "contador = 1\nwait(\"no es un numero\")\ngoto start\n",
+    );
+    let id_fail = world
+        .place_creature(&sp_fail, 0, 0)
+        .expect("place failing creature");
+
+    // Otra criatura sana que debe seguir viva después del error.
+    let sp_ok = species_no_program("Ok", 100, 1000);
+    let id_ok = world
+        .place_creature(&sp_ok, 1, 0)
+        .expect("place ok creature");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(1);
+    let events = sim.step_tick();
+
+    // Debe haber un RuntimeError y un Died por causa "error".
+    let errors: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::RuntimeError { .. }))
+        .collect();
+    assert_eq!(errors.len(), 1, "un error de ejecución, got: {errors:?}");
+
+    let died: Vec<&Event> = events
+        .iter()
+        .filter(|e| matches!(e, Event::Died { cause, .. } if cause == "error"))
+        .collect();
+    assert_eq!(died.len(), 1, "una muerte por error, got: {died:?}");
+
+    // La criatura fallida debe haber desaparecido del almacén.
+    assert!(
+        sim.world
+            .creatures
+            .iter()
+            .flatten()
+            .all(|c| c.id != id_fail),
+        "la criatura fallida debe estar muerta"
+    );
+
+    // La criatura sana sigue viva y sin cambios inesperados.
+    let ok = sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .find(|c| c.id == id_ok)
+        .expect("la criatura sana sigue viva");
+    assert_eq!(ok.health, 99); // fin de tick: 100 - 1 salud
+    assert_eq!(ok.age, 1); // fin de tick: +1 edad
+
+    // No debe haber huérfanos en la rejilla.
+    for row in &sim.world.content {
+        for cell in row {
+            if let CellContent::Creature(id) = cell {
+                assert!(
+                    sim.world.creatures[id.0].is_some(),
+                    "la rejilla no debe referenciar criatura inexistente {id:?}"
+                );
+            }
+        }
+    }
+}
+
+/// Una criatura asigna una variable y luego falla. Tras el turno fallido,
+/// la variable no debe "filtrarse" parcialmente: la criatura está muerta,
+/// por lo que su mapa de variables ya no existe en el mundo.
+#[test]
+fn test_variables_not_leaked_on_failed_turn() {
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+
+    let sp = species_with_program_and_faction(
+        "Leaker",
+        "A",
+        100,
+        1000,
+        "tesoro = 42\noro = 7\nattack(\"a\", 0, 1)\ngoto start\n",
+    );
+    let id = world.place_creature(&sp, 0, 0).expect("place leaker");
+
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(1);
+    let _events = sim.step_tick();
+
+    // La criatura debe haber muerto por error de ejecución.
+    assert!(
+        sim.world.creatures.iter().flatten().all(|c| c.id != id),
+        "la criatura debe estar muerta tras el turno fallido"
+    );
+
+    // No debe haber ninguna criatura viva con la variable "tesoro" (la
+    // criatura que la asignó ya no existe).
+    let leaked: Vec<CreatureId> = sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .filter(|c| c.variables.contains_key("tesoro"))
+        .map(|c| c.id)
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "ninguna criatura viva debe tener la variable 'tesoro', got: {leaked:?}"
+    );
+}
