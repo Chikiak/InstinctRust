@@ -58,3 +58,31 @@ El juicio final es de la revisión matutina.
 - Sin bloqueos. Ningún issue requirió `rescatista-step5`. Una única reanudación por fallo de infraestructura (F4-03), misma sesión, sin cambio de modelo.
 - Artefacto `null` (vacío) borrado durante la sesión.
 - Ledger completo: `plan/F4-arquitectura-patrones/LEDGER_NOCHE_F4.md`.
+
+---
+
+## ADDENDA (2026-11-12) — F4-07 reabierto: Camino B (Visitor como único recorrido del AST)
+
+El usuario decidió invertir ahora en el patrón Visitor en lugar de esperar a tener los consumidores, con la restricción de que el intérprete también lo use (evitar dos formas de recorrer el árbol). Reabierto sobre `develop`, commit `822d1c5` + merge.
+
+### Qué cambió
+- `expr.rs`: nuevo `pub trait ExprVisitor` con `type Output` y `visit_*` para las 6 variantes (`LiteralInt`, `LiteralText`, `Name`, `Call`, `Unary`, `Binary`). `Expr` **ya no tiene `eval`**: ahora `fn accept(&self, visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>) -> Result<Value, String>`, implementado en los 6 nodos. Los cuerpos de evaluación se movieron tal cual al visitante del intérprete (mensajes de error y short-circuit `and`/`or` preservados).
+- `interp.rs`: `pub struct InterpreterVisitor<'a> { ctx }` implementa `ExprVisitor` con `Output = Result<Value, String>`; los 3 sitios de `execute_line` usan `expr.accept(&mut InterpreterVisitor { ctx })`.
+- Tests: helpers y llamadas `.eval(&ctx)` → `accept`; nuevo `test_node_counter_counts_all_nodes` (visitor NO-intérprete que demuestra el patrón: `"1 + 2 * 3"` → 5 nodos).
+- El parser **no** cambia: construye nodos, no recorre (Visitor no aplica a construcción).
+- El issue F4-07 quedó `status: done` con sección "Reapertura (Camino B)" y AC nuevos.
+
+### Verificación (sobre `develop` mergeado)
+- `cargo test --workspace` → 0 fallos (~270 tests).
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
+- `cargo fmt --all --check` → exit 0.
+- Determinismo intacta: `test_annex_seed7_sequence_unchanged` + `test_cli_annex_is_deterministic` en verde.
+
+### Coste asumido documentado (limitación conocida de Rust)
+Como el árbol es `Box<dyn Expr>`, `accept` no puede ser genérico sobre el `Output` del visitante; hoy `Expr::accept` sirve `Output = Result<Value, String>`. Un futuro visitante con otra salida (p. ej. pretty-printer con `String`) o amplía `Expr` con otro punto de entrada o acumula su resultado en campos del propio visitante (como hace `NodeCounter` con `count`). Queda anotado en las notas del issue como extensión futura.
+
+### Pendiente actualizado para revisión matutina
+Lo de la lista original sigue vigente (además de esta addenda):
+1. `PHASE.md`: la tabla de issues ya quedó corregida por los implementadores salvo confirmar el estado de F4-08/F4-01/F4-03 en la revisión.
+2. Confirmar la coherencia del informe con el árbol final.
+3. Actualizar `plan/MASTER.md` con el cierre de F4 (8 implementados tras la reapertura) y planeación de F5.
