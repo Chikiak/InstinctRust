@@ -27,13 +27,32 @@ pub trait EvalContext {
     }
 }
 
-/// An expression node that evaluates itself against a context.
+/// Visitor sobre el AST de expresiones.
 ///
-/// Evaluation errors are plain strings without a line; the line is added by
-/// whoever executes a source line.
+/// Permite operaciones nuevas (impresión, análisis, optimización) sin tocar
+/// los nodos. El recorrido de hijos lo hace el visitante llamando `accept`
+/// sobre los hijos, lo que le da control del orden.
+pub trait ExprVisitor {
+    type Output;
+    fn visit_literal_int(&mut self, node: &LiteralInt) -> Self::Output;
+    fn visit_literal_text(&mut self, node: &LiteralText) -> Self::Output;
+    fn visit_name(&mut self, node: &Name) -> Self::Output;
+    fn visit_call(&mut self, node: &Call) -> Self::Output;
+    fn visit_unary(&mut self, node: &Unary) -> Self::Output;
+    fn visit_binary(&mut self, node: &Binary) -> Self::Output;
+}
+
+/// Un nodo de expresión.
+///
+/// La evaluación se ha trasladado a [`ExprVisitor`] (véase
+/// [`InterpreterVisitor`](crate::interp::InterpreterVisitor)); los nodos solo
+/// saben aceptarse a sí mismos contra un visitante.
 pub trait Expr: std::fmt::Debug {
-    /// Evaluates the node against `ctx`.
-    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String>;
+    /// Acepta un visitor y devuelve su salida.
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String>;
     /// Clones the node into a boxed trait object.
     fn clone_box(&self) -> Box<dyn Expr>;
     /// Returns the operator text for binary nodes (empty for other nodes).
@@ -50,8 +69,11 @@ pub struct LiteralInt {
 }
 
 impl Expr for LiteralInt {
-    fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
-        Ok(Value::Int(self.value))
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_literal_int(self)
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -66,8 +88,11 @@ pub struct LiteralText {
 }
 
 impl Expr for LiteralText {
-    fn eval(&self, _ctx: &dyn EvalContext) -> Result<Value, String> {
-        Ok(Value::Text(self.value.clone()))
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_literal_text(self)
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -84,9 +109,11 @@ pub struct Name {
 }
 
 impl Expr for Name {
-    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
-        ctx.resolve(&self.name)
-            .ok_or_else(|| format!("unknown variable '{}'", self.name))
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_name(self)
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -117,15 +144,11 @@ impl Clone for Call {
 }
 
 impl Expr for Call {
-    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
-        let view = ctx
-            .view()
-            .ok_or_else(|| format!("function '{}' has no creature view", self.function.name()))?;
-        let mut evaluated = Vec::with_capacity(self.args.len());
-        for arg in &self.args {
-            evaluated.push(arg.eval(ctx)?);
-        }
-        self.function.call(view, &evaluated)
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_call(self)
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -153,9 +176,11 @@ impl Clone for Unary {
 }
 
 impl Expr for Unary {
-    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
-        let value = self.operand.eval(ctx)?;
-        value.unary_op(&self.op)
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_unary(self)
     }
 
     fn clone_box(&self) -> Box<dyn Expr> {
@@ -185,28 +210,11 @@ impl Clone for Binary {
 }
 
 impl Expr for Binary {
-    fn eval(&self, ctx: &dyn EvalContext) -> Result<Value, String> {
-        let left = self.left.eval(ctx)?;
-        // Short-circuit: only evaluate the right operand when needed.
-        match self.op.as_str() {
-            "and" => {
-                if !left.is_truthy() {
-                    return Ok(Value::Int(0));
-                }
-            }
-            "or" => {
-                if left.is_truthy() {
-                    return Ok(Value::Int(1));
-                }
-            }
-            _ => {}
-        }
-        let right = self.right.eval(ctx)?;
-        match self.op.as_str() {
-            "and" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
-            "or" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
-            _ => left.binary_op(&self.op, &right),
-        }
+    fn accept(
+        &self,
+        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
+    ) -> Result<Value, String> {
+        visitor.visit_binary(self)
     }
 
     fn operator(&self) -> &str {

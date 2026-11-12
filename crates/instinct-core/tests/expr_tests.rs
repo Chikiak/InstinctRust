@@ -3,11 +3,12 @@
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::expr::{parse, FakeContext};
 use instinct_core::functions::FunctionCatalog;
+use instinct_core::interp::InterpreterVisitor;
 use instinct_core::value::Value;
 
 fn eval(text: &str, ctx: &FakeContext) -> Result<Value, String> {
     let expr = parse(text, 1, "test.ins", &FunctionCatalog::default()).unwrap();
-    expr.eval(ctx)
+    expr.accept(&mut InterpreterVisitor { ctx })
 }
 
 fn eval_diagnostic(text: &str) -> Diagnostic {
@@ -156,7 +157,9 @@ fn test_call_arguments_are_expressions() {
     let cat = FunctionCatalog::default();
     let expr = parse("see(1 + 0, 2)", 1, "test.ins", &cat).unwrap();
     // FakeContext has no view, so call should fail at runtime with "no creature view"
-    let err = expr.eval(&ctx).unwrap_err();
+    let err = expr
+        .accept(&mut InterpreterVisitor { ctx: &ctx })
+        .unwrap_err();
     assert!(err.contains("no creature view"), "error: {err}");
 
     // Wrong arity: see with 1 argument
@@ -185,4 +188,64 @@ fn test_function_in_expression_reports_on_its_line() {
     assert_eq!(d.line, 1);
     assert!(d.message.contains("unknown function"));
     assert!(d.message.contains("bogus"));
+}
+
+// ---------------------------------------------------------------------------
+// AC4: visitante no-intérprete de demostración (NodeCounter)
+// ---------------------------------------------------------------------------
+
+/// Visitor que cuenta nodos del AST. La salida real vive en `self.count`;
+/// cada `visit_*` devuelve `Ok(Value::Int(0))` y los compuestos recorren sus
+/// hijos con `accept`.
+struct NodeCounter {
+    count: usize,
+}
+
+impl instinct_core::expr::ExprVisitor for NodeCounter {
+    type Output = Result<Value, String>;
+
+    fn visit_literal_int(&mut self, _node: &instinct_core::expr::LiteralInt) -> Self::Output {
+        self.count += 1;
+        Ok(Value::Int(0))
+    }
+
+    fn visit_literal_text(&mut self, _node: &instinct_core::expr::LiteralText) -> Self::Output {
+        self.count += 1;
+        Ok(Value::Int(0))
+    }
+
+    fn visit_name(&mut self, _node: &instinct_core::expr::Name) -> Self::Output {
+        self.count += 1;
+        Ok(Value::Int(0))
+    }
+
+    fn visit_call(&mut self, node: &instinct_core::expr::Call) -> Self::Output {
+        self.count += 1;
+        for arg in &node.args {
+            arg.accept(self)?;
+        }
+        Ok(Value::Int(0))
+    }
+
+    fn visit_unary(&mut self, node: &instinct_core::expr::Unary) -> Self::Output {
+        self.count += 1;
+        node.operand.accept(self)?;
+        Ok(Value::Int(0))
+    }
+
+    fn visit_binary(&mut self, node: &instinct_core::expr::Binary) -> Self::Output {
+        self.count += 1;
+        node.left.accept(self)?;
+        node.right.accept(self)?;
+        Ok(Value::Int(0))
+    }
+}
+
+#[test]
+fn test_node_counter_counts_all_nodes() {
+    // `"1 + 2 * 3"` -> Binary(+) { LiteralInt(1), Binary(*) { LiteralInt(2), LiteralInt(3) } }
+    let expr = parse("1 + 2 * 3", 1, "test.ins", &FunctionCatalog::default()).unwrap();
+    let mut counter = NodeCounter { count: 0 };
+    expr.accept(&mut counter).unwrap();
+    assert_eq!(counter.count, 5, "debe contar los 5 nodos del AST");
 }

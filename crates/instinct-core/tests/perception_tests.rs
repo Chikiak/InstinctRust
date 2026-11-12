@@ -4,6 +4,7 @@
 
 use instinct_core::actions::Catalog;
 use instinct_core::expr::parse;
+use instinct_core::interp::InterpreterVisitor;
 use instinct_core::perception::{CreatureView, Perception, PerceptionCatalog};
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
@@ -62,7 +63,7 @@ fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world:
 fn eval(world: &World, id: CreatureId, text: &str) -> Result<Value, String> {
     let expr = parse(text, 1, "test.ins", Catalog::default().functions()).expect("parse");
     let ctx = CreatureContext::new(world, id, Rc::new(RefCell::new(HashMap::new())));
-    expr.eval(&ctx)
+    expr.accept(&mut InterpreterVisitor { ctx: &ctx })
 }
 
 fn unwrap_int(v: Value) -> i64 {

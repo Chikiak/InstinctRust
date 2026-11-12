@@ -7,6 +7,7 @@
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::expr::{Expr, FakeContext};
+use instinct_core::interp::InterpreterVisitor;
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::program::{Line, Program};
 use instinct_core::value::Value;
@@ -53,7 +54,10 @@ fn test_resolve_label_known_and_unknown() {
 /// Evalúa `expr` con `health = value` y devuelve si el resultado es Int(1).
 fn eval_expr(expr: &dyn Expr, value: i64) -> bool {
     let ctx = FakeContext::new().with("health", Value::Int(value));
-    matches!(expr.eval(&ctx), Ok(Value::Int(1)))
+    matches!(
+        expr.accept(&mut InterpreterVisitor { ctx: &ctx }),
+        Ok(Value::Int(1))
+    )
 }
 
 /// Busca la primera línea que cumple `f` (el programa vive prestado).
@@ -152,7 +156,10 @@ fn test_line_clone_all_variants() {
             assert_eq!(name, "energy");
             assert_eq!(expr.operator(), "");
             let ctx = FakeContext::new();
-            assert_eq!(expr.eval(&ctx).unwrap(), Value::Int(5));
+            assert_eq!(
+                expr.accept(&mut InterpreterVisitor { ctx: &ctx }).unwrap(),
+                Value::Int(5)
+            );
         }
         _ => panic!("se esperaba Assign"),
     }
@@ -162,7 +169,10 @@ fn test_line_clone_all_variants() {
             assert_eq!(name, orig_name);
             assert_eq!(line, orig_line);
             let ctx = FakeContext::new();
-            assert_eq!(expr.eval(&ctx).unwrap(), Value::Int(5));
+            assert_eq!(
+                expr.accept(&mut InterpreterVisitor { ctx: &ctx }).unwrap(),
+                Value::Int(5)
+            );
         }
         _ => panic!("se esperaba Assign clonado"),
     }
@@ -178,7 +188,12 @@ fn test_line_clone_all_variants() {
             assert_eq!(action.name(), "wait");
             assert_eq!(args.len(), 1);
             let ctx = FakeContext::new();
-            assert_eq!(args[0].eval(&ctx).unwrap(), Value::Int(1));
+            assert_eq!(
+                args[0]
+                    .accept(&mut InterpreterVisitor { ctx: &ctx })
+                    .unwrap(),
+                Value::Int(1)
+            );
         }
         _ => panic!("se esperaba Action"),
     }
@@ -188,7 +203,12 @@ fn test_line_clone_all_variants() {
             assert_eq!(line, orig_line);
             assert_eq!(args.len(), 1);
             let ctx = FakeContext::new();
-            assert_eq!(args[0].eval(&ctx).unwrap(), Value::Int(1));
+            assert_eq!(
+                args[0]
+                    .accept(&mut InterpreterVisitor { ctx: &ctx })
+                    .unwrap(),
+                Value::Int(1)
+            );
         }
         _ => panic!("se esperaba Action clonado"),
     }
