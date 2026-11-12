@@ -186,7 +186,7 @@ en lugar de improvisar.
 | F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | pendiente | — |
 | F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |
 | F4-06 | Memento / Snapshot | 3.4: copia atómica de estado de turno antes de ejecutar | `CreatureMemento` nuevo; `sim` aplica/restaura | done | — |
-| F4-07 | Visitor (AST) | 2.2: solo si hay consumidor real (pretty-printer / type-checker) | Ninguno (descartado por falta de consumidor) | done | — |
+| F4-07 | Visitor (AST) | 2.2: recorrido del AST sin tocar los nodos; intérprete como consumidor real | `trait ExprVisitor` + `Expr::accept` en expr.rs; `InterpreterVisitor` en interp.rs; tests actualizados | done | — |
 | F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Ninguno: W2 ya unificado (F2); solo verificación de capas, tests y medición | done | 0.162 ms/tick, 4.10 MB pico (antes 0.164 ms/tick, 3.94 MB): sin degradación |
 
 Medición de salida de F4 (criterio de la fase): consumo de memoria y tiempo por tick medidos

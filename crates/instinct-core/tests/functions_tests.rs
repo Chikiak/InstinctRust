@@ -5,6 +5,7 @@ use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::event::Event;
 use instinct_core::expr::parse;
+use instinct_core::interp::InterpreterVisitor;
 use instinct_core::perception::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::sim::Simulation;
@@ -157,7 +158,8 @@ fn see_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) -
         id,
         Rc::new(RefCell::new(HashMap::new())),
     );
-    expr.eval(&ctx).expect("eval see")
+    expr.accept(&mut InterpreterVisitor { ctx: &ctx })
+        .expect("eval see")
 }
 
 // ---------------------------------------------------------------------------
@@ -264,7 +266,8 @@ fn name_at(world: &World, id: instinct_core::world::CreatureId, x: i64, y: i64) 
         id,
         Rc::new(RefCell::new(HashMap::new())),
     );
-    expr.eval(&ctx).expect("eval name")
+    expr.accept(&mut InterpreterVisitor { ctx: &ctx })
+        .expect("eval name")
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +307,10 @@ fn test_constants_compare_with_see() {
         id,
         Rc::new(RefCell::new(HashMap::new())),
     );
-    assert_eq!(expr.eval(&ctx).unwrap(), Value::Int(1));
+    assert_eq!(
+        expr.accept(&mut InterpreterVisitor { ctx: &ctx }).unwrap(),
+        Value::Int(1)
+    );
 
     // see(4, 2) == OBJECT -> 0
     let expr = parse(
@@ -314,7 +320,10 @@ fn test_constants_compare_with_see() {
         Catalog::default().functions(),
     )
     .expect("parse");
-    assert_eq!(expr.eval(&ctx).unwrap(), Value::Int(0));
+    assert_eq!(
+        expr.accept(&mut InterpreterVisitor { ctx: &ctx }).unwrap(),
+        Value::Int(0)
+    );
 }
 
 fn const_value(name: &str) -> i64 {

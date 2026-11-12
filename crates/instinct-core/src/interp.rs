@@ -8,7 +8,7 @@
 
 use crate::actions::Action;
 use crate::diagnostic::Diagnostic;
-use crate::expr::EvalContext;
+use crate::expr::{Binary, Call, EvalContext, ExprVisitor, LiteralInt, LiteralText, Name, Unary};
 use crate::program::{Line, Program};
 use crate::value::Value;
 use crate::world::CreatureState;
@@ -95,6 +95,71 @@ fn jump_target(program: &Program, label: &str, line: usize) -> Result<usize, (Di
     Ok(target)
 }
 
+/// Visitor que evalúa una expresión contra un contexto. Sustituye a la
+/// evaluación por nodos: el recorrido pasa a ser el del visitor.
+pub struct InterpreterVisitor<'a> {
+    pub ctx: &'a dyn crate::expr::EvalContext,
+}
+
+impl ExprVisitor for InterpreterVisitor<'_> {
+    type Output = Result<Value, String>;
+
+    fn visit_literal_int(&mut self, node: &LiteralInt) -> Self::Output {
+        Ok(Value::Int(node.value))
+    }
+
+    fn visit_literal_text(&mut self, node: &LiteralText) -> Self::Output {
+        Ok(Value::Text(node.value.clone()))
+    }
+
+    fn visit_name(&mut self, node: &Name) -> Self::Output {
+        self.ctx
+            .resolve(&node.name)
+            .ok_or_else(|| format!("unknown variable '{}'", node.name))
+    }
+
+    fn visit_call(&mut self, node: &Call) -> Self::Output {
+        let view = self
+            .ctx
+            .view()
+            .ok_or_else(|| format!("function '{}' has no creature view", node.function.name()))?;
+        let mut evaluated = Vec::with_capacity(node.args.len());
+        for arg in &node.args {
+            evaluated.push(arg.accept(self)?);
+        }
+        node.function.call(view, &evaluated)
+    }
+
+    fn visit_unary(&mut self, node: &Unary) -> Self::Output {
+        let value = node.operand.accept(self)?;
+        value.unary_op(&node.op)
+    }
+
+    fn visit_binary(&mut self, node: &Binary) -> Self::Output {
+        let left = node.left.accept(self)?;
+        // Short-circuit: only evaluate the right operand when needed.
+        match node.op.as_str() {
+            "and" => {
+                if !left.is_truthy() {
+                    return Ok(Value::Int(0));
+                }
+            }
+            "or" => {
+                if left.is_truthy() {
+                    return Ok(Value::Int(1));
+                }
+            }
+            _ => {}
+        }
+        let right = node.right.accept(self)?;
+        match node.op.as_str() {
+            "and" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
+            "or" => Ok(Value::Int(if right.is_truthy() { 1 } else { 0 })),
+            _ => left.binary_op(&node.op, &right),
+        }
+    }
+}
+
 /// Evaluates a single program line. Returns `Ok(Some(action))` when a
 /// turn-ending action is reached, `Ok(None)` when execution should continue
 /// to the next line, or `Err` on a runtime error.
@@ -115,7 +180,7 @@ fn execute_line(
         }
         Line::IfGoto { expr, label, line } => {
             let value = expr
-                .eval(ctx)
+                .accept(&mut InterpreterVisitor { ctx })
                 .map_err(|msg| (Diagnostic::new("interp", *line, msg), *line))?;
             if value.is_truthy() {
                 state.pc = jump_target(program, label, *line)?;
@@ -126,7 +191,7 @@ fn execute_line(
         }
         Line::Assign { name, expr, line } => {
             let value = expr
-                .eval(ctx)
+                .accept(&mut InterpreterVisitor { ctx })
                 .map_err(|msg| (Diagnostic::new("interp", *line, msg), *line))?;
             state.variables.borrow_mut().insert(name.clone(), value);
             state.pc += 1;
@@ -136,7 +201,7 @@ fn execute_line(
             let mut evaluated = Vec::with_capacity(args.len());
             for arg in args {
                 evaluated.push(
-                    arg.eval(ctx)
+                    arg.accept(&mut InterpreterVisitor { ctx })
                         .map_err(|msg| (Diagnostic::new("interp", *line, msg), *line))?,
                 );
             }
