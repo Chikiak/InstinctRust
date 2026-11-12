@@ -101,11 +101,12 @@ ejecutar en sesiones TDD (test que falla primero, luego código). Estado inicial
 | F4-05 | Flyweight para especies (y catálogos compartidos) | Sección 4.2 | F4-04 | M | done | F4-05-flyweight-especies.md |
 | F4-06 | Memento del estado de criatura para el turno | Sección 3.4 | F4-02 | S | done | F4-06-memento-estado-turno.md |
 | F4-07 | Visitor sobre el AST, solo con consumidor real | Sección 2.2 | F3 | M | done | F4-07-visitor-ast.md |
-| F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3, F4-04 | S | todo | F4-08-capas-modulos-limites.md |
+| F4-08 | Capas y límites de módulos verificados, sin código pasarela | Sección 1.1 | F3, F4-04 | S | done | F4-08-capas-modulos-limites.md |
 
-Ocho issues previstos, dentro del límite de la fase (máximo 8 por el MASTER). F4-07 es
-condicionado por la decisión 4: si no hay consumidor real (pretty-printer / type-checker), se
-anota como candidato y no se implementa.
+Ocho issues previstos, dentro del límite de la fase (máximo 8 por el MASTER). F4-07 quedó
+condicionado inicialmente por la decisión 4 (sin consumidor real, se anotaba como candidato); el
+usuario decidió reabrirlo e implementarlo (Camino B: Visitor como único recorrido del AST, con el
+intérprete como `ExprVisitor`). Detalle en la sección "Reapertura (Camino B)" del issue.
 
 ### Orden y dependencias (esquema, se concreta al abrir la fase)
 
@@ -159,9 +160,9 @@ anota como candidato y no se implementa.
 - Dos corridas con la misma semilla sobre los cuatro ejemplos del anexo dan la misma historia que
   antes de la fase (comparación tick a tick, no solo mapa final).
 - Consumo de memoria y tiempo por tick medidos antes y después, registrados en el informe.
-- [ ] Cada issue declara el patrón aplicado, la motivación y el coste asumido.
-- [ ] Cero dependencias externas en `instinct-core`; cero `println!` en el núcleo; cero `f32`/`f64`.
-- [ ] La API que consume la CLI sigue intacta o quedó actualizada y documentada.
+- [x] Cada issue declara el patrón aplicado, la motivación y el coste asumido.
+- [x] Cero dependencias externas en `instinct-core`; cero `println!` en el núcleo; cero `f32`/`f64`.
+- [x] La API que consume la CLI sigue intacta o quedó actualizada y documentada.
 
 ## Prompt de sesión (copiar/pegar cuando existan los issues)
 
@@ -180,11 +181,11 @@ en lugar de improvisar.
 
 | Issue | Patrón | Motivación | Coste asumido | Estado | Medición (memoria / tick) |
 |-------|--------|------------|---------------|--------|---------------------------|
-| F4-01 | Observer / bus + puertos y adaptadores | I6: intérprete emite eventos; 1.2/4.3: desacoplar E/S para F7 | Nuevo trait `WorldOutput`; cambio de firma de `World` | pendiente | — |
+| F4-01 | Observer / bus + puertos y adaptadores | I6: intérprete emite eventos; 1.2/4.3: desacoplar E/S para F7 | Nuevo trait `WorldOutput`; cambio de firma de `World` | done | — |
 | F4-02 | State | I3: `sleep_turns` gestionado externamente rompe encapsulación | `Creature` gana `CreatureState`; `interp` delega | done | — |
-| F4-03 | Strategy (PRNG) | 8.1: tests de simulación sin estado global del mundo | `Rng` → `Box<dyn RngSource>` en `World`/`sim` | pendiente | — |
-| F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | pendiente | — |
-| F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | pendiente | — |
+| F4-03 | Strategy (PRNG) | 8.1: tests de simulación sin estado global del mundo | `Rng` → `Box<dyn RngSource>` en `World`/`sim` | done | — |
+| F4-04 | ECS ligero | W5: búsqueda lineal O(n) y `dead_ids.contains` O(n²) | `Vec<Creature>` → almacén indexado por `CreatureId` | done | — |
+| F4-05 | Flyweight | 4.2: compartir `Species` entre criaturas de la misma especie | `Creature.species` de `Species` a `Rc<Species>` | done | — |
 | F4-06 | Memento / Snapshot | 3.4: copia atómica de estado de turno antes de ejecutar | `CreatureMemento` nuevo; `sim` aplica/restaura | done | — |
 | F4-07 | Visitor (AST) | 2.2: recorrido del AST sin tocar los nodos; intérprete como consumidor real | `trait ExprVisitor` + `Expr::accept` en expr.rs; `InterpreterVisitor` en interp.rs; tests actualizados | done | — |
 | F4-08 | Capas (Layered) | 1.1: verificar orden de dependencias y eliminar pasarela; W2: catálogos unificados | Ninguno: W2 ya unificado (F2); solo verificación de capas, tests y medición | done | 0.162 ms/tick, 4.10 MB pico (antes 0.164 ms/tick, 3.94 MB): sin degradación |
