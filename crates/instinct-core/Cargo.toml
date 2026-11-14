@@ -8,6 +8,10 @@ name = "actions"
 path = "tests/actions/mod.rs"
 
 [[test]]
+name = "perceptions"
+path = "tests/perceptions/mod.rs"
+
+[[test]]
 name = "sim"
 path = "tests/sim/mod.rs"
 
