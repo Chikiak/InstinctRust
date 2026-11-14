@@ -6,7 +6,7 @@ use instinct_core::compile;
 use instinct_core::event::{Event, WorldOutput};
 use instinct_core::expr::LiteralInt;
 use instinct_core::interp::{execute_turn, CreatureTurnState, PendingAction};
-use instinct_core::perception::PerceptionCatalog;
+use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::program::{Line, Program};
 use instinct_core::resources::{Map, Terrain};
 use instinct_core::sim::Simulation;

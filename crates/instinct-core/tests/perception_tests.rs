@@ -5,7 +5,7 @@
 use instinct_core::actions::Catalog;
 use instinct_core::expr::parse;
 use instinct_core::interp::InterpreterVisitor;
-use instinct_core::perception::{CreatureView, Perception, PerceptionCatalog};
+use instinct_core::perceptions::{CreatureView, Perception, PerceptionCatalog};
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::species::Species;
 use instinct_core::value::Value;
@@ -317,8 +317,8 @@ fn test_catalog_accepts_extra_perception() {
         fn total_enemies(&self) -> i64 {
             0
         }
-        fn nearby(&self) -> instinct_core::perception::Nearby {
-            instinct_core::perception::Nearby::empty()
+        fn nearby(&self) -> instinct_core::perceptions::Nearby {
+            instinct_core::perceptions::Nearby::empty()
         }
 
         fn see(&self, _x: i64, _y: i64) -> i64 {

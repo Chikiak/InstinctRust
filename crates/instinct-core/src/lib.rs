@@ -22,7 +22,7 @@ pub mod compile;
 pub mod expr;
 pub mod interp;
 pub mod lexer;
-pub mod perception;
+pub mod perceptions;
 pub mod program;
 pub mod sim;
 pub mod world;

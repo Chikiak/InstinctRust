@@ -6,7 +6,7 @@ use instinct_core::compile;
 use instinct_core::event::Event;
 use instinct_core::expr::parse;
 use instinct_core::interp::InterpreterVisitor;
-use instinct_core::perception::PerceptionCatalog;
+use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;

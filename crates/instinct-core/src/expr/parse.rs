@@ -1,264 +1,11 @@
-//! Expressions: a hierarchy of nodes that evaluate themselves.
-//!
-//! The parser turns a line of expression text into a tree of nodes, each
-//! implementing [`Expr`]. A function call in an expression is resolved at
-//! compile time against the function catalog; the resolved function is stored
-//! in a [`Call`] node, so evaluation never compares names.
+//! Recursive-descent parser for expression lines.
 
 use crate::diagnostic::Diagnostic;
-use crate::functions::{Function, FunctionCatalog};
-use crate::lexer::{lex, Token};
-use crate::perception::CreatureView;
-use crate::value::Value;
-use std::rc::Rc;
-
-/// A context that resolves names to values during evaluation.
-///
-/// The real implementation resolves against perceptions, constants, and
-/// variables; tests use a fake context backed by a map.
-pub trait EvalContext {
-    /// Returns the value bound to `name`, or `None` if it is unknown.
-    fn resolve(&self, name: &str) -> Option<Value>;
-    /// Returns the creature's read-only view, or `None` when this context has
-    /// no associated creature (e.g. test doubles). Functions need the view.
-    fn view(&self) -> Option<&dyn CreatureView> {
-        let _ = self;
-        None
-    }
-}
-
-/// Visitor sobre el AST de expresiones.
-///
-/// Permite operaciones nuevas (impresión, análisis, optimización) sin tocar
-/// los nodos. El recorrido de hijos lo hace el visitante llamando `accept`
-/// sobre los hijos, lo que le da control del orden.
-pub trait ExprVisitor {
-    type Output;
-    fn visit_literal_int(&mut self, node: &LiteralInt) -> Self::Output;
-    fn visit_literal_text(&mut self, node: &LiteralText) -> Self::Output;
-    fn visit_name(&mut self, node: &Name) -> Self::Output;
-    fn visit_call(&mut self, node: &Call) -> Self::Output;
-    fn visit_unary(&mut self, node: &Unary) -> Self::Output;
-    fn visit_binary(&mut self, node: &Binary) -> Self::Output;
-}
-
-/// Un nodo de expresión.
-///
-/// La evaluación se ha trasladado a [`ExprVisitor`] (véase
-/// [`InterpreterVisitor`](crate::interp::InterpreterVisitor)); los nodos solo
-/// saben aceptarse a sí mismos contra un visitante.
-pub trait Expr: std::fmt::Debug {
-    /// Acepta un visitor y devuelve su salida.
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String>;
-    /// Clones the node into a boxed trait object.
-    fn clone_box(&self) -> Box<dyn Expr>;
-    /// Returns the operator text for binary nodes (empty for other nodes).
-    /// Exposed so tests can verify operators are stored unquoted.
-    fn operator(&self) -> &str {
-        ""
-    }
-}
-
-/// Literal integer.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LiteralInt {
-    pub value: i64,
-}
-
-impl Expr for LiteralInt {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_literal_int(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(LiteralInt { value: self.value })
-    }
-}
-
-/// Literal text.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LiteralText {
-    pub value: String,
-}
-
-impl Expr for LiteralText {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_literal_text(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(LiteralText {
-            value: self.value.clone(),
-        })
-    }
-}
-
-/// A name (variable, perception, or constant) resolved through the context.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Name {
-    pub name: String,
-}
-
-impl Expr for Name {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_name(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(Name {
-            name: self.name.clone(),
-        })
-    }
-}
-
-/// A resolved function call: the function is already resolved against the
-/// catalog (validating name and arity at compile time) and the arguments are
-/// expression nodes evaluated at runtime.
-#[derive(Debug)]
-pub struct Call {
-    /// The resolved function (looked up by name at compile time).
-    pub function: Rc<dyn Function>,
-    /// The argument expressions, evaluated left to right at call time.
-    pub args: Vec<Box<dyn Expr>>,
-}
-
-impl Clone for Call {
-    fn clone(&self) -> Self {
-        Call {
-            function: self.function.clone_box(),
-            args: self.args.iter().map(|a| a.clone_box()).collect(),
-        }
-    }
-}
-
-impl Expr for Call {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_call(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(Call {
-            function: self.function.clone_box(),
-            args: self.args.iter().map(|a| a.clone_box()).collect(),
-        })
-    }
-}
-
-/// A unary operation (`-` or `not`).
-#[derive(Debug)]
-pub struct Unary {
-    pub op: String,
-    pub operand: Box<dyn Expr>,
-}
-
-impl Clone for Unary {
-    fn clone(&self) -> Self {
-        Unary {
-            op: self.op.clone(),
-            operand: self.operand.clone_box(),
-        }
-    }
-}
-
-impl Expr for Unary {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_unary(self)
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(Unary {
-            op: self.op.clone(),
-            operand: self.operand.clone_box(),
-        })
-    }
-}
-
-/// A binary operation.
-#[derive(Debug)]
-pub struct Binary {
-    pub op: String,
-    pub left: Box<dyn Expr>,
-    pub right: Box<dyn Expr>,
-}
-
-impl Clone for Binary {
-    fn clone(&self) -> Self {
-        Binary {
-            op: self.op.clone(),
-            left: self.left.clone_box(),
-            right: self.right.clone_box(),
-        }
-    }
-}
-
-impl Expr for Binary {
-    fn accept(
-        &self,
-        visitor: &mut dyn ExprVisitor<Output = Result<Value, String>>,
-    ) -> Result<Value, String> {
-        visitor.visit_binary(self)
-    }
-
-    fn operator(&self) -> &str {
-        &self.op
-    }
-
-    fn clone_box(&self) -> Box<dyn Expr> {
-        Box::new(Binary {
-            op: self.op.clone(),
-            left: self.left.clone_box(),
-            right: self.right.clone_box(),
-        })
-    }
-}
-
-/// A fake evaluation context backed by a name -> value map, for tests.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct FakeContext {
-    pub values: Vec<(String, Value)>,
-}
-
-impl FakeContext {
-    pub fn new() -> Self {
-        FakeContext { values: Vec::new() }
-    }
-
-    pub fn with(mut self, name: &str, value: Value) -> Self {
-        self.values.push((name.to_string(), value));
-        self
-    }
-}
-
-impl EvalContext for FakeContext {
-    fn resolve(&self, name: &str) -> Option<Value> {
-        self.values
-            .iter()
-            .find(|(n, _)| n == name)
-            .map(|(_, v)| v.clone())
-    }
-
-    fn view(&self) -> Option<&dyn CreatureView> {
-        None
-    }
-}
+use crate::expr::nodes::{Binary, Call, LiteralInt, LiteralText, Name, Unary};
+use crate::expr::operator::operator_text;
+use crate::expr::traits::Expr;
+use crate::functions::FunctionCatalog;
+use crate::lexer::{lex, SpannedToken, Token};
 
 /// A parsing error with file, line, and message.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,7 +30,7 @@ impl ParseError {
 /// Precedence (high to low): parentheses; unary `-` and `not`; `*` `/` `%`;
 /// `+` `-`; comparisons (left to right); `and`; `or`.
 struct Parser<'a> {
-    tokens: Vec<crate::lexer::SpannedToken>,
+    tokens: Vec<SpannedToken>,
     pos: usize,
     file: String,
     line: usize,
@@ -292,7 +39,7 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(
-        tokens: Vec<crate::lexer::SpannedToken>,
+        tokens: Vec<SpannedToken>,
         file: String,
         line: usize,
         functions: &'a FunctionCatalog,
@@ -330,11 +77,11 @@ impl<'a> Parser<'a> {
             .unwrap_or(self.line)
     }
 
-    fn peek(&self) -> Option<&crate::lexer::SpannedToken> {
+    fn peek(&self) -> Option<&SpannedToken> {
         self.tokens.get(self.pos)
     }
 
-    fn advance(&mut self) -> Option<crate::lexer::SpannedToken> {
+    fn advance(&mut self) -> Option<SpannedToken> {
         let tok = self.tokens.get(self.pos).cloned();
         if tok.is_some() {
             self.pos += 1;
@@ -342,10 +89,9 @@ impl<'a> Parser<'a> {
         tok
     }
 
-    fn expect(&mut self, expected: Token) -> Result<crate::lexer::SpannedToken, ParseError> {
+    fn expect(&mut self, expected: Token) -> Result<SpannedToken, ParseError> {
         match self.peek() {
             Some(tok) if tok.kind == expected => {
-                // peek garantiza que hay un token; lo consumimos sin desenvuelto.
                 let pos = self.pos;
                 self.pos += 1;
                 Ok(self.tokens[pos].clone())
@@ -539,7 +285,9 @@ impl<'a> Parser<'a> {
                     let function = self
                         .functions
                         .resolve_function(&name, args.len())
-                        .map_err(|d| ParseError::new(self.file.clone(), self.line, d.message))?;
+                        // Bug fix: attribute the error to the line of the
+                        // `name` token, not the block line stored in `self.line`.
+                        .map_err(|d| ParseError::new(self.file.clone(), tok.line, d.message))?;
                     return Ok(Box::new(Call { function, args }));
                 }
                 self.advance();
@@ -553,31 +301,6 @@ impl<'a> Parser<'a> {
             }
             _ => self.error(format!("unexpected token {:?}", tok.kind)),
         }
-    }
-}
-
-/// The textual operator for a token, used when building binary nodes.
-///
-/// Returns the bare operator text (`+`, `==`, `and`, ...), never quoted.
-/// The quoted form produced by [`Display for Token`](crate::expr::Token)
-/// exists only for human-readable error messages and must not be reused as
-/// the operator stored in a [`Binary`] node.
-fn operator_text(token: &Token) -> String {
-    match token {
-        Token::Or => "or".to_string(),
-        Token::And => "and".to_string(),
-        Token::Plus => "+".to_string(),
-        Token::Minus => "-".to_string(),
-        Token::Star => "*".to_string(),
-        Token::Slash => "/".to_string(),
-        Token::Percent => "%".to_string(),
-        Token::Eq => "==".to_string(),
-        Token::Ne => "!=".to_string(),
-        Token::Lt => "<".to_string(),
-        Token::Le => "<=".to_string(),
-        Token::Gt => ">".to_string(),
-        Token::Ge => ">=".to_string(),
-        _ => token.to_string(),
     }
 }
 
@@ -601,31 +324,4 @@ pub fn parse(
     parser
         .parse_all()
         .map_err(|err| Diagnostic::new(captured_file, err.line, err.message))
-}
-
-impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::Plus => write!(f, "'+'"),
-            Token::Minus => write!(f, "'-'"),
-            Token::Star => write!(f, "'*'"),
-            Token::Slash => write!(f, "'/'"),
-            Token::Percent => write!(f, "'%'"),
-            Token::Eq => write!(f, "'=='"),
-            Token::Ne => write!(f, "'!='"),
-            Token::Lt => write!(f, "'<'"),
-            Token::Le => write!(f, "'<='"),
-            Token::Gt => write!(f, "'>'"),
-            Token::Ge => write!(f, "'>='"),
-            Token::And => write!(f, "'and'"),
-            Token::Or => write!(f, "'or'"),
-            Token::Not => write!(f, "'not'"),
-            Token::LParen => write!(f, "'('"),
-            Token::RParen => write!(f, "')'"),
-            Token::Comma => write!(f, "','"),
-            Token::Number(_) => write!(f, "an integer"),
-            Token::Text(_) => write!(f, "a text"),
-            Token::Name(_) => write!(f, "a name"),
-        }
-    }
 }

@@ -5,7 +5,7 @@
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::event::{Event, Pos};
-use instinct_core::perception::PerceptionCatalog;
+use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::resources::{Map, Object, Terrain};
 use instinct_core::rng::Rng;
 use instinct_core::sim::Simulation;

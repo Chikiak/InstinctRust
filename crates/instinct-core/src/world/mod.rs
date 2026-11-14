@@ -1,0 +1,18 @@
+//! World model: terrain grid, objects, creatures, ticks, and events.
+//!
+//! The world owns the seeded generator (with interior mutability confined to
+//! the generator) and the shared catalog of actions and perceptions. Each
+//! creature keeps its own variable map.
+
+pub mod clone_debug;
+pub mod context;
+pub mod creature;
+pub mod draw;
+pub mod grid;
+pub mod laws;
+pub mod roars;
+pub mod snapshot;
+
+pub use context::CreatureContext;
+pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState, World};
+pub use roars::Roar;

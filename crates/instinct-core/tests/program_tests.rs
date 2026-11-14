@@ -8,7 +8,7 @@ use instinct_core::actions::Catalog;
 use instinct_core::compile;
 use instinct_core::expr::{Expr, FakeContext};
 use instinct_core::interp::InterpreterVisitor;
-use instinct_core::perception::PerceptionCatalog;
+use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::program::{Line, Program};
 use instinct_core::value::Value;
 

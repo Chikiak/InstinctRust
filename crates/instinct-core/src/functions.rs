@@ -5,7 +5,7 @@
 //! name — resolution is purely catalog-based, mirroring `Action`/`Catalog`.
 
 use crate::diagnostic::Diagnostic;
-use crate::perception::CreatureView;
+use crate::perceptions::CreatureView;
 use crate::value::Value;
 use std::rc::Rc;
 

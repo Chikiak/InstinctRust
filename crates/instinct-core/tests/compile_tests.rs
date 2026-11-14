@@ -3,7 +3,7 @@
 
 use instinct_core::actions::Catalog;
 use instinct_core::compile;
-use instinct_core::perception::PerceptionCatalog;
+use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::program::Line;
 
 fn default_catalogs() -> (Catalog, PerceptionCatalog) {
