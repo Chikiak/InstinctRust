@@ -1,85 +1,7 @@
-//! Lexer of a single expression line.
-//!
-//! Produces tokens tagged with their line number. A `#` outside a quoted
-//! text starts a comment that runs to the end of the line; inside a text it
-//! is an ordinary character.
-//!
-//! Contrato del lexer:
-//! - **Fail-fast**: el primer error detiene el análisis y no se acumulan
-//!   diagnósticos.
-//! - **Alfabeto ASCII**: identificadores y dígitos se reconocen con
-//!   `is_ascii_*`; cualquier carácter fuera de ASCII es error
-//!   `unknown character`.
-//! - **Saltos de línea**: `\r\n`, `\n` y `\r` aislados cuentan exactamente
-//!   una vez como avance de línea.
+//! Scanning of a single expression line into tokens.
 
-use crate::diagnostic::Diagnostic;
-
-/// A single token produced by the lexer.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token {
-    Number(i64),
-    Text(String),
-    Name(String),
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Percent,
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-    And,
-    Or,
-    Not,
-    LParen,
-    RParen,
-    Comma,
-}
-
-/// A token tagged with the line on which it appears.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpannedToken {
-    pub kind: Token,
-    pub line: usize,
-}
-
-/// A lexing error with the file and line where it occurred.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LexError {
-    pub file: String,
-    pub message: String,
-    pub line: usize,
-}
-
-impl LexError {
-    pub fn new(file: impl Into<String>, message: impl Into<String>, line: usize) -> Self {
-        LexError {
-            file: file.into(),
-            message: message.into(),
-            line,
-        }
-    }
-}
-
-impl From<LexError> for Diagnostic {
-    fn from(err: LexError) -> Self {
-        Diagnostic::new(err.file, err.line, err.message)
-    }
-}
-
-/// Keywords recognized by the expression lexer.
-fn keyword(name: &str) -> Option<Token> {
-    match name {
-        "and" => Some(Token::And),
-        "or" => Some(Token::Or),
-        "not" => Some(Token::Not),
-        _ => None,
-    }
-}
+use crate::lexer::error::LexError;
+use crate::lexer::token::{keyword, SpannedToken, Token};
 
 /// Lexes a single line of expression text into tokens.
 ///
@@ -175,8 +97,8 @@ pub fn lex(text: &str, line: usize, file: &str) -> Result<Vec<SpannedToken>, Lex
                     continue;
                 }
                 if c == '\r' || c == '\n' {
-                    // El salto cuenta como línea aunque el texto nunca se
-                    // cierre; el valor de `i` ya no se usa tras el error.
+                    // The newline counts as a line even if the text never
+                    // closes; `i` is no longer used after the error.
                     current_line += 1;
                     return Err(LexError::new(
                         file.clone(),

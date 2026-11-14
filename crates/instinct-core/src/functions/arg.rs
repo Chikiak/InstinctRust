@@ -7,7 +7,12 @@ use crate::value::Value;
 /// Extracts the i64 argument at `index`, naming the function and argument on
 /// error. Text arguments are rejected. `arity` is the function's declared
 /// arity, reported when the argument list is too short.
-pub(super) fn arg_as_int(args: &[Value], index: usize, func: &str, arity: usize) -> Result<i64, String> {
+pub(super) fn arg_as_int(
+    args: &[Value],
+    index: usize,
+    func: &str,
+    arity: usize,
+) -> Result<i64, String> {
     match args.get(index) {
         Some(Value::Int(n)) => Ok(*n),
         Some(Value::Text(_)) => Err(format!(

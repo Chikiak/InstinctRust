@@ -1,7 +1,7 @@
 //! Catalog of functions and constants by name.
 
 use crate::diagnostic::Diagnostic;
-use crate::functions::{Function, See, Name};
+use crate::functions::{Function, Name, See};
 use std::rc::Rc;
 
 /// Catalog of functions and constants by name.
