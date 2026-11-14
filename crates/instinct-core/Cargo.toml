@@ -19,4 +19,8 @@ path = "tests/sim/mod.rs"
 name = "world"
 path = "tests/world/mod.rs"
 
+[[test]]
+name = "compile"
+path = "tests/compile/mod.rs"
+
 [dependencies]
