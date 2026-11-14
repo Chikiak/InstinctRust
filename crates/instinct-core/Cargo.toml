@@ -23,4 +23,8 @@ path = "tests/world/mod.rs"
 name = "compile"
 path = "tests/compile/mod.rs"
 
+[[test]]
+name = "annex_examples"
+path = "tests/annex_examples/mod.rs"
+
 [dependencies]
