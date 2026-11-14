@@ -15,4 +15,8 @@ path = "tests/perceptions/mod.rs"
 name = "sim"
 path = "tests/sim/mod.rs"
 
+[[test]]
+name = "world"
+path = "tests/world/mod.rs"
+
 [dependencies]
