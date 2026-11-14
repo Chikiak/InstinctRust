@@ -69,8 +69,8 @@ impl Clone for Line {
 #[derive(Debug, Clone)]
 pub struct Program {
     pub lines: Vec<Line>,
-    /// Label name -> index into `lines`. `BTreeMap` para iterar en orden
-    /// determinista (nombre de etiqueta ordenado).
+    /// Label name -> index into `lines`. `BTreeMap` to iterate in
+    /// deterministic order (label name sorted).
     pub labels: BTreeMap<String, usize>,
 }
 

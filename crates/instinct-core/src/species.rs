@@ -1,19 +1,19 @@
 //! Species definition: a kind of creature with stable identity.
 //! Since F0-06 a species carries its compiled program.
 //!
-//! Flyweight (F4-05): `Species` es dato intrínseco e inmutable una vez
-//! registrado (no hay setters); `program` se comparte por `Rc`. Las
-//! criaturas apuntan a la especie con `Rc<Species>` (elegido sobre
-//! `SpeciesId` porque el programa compartido viaja por referencia), de modo
-//! que clonar una criatura clona solo el `Rc`, nunca el `Species`.
+//! Flyweight (F4-05): `Species` is intrinsic, immutable data once registered
+//! (no setters); `program` is shared via `Rc`. Creatures point at the species
+//! with `Rc<Species>` (chosen over `SpeciesId` because the shared program
+//! travels by reference), so cloning a creature clones only the `Rc`, never
+//! the `Species`.
 
 use crate::program::Program;
 use std::rc::Rc;
 
 /// A kind of creature. Stores static traits and its compiled program.
 ///
-/// Inmutable tras su creación: sus campos son de solo lectura y no existen
-/// setters. Comparte su programa compilado mediante `Rc<Program>`.
+/// Immutable after creation: its fields are read-only and there are no
+/// setters. Shares its compiled program via `Rc<Program>`.
 #[derive(Debug, Clone)]
 pub struct Species {
     pub name: String,

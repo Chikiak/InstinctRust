@@ -1,12 +1,12 @@
 //! Core of the Instinct interpreter and simulator.
 //! No external dependencies; the world emits events, never prints.
 //!
-//! Arquitectura en capas (sección 1.1 de docs/PATRONES_DISENO_ARQUITECTURA.md):
-//! dependencia solo hacia abajo, nunca hacia arriba ni circulares:
+//! Layered architecture (section 1.1 of docs/PATRONES_DISENO_ARQUITECTURA.md):
+//! dependencies only downward, never upward or circular:
 //!   CLI -> compile/expr/lexer -> interp/program/value
 //!         -> world/sim/species/resources/actions/perception
 //!         -> diagnostic/event/rng (+ value)
-//! Este orden de `pub mod` documenta las capas; no afecta a la compilación.
+//! This `pub mod` order documents the layers; does not affect compilation.
 
 pub mod diagnostic;
 pub mod event;

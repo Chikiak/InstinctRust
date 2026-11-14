@@ -51,7 +51,7 @@ impl Rng {
         (self.next_u64() % range) as i64
     }
 
-    /// Shuffles `lista` in-place using Fisher–Yates with this same generator.
+    /// Shuffles `list` in-place using Fisher–Yates with this same generator.
     /// Preserves all elements and with the same seed produces the same order.
     pub fn shuffle<T>(&mut self, list: &mut [T]) {
         let mut i = list.len();
