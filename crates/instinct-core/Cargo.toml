@@ -3,4 +3,8 @@ name = "instinct-core"
 description = "Core of the Instinct interpreter and simulator"
 edition = "2021"
 
+[[test]]
+name = "actions"
+path = "tests/actions/mod.rs"
+
 [dependencies]
