@@ -7,4 +7,8 @@ edition = "2021"
 name = "actions"
 path = "tests/actions/mod.rs"
 
+[[test]]
+name = "sim"
+path = "tests/sim/mod.rs"
+
 [dependencies]
