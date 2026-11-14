@@ -1,8 +1,8 @@
 //! Cell queries: terrain, object, creature, reserve, and free-cell checks.
 
-use crate::perceptions::{Nearby, Nearest};
 use super::creature::{CellContent, CreatureId};
 use super::World;
+use crate::perceptions::{Nearby, Nearest};
 
 impl World {
     /// Name of the terrain at cell `(x, y)`, or `None` if out of bounds or its

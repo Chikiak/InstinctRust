@@ -1,10 +1,10 @@
 //! `wait(n)`: sleeps `n-1` turns; `n < 1` counts as 1 (zero sleep); text
 //! argument fails.
 
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wait;

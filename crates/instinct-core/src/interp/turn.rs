@@ -2,8 +2,8 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::expr::EvalContext;
-use crate::interp::state::{CreatureTurnState, TurnResult};
 use crate::interp::lines::execute_line;
+use crate::interp::state::{CreatureTurnState, TurnResult};
 use crate::program::Program;
 use crate::world::CreatureState;
 

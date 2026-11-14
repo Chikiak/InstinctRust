@@ -1,5 +1,6 @@
 //! Creature types and World core: creature placement, removal, accessors.
 
+use super::roars::Roar;
 use crate::actions::{ActionResult, Catalog};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos, WorldOutput};
@@ -10,7 +11,6 @@ use crate::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use super::roars::Roar;
 
 /// Stable identifier of a creature. The world owns creatures by id, never by
 /// reference; actions receive an id, not a borrow of the creature.

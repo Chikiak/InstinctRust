@@ -5,7 +5,7 @@ use crate::diagnostic::Diagnostic;
 use crate::functions::{Function, FunctionCatalog};
 use crate::perceptions::{
     Age, AlliesNear, AllyDist, AllyDx, AllyDy, EnemiesNear, EnemyDist, EnemyDx, EnemyDy, Faction,
-    Health, Height, LastRoar, Lifespan, ObjectDist, ObjectDy, ObjectDx, ObjectsNear, Perception,
+    Health, Height, LastRoar, Lifespan, ObjectDist, ObjectDx, ObjectDy, ObjectsNear, Perception,
     PerceptionCatalog, Random, ReserveHere, RoarsNear, Species, TerrainHere, Tick, TotalAllies,
     TotalCreatures, TotalEnemies, Vision, Width, X, Y,
 };
@@ -56,7 +56,11 @@ impl Catalog {
 
     /// Resolves an action by name, validating arity. Returns a diagnostic
     /// naming the argument if unknown or wrong arity.
-    pub fn resolve(&self, name: &str, arg_count: usize) -> Result<Rc<dyn crate::actions::Action>, Diagnostic> {
+    pub fn resolve(
+        &self,
+        name: &str,
+        arg_count: usize,
+    ) -> Result<Rc<dyn crate::actions::Action>, Diagnostic> {
         match self.actions.iter().find(|a| a.name() == name) {
             Some(action) => {
                 if action.arity() != arg_count {

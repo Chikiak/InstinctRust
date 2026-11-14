@@ -1,10 +1,10 @@
 //! End-of-tick laws: creature aging/damage, terrain regeneration, object
 //! exhaustion, and cell damage.
 
-use crate::diagnostic::Diagnostic;
-use crate::event::{Event, Pos};
 use super::creature::{CellContent, CreatureId};
 use super::World;
+use crate::diagnostic::Diagnostic;
+use crate::event::{Event, Pos};
 
 impl World {
     /// Damages (or heals, if `damage` is negative) the content of cell (x, y):

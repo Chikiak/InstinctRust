@@ -1,8 +1,8 @@
 //! ASCII drawing of the world.
 
-use crate::diagnostic::Diagnostic;
 use super::creature::CellContent;
 use super::World;
+use crate::diagnostic::Diagnostic;
 
 impl World {
     /// Draws the world in ASCII: the creature (first letter of its species)

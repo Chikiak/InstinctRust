@@ -21,14 +21,13 @@ pub trait Perception: std::fmt::Debug {
 }
 
 pub use builtins::{
-    AlliesNear, AllyDist, AllyDx, AllyDy, Age, EnemyDist, EnemyDx, EnemyDy,
-    EnemiesNear, Faction, Health, Height, LastRoar, Lifespan, ObjectDist,
-    ObjectDx, ObjectDy, ObjectsNear, Random, ReserveHere, RoarsNear, Species,
-    Tick, TotalAllies, TotalCreatures, TotalEnemies, TerrainHere, Vision,
-    Width, X, Y,
+    Age, AlliesNear, AllyDist, AllyDx, AllyDy, EnemiesNear, EnemyDist, EnemyDx, EnemyDy, Faction,
+    Health, Height, LastRoar, Lifespan, ObjectDist, ObjectDx, ObjectDy, ObjectsNear, Random,
+    ReserveHere, RoarsNear, Species, TerrainHere, Tick, TotalAllies, TotalCreatures, TotalEnemies,
+    Vision, Width, X, Y,
 };
 pub use catalog::PerceptionCatalog;
-pub use nearby::{Nearest, Nearby};
+pub use nearby::{Nearby, Nearest};
 pub use view::CreatureView;
 
 #[cfg(test)]

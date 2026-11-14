@@ -7,12 +7,12 @@
 //! snapshot excludes it from the current tick). Any failure is a natural
 //! abort: it does nothing, but consumes the turn.
 
+use crate::actions::move_::parse_move_arg;
+use crate::actions::shared::validate_direction;
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
-use crate::actions::move_::parse_move_arg;
-use crate::actions::shared::validate_direction;
 
 /// No-op action: natural abort. The turn is consumed because
 /// `consumes_turn()` is true.

@@ -8,11 +8,11 @@ pub mod attack;
 pub mod catalog;
 pub mod consume;
 pub mod move_;
-pub mod r#trait;
 pub mod reproduce;
 pub mod roar;
 pub mod say;
 pub mod shared;
+pub mod r#trait;
 pub mod wait;
 
 pub use attack::Attack;

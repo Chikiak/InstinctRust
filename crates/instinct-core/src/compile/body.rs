@@ -1,15 +1,15 @@
 //! Body compilation: the main `compile` entry point, the header phase
 //! (before `start:`) and the body-phase dispatch by line shape.
 
+use super::action::{parse_action_call, ActionOutcome};
+use super::assignment::{looks_like_assignment, parse_assignment};
+use super::comment::strip_trailing_comment;
+use super::header::{split_header, validate_header_value, HEADER_KEYS};
 use crate::actions::Catalog;
 use crate::diagnostic::Diagnostic;
 use crate::expr;
 use crate::perceptions::PerceptionCatalog;
 use crate::program::{Line, Program};
-use super::action::{parse_action_call, ActionOutcome};
-use super::assignment::{looks_like_assignment, parse_assignment};
-use super::comment::strip_trailing_comment;
-use super::header::{split_header, validate_header_value, HEADER_KEYS};
 
 /// A reference to a label from a goto/if-goto, collected for later validation.
 pub struct LabelRef {

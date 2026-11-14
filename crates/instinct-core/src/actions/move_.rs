@@ -3,10 +3,10 @@
 //! Direction (0, 0) or speed <= 0: does not move and does not fail. dx or dy
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
 
 /// Converts an integer into a grid index (`usize`). Rejects negatives so they
 /// never wrap into a huge index, and rejects values that do not fit in

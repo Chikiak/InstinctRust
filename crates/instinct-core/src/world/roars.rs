@@ -1,8 +1,8 @@
 //! Roars: shouts emitted by creatures, associated with species, position, and text.
 
-use crate::event::Pos;
 use super::creature::CreatureId;
 use super::World;
+use crate::event::Pos;
 
 /// A roar emitted by a creature in a tick, associated with its species,
 /// position, and text. Stored with its tick so that, in the next tick, F2 can
@@ -23,13 +23,7 @@ impl World {
     /// `text` in the current tick. `roar` does not kill or damage: it only
     /// records the message so F2 can read it the next tick with
     /// `roars_near`/`last_roar`.
-    pub fn add_roar(
-        &mut self,
-        creature_id: CreatureId,
-        species: String,
-        pos: Pos,
-        text: String,
-    ) {
+    pub fn add_roar(&mut self, creature_id: CreatureId, species: String, pos: Pos, text: String) {
         self.roars_current.push(Roar {
             tick: self.ticks,
             creature_id,

@@ -11,7 +11,11 @@ use std::rc::Rc;
 /// inside `program.lines`. An unknown label or an out-of-range destination
 /// (only reachable when the program is mutated after compilation) is a
 /// runtime error naming the label, never an out-of-range index.
-pub fn jump_target(program: &Program, label: &str, line: usize) -> Result<usize, (Diagnostic, usize)> {
+pub fn jump_target(
+    program: &Program,
+    label: &str,
+    line: usize,
+) -> Result<usize, (Diagnostic, usize)> {
     let target = program.resolve_label(label).ok_or_else(|| {
         (
             Diagnostic::new("interp", line, format!("goto to unknown label '{label}'")),

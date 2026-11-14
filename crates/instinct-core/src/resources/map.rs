@@ -14,11 +14,7 @@ pub struct Map {
 /// `valid_characters` are the `char` declared by terrains and objects;
 /// any other character produces a diagnostic with the line of its row
 /// without preventing the map or the others from loading.
-pub fn load_map(
-    content: &str,
-    file: &str,
-    valid_characters: &[char],
-) -> LoadResult<Map> {
+pub fn load_map(content: &str, file: &str, valid_characters: &[char]) -> LoadResult<Map> {
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
 

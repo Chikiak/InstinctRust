@@ -4,12 +4,12 @@
 //! fails produces diagnostics and is discarded, but loading continues with
 //! the others. A missing folder is treated as empty, without diagnostic.
 
-mod keys;
-mod terrain;
-mod object;
-mod map;
-mod folder;
 mod creatures;
+mod folder;
+mod keys;
+mod map;
+mod object;
+mod terrain;
 
 pub use self::creatures::load_creatures_folder;
 pub use self::folder::{load_maps_folder, load_objects_folder, load_terrains_folder};

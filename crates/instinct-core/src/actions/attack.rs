@@ -5,12 +5,12 @@
 //! consumed, no error. A creature dropping to health <= 0 dies on the spot
 //! (cell freed, Died cause "vida") in the same tick.
 
+use crate::actions::move_::parse_move_arg;
+use crate::actions::shared::{strike_cell, validate_direction};
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
-use crate::actions::move_::parse_move_arg;
-use crate::actions::shared::{strike_cell, validate_direction};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attack;

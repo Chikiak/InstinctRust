@@ -1,8 +1,8 @@
 //! Read-only snapshot of a creature and its world, used to evaluate perceptions.
 
-use crate::perceptions::{CreatureView, Nearby};
 use super::creature::{CellContent, CreatureId};
 use super::World;
+use crate::perceptions::{CreatureView, Nearby};
 
 /// Read-only view of a creature and its world, used to evaluate perceptions.
 /// Nothing here mutates the world except `random`, which advances the

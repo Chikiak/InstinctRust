@@ -7,14 +7,14 @@
 use crate::diagnostic::Diagnostic;
 use crate::program::Program;
 
+mod action;
+mod assignment;
+mod body;
 mod comment;
 mod header;
-mod body;
-mod assignment;
-mod action;
 
-pub use header::Header;
 pub use body::compile;
+pub use header::Header;
 
 /// Result of compiling a `.ins` file: the compiled program plus diagnostics
 /// and, when the header is complete and valid, the parsed header attributes.

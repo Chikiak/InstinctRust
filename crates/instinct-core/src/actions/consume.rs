@@ -1,12 +1,12 @@
 //! `consume(dx, dy, damage, heal)`: like `attack` on the adjacent cell, and
 //! additionally the attacking creature gains `heal` health points (no cap).
 
+use crate::actions::move_::parse_move_arg;
+use crate::actions::shared::{heal_attacker, strike_cell, validate_direction};
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
-use crate::actions::move_::parse_move_arg;
-use crate::actions::shared::{heal_attacker, strike_cell, validate_direction};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Consume;

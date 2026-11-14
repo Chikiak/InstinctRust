@@ -47,7 +47,9 @@ pub fn load_terrains_folder(path: &Path) -> (Vec<Terrain>, Vec<Diagnostic>) {
             (Some(t), mut d) => {
                 // Verify duplicate character and name against already loaded terrains.
                 if characters_used.contains(&t.character)
-                    || terrains.iter().any(|terrain| terrain.character == t.character)
+                    || terrains
+                        .iter()
+                        .any(|terrain| terrain.character == t.character)
                 {
                     d.push(Diagnostic::new(
                         &file,
@@ -66,7 +68,10 @@ pub fn load_terrains_folder(path: &Path) -> (Vec<Terrain>, Vec<Diagnostic>) {
                     d.push(Diagnostic::new(
                         &file,
                         1,
-                        format!("the name '{}' is already in use by another resource", t.name),
+                        format!(
+                            "the name '{}' is already in use by another resource",
+                            t.name
+                        ),
                     ));
                     diagnostics.append(&mut d);
                     continue;
@@ -127,7 +132,10 @@ pub fn load_objects_folder(path: &Path, terrains: &[Terrain]) -> (Vec<Object>, V
                     d.push(Diagnostic::new(
                         &file,
                         1,
-                        format!("the name '{}' is already in use by another resource", o.name),
+                        format!(
+                            "the name '{}' is already in use by another resource",
+                            o.name
+                        ),
                     ));
                     diagnostics.append(&mut d);
                     continue;

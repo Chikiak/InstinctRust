@@ -2,11 +2,11 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
+use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-use crate::actions::ActionResult;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roar;

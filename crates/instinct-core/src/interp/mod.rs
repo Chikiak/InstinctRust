@@ -6,12 +6,12 @@
 //! applies it afterwards. `say` is returned as a pending action too, and the
 //! simulation applies it in the act without ending the turn.
 
-pub mod state;
-pub mod visitor;
 pub mod lines;
+pub mod state;
 pub mod turn;
+pub mod visitor;
 
-pub use state::{CreatureTurnState, TurnResult, PendingAction};
-pub use visitor::InterpreterVisitor;
 pub use lines::{execute_line, jump_target};
+pub use state::{CreatureTurnState, PendingAction, TurnResult};
 pub use turn::execute_turn;
+pub use visitor::InterpreterVisitor;

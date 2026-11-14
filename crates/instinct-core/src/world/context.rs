@@ -1,14 +1,14 @@
 //! Evaluation context for a single creature.
 
+use super::creature::CreatureId;
+use super::snapshot::CreatureSnapshot;
+use super::World;
 use crate::expr::EvalContext;
 use crate::perceptions::CreatureView;
 use crate::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use super::creature::CreatureId;
-use super::snapshot::CreatureSnapshot;
-use super::World;
 
 /// Evaluation context for a single creature. Resolves perceptions first, then
 /// variables. Execution reads the world immutably; the world applies actions

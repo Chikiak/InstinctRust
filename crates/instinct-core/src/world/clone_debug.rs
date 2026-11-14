@@ -1,8 +1,8 @@
 //! Clone and Debug implementations for World.
 
+use super::creature::World;
 use crate::rng::Rng;
 use std::cell::RefCell;
-use super::creature::World;
 
 impl Clone for World {
     fn clone(&self) -> Self {
