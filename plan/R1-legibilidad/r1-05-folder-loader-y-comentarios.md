@@ -2,7 +2,7 @@
 id: R1-05
 title: `resources/folder.rs` genérico y limpieza de comentarios
 phase: R1
-status: todo
+status: done
 depends_on: [R1-01]
 size: S
 ---
@@ -56,4 +56,4 @@ redundantes sobre códigos de retorno.
 
 ## Notas de implementación
 
-（vacío tras completar: enfoque elegido y razón si no fue genérico）
+Enfoque: genérica parametrizada por tipo `load_resources_folder<T, F, C, N>` en `resources/folder.rs`, con un struct `FolderLoadOptions` (extensión, caracteres/nombres ya usados, bandera de duplicados) para no exceder el límite de 7 argumentos de clippy. Las 3 funciones públicas conservan firmas y diagnósticos idénticos: `load_terrains_folder` y `load_objects_folder` llaman a la genérica con `check_duplicates: true` (duplicados `character`/`name`, textos de diagnóstico sin cambios), `load_maps_folder` con `check_duplicates: false` y un `load` que inyecta `valid_characters` (terrenos + objetos) en `load_map`. Se mantiene `clone_name`. `list_sorted_files` (orden alfabético), extensiones `.te`/`.ob`/`.map`, carpeta missing → vacío sin diagnóstico y orden de carga en `load_resources` (terrenos → objetos → mapas → criaturas) sin cambios. `world/snapshot.rs`: borrados comentarios que solo releían códigos de retorno (líneas 134, 144, 147, 149, 154, 162, 164, 167, 168 de HEAD); mantenidos los explicativos (líneas 131, 173). Sin cambios de lógica.

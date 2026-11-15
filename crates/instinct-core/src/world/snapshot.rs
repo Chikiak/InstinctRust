@@ -131,7 +131,7 @@ impl CreatureView for CreatureSnapshot<'_> {
         // Radius check first: Chebyshev distance from creature's cell.
         let self_pos = match self.world.creature_position(self.creature_id) {
             Ok(p) => p,
-            Err(_) => return -1, // NONE: unknown creature
+            Err(_) => return -1,
         };
         let self_creature = match self.world.creature(self.creature_id) {
             Some(c) => c,
@@ -141,17 +141,15 @@ impl CreatureView for CreatureSnapshot<'_> {
         let dy = y - self_pos.y as i64;
         let dist = dx.abs().max(dy.abs());
         if dist > self_creature.species.vision {
-            return -1; // NONE: out of radius
+            return -1;
         }
 
-        // Out of map: OBJECT (border is a wall).
         if x < 0 || y < 0 || x >= self.world.columns as i64 || y >= self.world.rows as i64 {
-            return 1; // OBJECT
+            return 1;
         }
         let x = x as usize;
         let y = y as usize;
 
-        // Own cell contains a creature: ALLY.
         match &self.world.content[y][x] {
             CellContent::Creature(target_id) => {
                 let target = match self.world.creature(*target_id) {
@@ -159,13 +157,13 @@ impl CreatureView for CreatureSnapshot<'_> {
                     None => return 0,
                 };
                 if target.species.faction == self_creature.species.faction {
-                    2 // ALLY
+                    2
                 } else {
-                    3 // ENEMY
+                    3
                 }
             }
-            CellContent::Object(_) => 1, // OBJECT
-            CellContent::Empty => 0,     // GROUND
+            CellContent::Object(_) => 1,
+            CellContent::Empty => 0,
         }
     }
 
