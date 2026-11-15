@@ -8,8 +8,8 @@
 //! abort: it does nothing, but consumes the turn.
 
 use crate::actions::shared::{
-    checked_sub_health, creature_context, is_out_of_bounds, natural_abort_noop, out_of_map_noop,
-    parse_dir_arg, parse_int_arg, ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH, DIAG_WORLD,
+    checked_sub_health, creature_context, is_out_of_bounds, noop_result, parse_dir_arg,
+    parse_int_arg, ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH, DIAG_WORLD,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -55,7 +55,7 @@ impl crate::actions::Action for Reproduce {
 
         // --- validation: mother must have health strictly greater than `health` ---
         if mother.health <= health {
-            return Ok(natural_abort_noop());
+            return Ok(noop_result());
         }
         let species = mother.species.clone();
         let mother_health = mother.health;
@@ -68,7 +68,7 @@ impl crate::actions::Action for Reproduce {
         let ty = pos.y as i64 + dy;
         // Out of map: natural abort.
         if is_out_of_bounds(world, tx, ty) {
-            return Ok(out_of_map_noop());
+            return Ok(noop_result());
         }
 
         // --- place child ---
@@ -76,7 +76,7 @@ impl crate::actions::Action for Reproduce {
         // natural abort without touching the mother.
         let child_id = match world.place_creature(&species, tx as usize, ty as usize) {
             Ok(id) => id,
-            Err(_) => return Ok(out_of_map_noop()),
+            Err(_) => return Ok(noop_result()),
         };
         // `place_creature` initializes with `species.health`; adjust to `health`.
         world.set_creature_health(child_id, health)?;
@@ -86,6 +86,6 @@ impl crate::actions::Action for Reproduce {
             .ok_or_else(|| unknown_creature_diagnostic(&creature_id))?;
         mother.health = new_mother_health;
 
-        Ok(out_of_map_noop())
+        Ok(noop_result())
     }
 }

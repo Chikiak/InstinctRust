@@ -4,7 +4,7 @@
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
 use crate::actions::shared::{
-    index_from_i64, out_of_map_noop, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
+    index_from_i64, noop_result, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -36,7 +36,7 @@ impl crate::actions::Action for Move {
 
         // Direction (0, 0) or speed <= 0: no move, no error.
         if (dx == 0 && dy == 0) || speed <= 0 {
-            return Ok(out_of_map_noop());
+            return Ok(noop_result());
         }
 
         let pos = world.creature_position(creature_id)?;
@@ -57,6 +57,6 @@ impl crate::actions::Action for Move {
         }
 
         world.move_creature_to(creature_id, x as usize, y as usize)?;
-        Ok(out_of_map_noop())
+        Ok(noop_result())
     }
 }
