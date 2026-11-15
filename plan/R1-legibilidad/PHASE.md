@@ -70,7 +70,7 @@ Estado inicial: todos `todo`.
 | R1-01 | Strings en inglés: causas de muerte, Display de eventos y UI de CLI | Renames `vida`/`edad`, `muere por`, mensajes de CLI | — | L | done | r1-01-english-strings.md |
 | R1-02 | Dividir `world/creature.rs` | God file (~530) | R1-01 | L | done | r1-02-split-world-creature.md |
 | R1-03 | Dividir `perceptions/builtins.rs` | 25 structs de percepción cuasi-clones | — | L | done | r1-03-split-perceptions-builtins.md |
-| R1-04 | Dividir `compile/body.rs` | Mezcla de fases en `compile()` | — | M | todo | r1-04-split-compile-body.md |
+| R1-04 | Dividir `compile/body.rs` | Mezcla de fases en `compile()` | — | M | done | r1-04-split-compile-body.md |
 | R1-05 | `resources/folder.rs` genérico y limpieza de comentarios | 3 loaders cuasi-duplicados; comentarios obvios | R1-01 | S | todo | r1-05-folder-loader-y-comentarios.md |
 | R1-06 | Splitear pruebas planas de instinct-core | `rng_tests`, `event_tests`, `value_tests`, `species_tests`, `diagnostic_tests` (+ comentarios ES) | R1-01 | M | todo | r1-06-split-core-tests-planos.md |
 | R1-07 | Partir tests largos en módulos ya-split | 8 módulos con tests de 60-140 líneas | R1-06 | L | todo | r1-07-partir-tests-largos.md |
@@ -102,7 +102,7 @@ Estado inicial: todos `todo`.
 | R1-01 | Strings en español en salida observable | — | done |
 | R1-02 | `creature.rs` mezcla tipos + mundo + leyes | `creature/types.rs`, `creature/mod.rs`, `world.rs`, `life.rs`, `ticks.rs`; `creature.rs` borrado; `mod.rs` y `clone_debug.rs` ajustados | done |
 | R1-03 | Monotonía de structs en un solo archivo | `builtins/core.rs` (Health, Age, Lifespan, X, Y, Tick, Vision), `builtins/near.rs` (*Near, *Dist, *Dx, *Dy), `builtins/social.rs` (especie, facción, terreno, reserva, totales, roars, random), `builtins/mod.rs` (reexports); `builtins.rs` borrado. `perceptions/mod.rs` y `catalog.rs` sin cambios. 31 nombres reexportados; 0 cambios de lógica; todo < 300 líneas. | done |
-| R1-04 | `compile()` mezcla fases | — | todo |
+| R1-04 | `compile()` mezcla fases | `body.rs` <150 líneas; cabecera en `header.rs` (`process_header_line`), despacho en `dispatch.rs` (`dispatch_body_line`), post-validación en `validate.rs` (`finalize_validation`); `compile()` orquestador sobre `CompileState`; firma y orden de diagnósticos intactos; 0 cambios de lógica | done |
 | R1-05 | Carga duplicada por tipo de recurso | — | todo |
 | R1-06 | Pruebas planas sin patrón de carpeta | — | todo |
 | R1-07 | Tests de 60-140 líneas ilegibles | — | todo |

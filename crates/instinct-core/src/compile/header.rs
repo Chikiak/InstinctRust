@@ -1,6 +1,7 @@
 //! Header parsing and validation for `.ins` creature files.
 
 use crate::diagnostic::Diagnostic;
+use crate::program::Line;
 
 /// Parsed header of a `.ins` file: the five required attributes.
 #[derive(Debug, Clone)]
@@ -28,12 +29,125 @@ pub fn split_header(line: &str) -> Option<(&str, &str)> {
     }
 }
 
-/// Validates that a header value is an integer > 0 (vision >= 1). Pushes a
-/// diagnostic naming the key when invalid.
+/// Processes one line while still in the header phase (before `start:`).
 ///
-/// The value is parsed exactly once (the caller already parsed it and passes
-/// the result); an invalid integer or a value below the minimum produces a
-/// single diagnostic on the value's line.
+/// Returns `true` when the line was consumed by the header phase — including
+/// unrecognized lines, which still push a diagnostic — and `false` once
+/// `start:` was already seen, so the caller can hand the line to the body
+/// dispatch. When the line is `start:`, it is registered as the `start`
+/// label on the current line index.
+pub fn process_header_line<'b>(
+    state: &mut super::body::CompileState<'b>,
+    body: &'b str,
+    trimmed: &str,
+    line_number: usize,
+    file: &str,
+) -> bool {
+    if !state.found_start {
+        if body == "start:" {
+            state.found_start = true;
+            state.labels.insert("start".to_string(), state.lines.len());
+            state.lines.push(Line::Label {
+                name: "start".to_string(),
+                line: line_number,
+            });
+            return true;
+        }
+
+        // A `name:` before `start:` is not a valid label.
+        if body.ends_with(':') {
+            state.diagnostics.push(Diagnostic::new(
+                file,
+                line_number,
+                format!("unrecognized line: '{trimmed}'"),
+            ));
+            return true;
+        }
+
+        // Header key-value line: `key value`.
+        if let Some((key, value)) = split_header(body) {
+            if state.seen_keys.contains(&key) {
+                state.diagnostics.push(Diagnostic::new(
+                    file,
+                    line_number,
+                    format!("repeated header key '{key}'"),
+                ));
+            } else {
+                state.seen_keys.push(key);
+            }
+
+            match key {
+                "creature" => {
+                    state.species_name = Some(value.trim().to_string());
+                }
+                "faction" => {
+                    state.faction = Some(value.trim().to_string());
+                }
+                "health" => {
+                    let parsed = value.trim().parse::<i64>();
+                    if let Ok(n) = parsed {
+                        state.health = Some(n);
+                    }
+                    validate_header_value(
+                        key,
+                        value,
+                        line_number,
+                        file,
+                        parsed,
+                        &mut state.diagnostics,
+                    );
+                }
+                "vision" => {
+                    let parsed = value.trim().parse::<i64>();
+                    if let Ok(n) = parsed {
+                        state.vision = Some(n);
+                    }
+                    validate_header_value(
+                        key,
+                        value,
+                        line_number,
+                        file,
+                        parsed,
+                        &mut state.diagnostics,
+                    );
+                }
+                "lifespan" => {
+                    let parsed = value.trim().parse::<i64>();
+                    if let Ok(n) = parsed {
+                        state.lifespan = Some(n);
+                    }
+                    validate_header_value(
+                        key,
+                        value,
+                        line_number,
+                        file,
+                        parsed,
+                        &mut state.diagnostics,
+                    );
+                }
+                _ => {
+                    state.diagnostics.push(Diagnostic::new(
+                        file,
+                        line_number,
+                        format!("unknown header key '{key}'"),
+                    ));
+                }
+            }
+
+            return true;
+        }
+
+        state.diagnostics.push(Diagnostic::new(
+            file,
+            line_number,
+            format!("unrecognized line: '{trimmed}'"),
+        ));
+        return true;
+    }
+
+    false
+}
+
 pub fn validate_header_value(
     key: &str,
     value: &str,

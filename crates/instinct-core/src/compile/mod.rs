@@ -11,7 +11,9 @@ mod action;
 mod assignment;
 mod body;
 mod comment;
+mod dispatch;
 mod header;
+mod validate;
 
 pub use body::compile;
 pub use header::Header;
