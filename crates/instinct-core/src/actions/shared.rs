@@ -1,29 +1,11 @@
 //! Shared helpers for actions: direction validation, striking an adjacent
 //! cell, and healing the attacker.
 
+use super::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
+use crate::value::Value;
 use crate::world::{CellContent, CreatureId, World};
-
-/// Validates that `dx`/`dy` are in `{-1, 0, 1}`, returning an error naming the
-/// argument when they are not.
-pub(super) fn validate_direction(action: &str, dx: i64, dy: i64) -> Result<(), Diagnostic> {
-    if !((-1..=1).contains(&dx)) {
-        return Err(Diagnostic::new(
-            action,
-            1,
-            format!("argument 'dx' must be -1, 0, or 1, got {dx}"),
-        ));
-    }
-    if !((-1..=1).contains(&dy)) {
-        return Err(Diagnostic::new(
-            action,
-            1,
-            format!("argument 'dy' must be -1, 0, or 1, got {dy}"),
-        ));
-    }
-    Ok(())
-}
 
 /// Shared logic for "striking an adjacent cell": reduces a creature's health
 /// (immediate death at <= 0), an object's reserve, or the terrain reserve of
@@ -152,4 +134,73 @@ pub(super) fn heal_attacker(
     })?;
     creature.health = new_health;
     Ok(())
+}
+
+/// Parses an integer argument, returning an error naming the argument if it is text.
+pub(super) fn parse_int_arg(
+    value: &Value,
+    action: &str,
+    arg_name: &str,
+) -> Result<i64, Diagnostic> {
+    match value {
+        Value::Int(n) => Ok(*n),
+        Value::Text(_) => Err(Diagnostic::new(
+            action,
+            1,
+            format!("argument '{arg_name}' must be an integer, got text"),
+        )),
+    }
+}
+
+/// Parses a direction argument: must be an integer in `{-1, 0, 1}`. Names the
+/// argument in errors.
+pub(super) fn parse_dir_arg(
+    value: &Value,
+    action: &str,
+    arg_name: &str,
+) -> Result<i64, Diagnostic> {
+    let n = parse_int_arg(value, action, arg_name)?;
+    if !((-1..=1).contains(&n)) {
+        return Err(Diagnostic::new(
+            action,
+            1,
+            format!(
+                "argument '{arg_name}' must be -1, 0, or 1, got {n}"
+            ),
+        ));
+    }
+    Ok(n)
+}
+
+/// Returns `true` if `(x, y)` is outside the world grid.
+pub(super) fn is_out_of_bounds(world: &World, x: i64, y: i64) -> bool {
+    x < 0 || y < 0 || x >= world.columns as i64 || y >= world.rows as i64
+}
+
+/// No-op result for actions whose target is outside the map.
+pub(super) fn out_of_map_noop() -> ActionResult {
+    ActionResult {
+        sleep_turns: 0,
+        events: Vec::new(),
+    }
+}
+
+/// Converts a `Value` to its textual representation (integers are shown as
+/// their decimal string).
+pub(super) fn value_to_text(value: &Value) -> String {
+    match value {
+        Value::Int(n) => n.to_string(),
+        Value::Text(s) => s.clone(),
+    }
+}
+
+/// Returns the creature's position, species name, and the current tick.
+pub(super) fn creature_context(
+    world: &World,
+    creature_id: CreatureId,
+) -> Result<(Pos, String, u64), Diagnostic> {
+    let pos = world.creature_position(creature_id)?;
+    let species = world.creature_species(creature_id)?;
+    let tick = world.tick();
+    Ok((pos, species, tick))
 }

@@ -2,6 +2,7 @@
 //! tick, does not consume a turn. A number is shown as text.
 
 use crate::actions::ActionResult;
+use crate::actions::shared::{creature_context, value_to_text};
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
@@ -26,13 +27,8 @@ impl crate::actions::Action for Say {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let text = match &args[0] {
-            Value::Int(n) => n.to_string(),
-            Value::Text(s) => s.clone(),
-        };
-        let pos = world.creature_position(creature_id)?;
-        let species = world.creature_species(creature_id)?;
-        let tick = world.tick();
+        let text = value_to_text(&args[0]);
+        let (pos, species, tick) = creature_context(world, creature_id)?;
         Ok(ActionResult {
             sleep_turns: 0,
             events: vec![Event::Said {

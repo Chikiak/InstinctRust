@@ -2,6 +2,7 @@
 //! argument fails.
 
 use crate::actions::ActionResult;
+use crate::actions::shared::parse_int_arg;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
@@ -25,16 +26,7 @@ impl crate::actions::Action for Wait {
         _creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let n = match &args[0] {
-            Value::Int(n) => *n,
-            Value::Text(_) => {
-                return Err(Diagnostic::new(
-                    "wait",
-                    1,
-                    "argument 'n' must be an integer, got text".to_string(),
-                ));
-            }
-        };
+        let n = parse_int_arg(&args[0], "wait", "n")?;
         let sleep_turns = n.max(1) as u32;
         Ok(ActionResult {
             sleep_turns,

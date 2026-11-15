@@ -7,21 +7,13 @@
 //! snapshot excludes it from the current tick). Any failure is a natural
 //! abort: it does nothing, but consumes the turn.
 
-use crate::actions::move_::parse_move_arg;
-use crate::actions::shared::validate_direction;
+use crate::actions::shared::{
+    is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg,
+};
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
-
-/// No-op action: natural abort. The turn is consumed because
-/// `consumes_turn()` is true.
-fn abort_reproduction() -> ActionResult {
-    ActionResult {
-        sleep_turns: 0,
-        events: Vec::new(),
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reproduce;
@@ -42,19 +34,9 @@ impl crate::actions::Action for Reproduce {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let dx = parse_move_arg(&args[0], "dx")?;
-        let dy = parse_move_arg(&args[1], "dy")?;
-        let health = match &args[2] {
-            Value::Int(h) => *h,
-            Value::Text(_) => {
-                return Err(Diagnostic::new(
-                    "reproduce",
-                    1,
-                    "argument 'health' must be an integer, got text".to_string(),
-                ));
-            }
-        };
-        validate_direction("reproduce", dx, dy)?;
+        let dx = parse_dir_arg(&args[0], "reproduce", "dx")?;
+        let dy = parse_dir_arg(&args[1], "reproduce", "dy")?;
+        let health = parse_int_arg(&args[2], "reproduce", "health")?;
 
         let pos = world.creature_position(creature_id)?;
         let mother = world.creature(creature_id).ok_or_else(|| {
@@ -62,7 +44,7 @@ impl crate::actions::Action for Reproduce {
         })?;
         // The mother must have health strictly greater than `health`.
         if mother.health <= health {
-            return Ok(abort_reproduction());
+            return Ok(out_of_map_noop());
         }
         let species = mother.species.clone();
         let mother_health = mother.health;
@@ -79,14 +61,14 @@ impl crate::actions::Action for Reproduce {
         let tx = pos.x as i64 + dx;
         let ty = pos.y as i64 + dy;
         // Out of map: natural abort.
-        if tx < 0 || ty < 0 || tx >= world.columns as i64 || ty >= world.rows as i64 {
-            return Ok(abort_reproduction());
+        if is_out_of_bounds(world, tx, ty) {
+            return Ok(out_of_map_noop());
         }
         // `place_creature` validates bounds and free cell: occupied cell ->
         // natural abort without touching the mother.
         let child_id = match world.place_creature(&species, tx as usize, ty as usize) {
             Ok(id) => id,
-            Err(_) => return Ok(abort_reproduction()),
+            Err(_) => return Ok(out_of_map_noop()),
         };
         // `place_creature` initializes with `species.health`; adjust to `health`.
         world.set_creature_health(child_id, health)?;
@@ -96,6 +78,6 @@ impl crate::actions::Action for Reproduce {
         })?;
         mother.health = new_mother_health;
 
-        Ok(abort_reproduction())
+        Ok(out_of_map_noop())
     }
 }
