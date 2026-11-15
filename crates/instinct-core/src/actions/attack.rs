@@ -6,7 +6,7 @@
 //! (cell freed, Died cause "health") in the same tick.
 
 use crate::actions::shared::{
-    action_result, parse_dir_args, parse_int_arg, strike_cell, ACTION_ATTACK, ARG_DAMAGE,
+    apply_strike, parse_dir_args, parse_int_arg, ACTION_ATTACK, ARG_DAMAGE,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -36,7 +36,6 @@ impl crate::actions::Action for Attack {
         let (dx, dy) = parse_dir_args(args, ACTION_ATTACK)?;
         let damage = parse_int_arg(&args[2], ACTION_ATTACK, ARG_DAMAGE)?;
 
-        let events = strike_cell(world, creature_id, dx, dy, damage)?;
-        Ok(action_result(0, events))
+        apply_strike(world, creature_id, dx, dy, damage, None)
     }
 }

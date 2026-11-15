@@ -192,6 +192,26 @@ pub(super) fn heal_attacker(
     Ok(())
 }
 
+/// Shared apply path for `attack` and `consume`: strikes an adjacent cell via
+/// `strike_cell`, optionally heals the attacker (only when there are events,
+/// i.e. not out-of-map), and wraps everything in `action_result(0, events)`.
+pub(super) fn apply_strike(
+    ctx: &mut dyn ActionContext,
+    creature_id: CreatureId,
+    dx: i64,
+    dy: i64,
+    damage: i64,
+    heal: Option<i64>,
+) -> Result<ActionResult, Diagnostic> {
+    let events = strike_cell(ctx, creature_id, dx, dy, damage)?;
+    if let Some(h) = heal {
+        if !events.is_empty() {
+            heal_attacker(ctx, creature_id, h)?;
+        }
+    }
+    Ok(action_result(0, events))
+}
+
 /// Checks `current - amount` with overflow protection, returning a diagnostic
 /// on overflow. Used by actions that reduce a creature's health.
 pub(super) fn checked_sub_health(
@@ -248,21 +268,9 @@ pub(super) fn is_out_of_bounds(ctx: &dyn ReadContext, x: i64, y: i64) -> bool {
     x < 0 || y < 0 || x >= ctx.columns() as i64 || y >= ctx.rows() as i64
 }
 
-/// No-op result for actions whose target is outside the map.
-pub(super) fn out_of_map_noop() -> ActionResult {
-    ActionResult {
-        sleep_turns: 0,
-        events: Vec::new(),
-    }
-}
-
-/// No-op result for a natural abort (e.g. insufficient health to reproduce):
-/// does nothing, but consumes the turn.
-pub(super) fn natural_abort_noop() -> ActionResult {
-    ActionResult {
-        sleep_turns: 0,
-        events: Vec::new(),
-    }
+/// Single source of truth for a no-op result (sleep_turns: 0, no events).
+pub(super) fn noop_result() -> ActionResult {
+    action_result(0, Vec::new())
 }
 
 /// Converts a `Value` to its textual representation (integers are shown as
@@ -370,6 +378,13 @@ mod tests {
         let args = [Value::Int(0), Value::Text("y".to_string())];
         let err = parse_dir_args(&args, "consume").unwrap_err();
         assert!(err.message.contains("dy"));
+    }
+
+    #[test]
+    fn noop_result_returns_empty() {
+        let result = noop_result();
+        assert_eq!(result.sleep_turns, 0);
+        assert!(result.events.is_empty());
     }
 
     #[test]
