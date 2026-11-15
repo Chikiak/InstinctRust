@@ -2,7 +2,7 @@
 id: R1-02
 title: Dividir `world/creature.rs`
 phase: R1
-status: todo
+status: done
 depends_on: [R1-01]
 size: L
 ---
@@ -66,4 +66,25 @@ principales (`sim/`, `interp/`, `actions/`, `crates/instinct-cli/src/`).
 
 ## Notas de implementación
 
-（vacío tras completar: reparto final por archivo y líneas resultantes）
+Rama: `feat/r1-02-split-world-creature` (checkeada desde `develop`, sin saltos de rama).
+
+Reparto final por archivo y líneas resultantes:
+- `crates/instinct-core/src/world/creature/types.rs` (81 líneas): `CreatureId`, `CellContent`, `CreatureState`, `Creature`, `CreatureMemento` + `impl Creature::memento`. Copia verbatim de `creature.rs` l.15-95. Imports: `crate::species::Species`, `crate::value::Value`, `std::collections::HashMap`, `std::rc::Rc`.
+- `crates/instinct-core/src/world/creature/mod.rs` (5 líneas): declara `pub mod types;` y reexporta `CellContent, Creature, CreatureId, CreatureMemento, CreatureState`. Sin `World`.
+- `crates/instinct-core/src/world/world.rs` (154 líneas): `pub struct World` (todos los campos `pub`) + `impl World { pub fn from_map(...) }`. Copia verbatim de `creature.rs` l.101-244. Sin lógica de ciclo de vida ni ticks.
+- `crates/instinct-core/src/world/life.rs` (208 líneas): `impl World` con `place_creature`, `remove_creature`, `live_creature_ids`, `creature_position`, `creature_species`, `creature` (pub(crate)), `creature_mut` (pub(crate)), `variable`, `set_creature_health`, `set_variable`, `restore_creature_from_memento`, `move_creature_to`. Copia verbatim de `creature.rs`. Solo ciclo de vida de criaturas.
+- `crates/instinct-core/src/world/ticks.rs` (75 líneas): `impl World` con `set_rng_seed`, `set_rng_source`, `set_output`, `tick`, `advance_tick`, `emit_event`, `drain_events`, `apply_action_result`. Copia verbatim de `creature.rs`. Solo temporización/eventos/RNG/output.
+- `crates/instinct-core/src/world/creature.rs`: borrado (Paso 7).
+- `crates/instinct-core/src/world/mod.rs`: añade `pub mod life;`, `pub mod ticks;`, `pub mod world;`; cambia `pub use creature::{..., World}` a `pub use creature::{...}` + `pub use world::World;`. Conjunto público idéntico (6 nombres).
+- `crates/instinct-core/src/world/clone_debug.rs`: `use super::creature::World;` → `use super::World;`. Cuerpo de Clone/Debug sin tocar.
+
+AC-by-AC evidence:
+- AC1 (PASS): `git show --stat` confirma `creature.rs` eliminado; `creature/`, `world.rs`, `life.rs`, `ticks.rs` existen y están cableados en `world/mod.rs`.
+- AC2 (PASS): `cargo build -p instinct-cli` → exit 0. API pública intacta (`crate::world::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState, World}`).
+- AC3 (PASS): `cargo test --workspace` → todo verde, 0 fallos.
+- AC4 (PASS): `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all -- --check` → exit 0.
+- AC5 (PASS): `cargo test -p instinct-core --test annex_examples determinism` → exit 0.
+
+Cambios de firma autorizados: ninguno (cero cambios de lógica, cero cambios de firma pública).
+Archivos modificados: `clone_debug.rs`, `mod.rs`, `creature.rs` (borrado), `creature/types.rs` (nuevo), `creature/mod.rs` (nuevo), `world.rs` (nuevo), `life.rs` (nuevo), `ticks.rs` (nuevo), issue R1-02, PHASE.md.
+Desviaciones: ninguna. Se añadió `#[allow(clippy::module_inception)]` en `pub mod world;` dentro de `world/mod.rs` para satisfacer clippy `-D warnings` manteniendo el nombre de módulo exigido por el plan táctico.

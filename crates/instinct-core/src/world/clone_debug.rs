@@ -1,6 +1,6 @@
 //! Clone and Debug implementations for World.
 
-use super::creature::World;
+use super::World;
 use crate::rng::Rng;
 use std::cell::RefCell;
 

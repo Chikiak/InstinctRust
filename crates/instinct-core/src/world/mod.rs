@@ -10,9 +10,14 @@ pub mod creature;
 pub mod draw;
 pub mod grid;
 pub mod laws;
+pub mod life;
 pub mod roars;
 pub mod snapshot;
+pub mod ticks;
+#[allow(clippy::module_inception)]
+pub mod world;
 
 pub use context::CreatureContext;
-pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState, World};
+pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState};
 pub use roars::Roar;
+pub use world::World;
