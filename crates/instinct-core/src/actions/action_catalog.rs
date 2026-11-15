@@ -1,7 +1,7 @@
 //! Catalog of actions by name. Resolves action names against its registry,
 //! validating arity for actions.
 
-use crate::actions::shared::DIAG_CATALOG;
+use crate::actions::shared::{DIAG_CATALOG, DIAG_LINE};
 use crate::actions::Action;
 use crate::diagnostic::Diagnostic;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ impl ActionCatalog {
         if self.actions.iter().any(|a| a.name() == action.name()) {
             return Err(Diagnostic::new(
                 DIAG_CATALOG,
-                1,
+                DIAG_LINE,
                 format!("action '{}' already registered", action.name()),
             ));
         }
@@ -44,7 +44,7 @@ impl ActionCatalog {
                 if action.arity() != arg_count {
                     return Err(Diagnostic::new(
                         DIAG_CATALOG,
-                        1,
+                        DIAG_LINE,
                         format!(
                             "action '{}' expects {} arguments, got {}",
                             name,
@@ -57,7 +57,7 @@ impl ActionCatalog {
             }
             None => Err(Diagnostic::new(
                 DIAG_CATALOG,
-                1,
+                DIAG_LINE,
                 format!("unknown action '{name}'"),
             )),
         }

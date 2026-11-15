@@ -18,3 +18,9 @@ pub(super) const ARG_N: &str = "n";
 
 pub(super) const DIAG_CATALOG: &str = "catalog";
 pub(super) const DIAG_WORLD: &str = "world";
+
+/// Second argument of `Diagnostic::new` (`line: usize`). Diagnostic lines are
+/// counted from 1, so this constant represents the implicit line of action
+/// diagnostics that do not carry a source location. Avoids the magic literal
+/// `1` across the action modules.
+pub(super) const DIAG_LINE: usize = 1;

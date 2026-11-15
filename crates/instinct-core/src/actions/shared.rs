@@ -9,7 +9,7 @@
 pub(super) use crate::actions::consts::{
     ACTION_WAIT, ACTION_MOVE, ACTION_SAY, ACTION_ATTACK, ACTION_CONSUME, ACTION_REPRODUCE, ACTION_ROAR,
     ARG_DX, ARG_DY, ARG_DAMAGE, ARG_HEAL, ARG_SPEED, ARG_HEALTH, ARG_N,
-    DIAG_CATALOG, DIAG_WORLD,
+    DIAG_CATALOG, DIAG_LINE, DIAG_WORLD,
 };
 #[allow(unused_imports)]
 pub(super) use crate::actions::parse::{parse_int_arg, parse_dir_arg, parse_dir_args};

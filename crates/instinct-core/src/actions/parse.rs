@@ -1,7 +1,7 @@
 //! Parsing of action arguments.
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use super::consts::{ARG_DX, ARG_DY};
+use super::consts::{ARG_DX, ARG_DY, DIAG_LINE};
 
 pub(super) fn parse_int_arg(
     value: &Value,
@@ -12,7 +12,7 @@ pub(super) fn parse_int_arg(
         Value::Int(n) => Ok(*n),
         Value::Text(_) => Err(Diagnostic::new(
             action,
-            1,
+            DIAG_LINE,
             format!("argument '{arg_name}' must be an integer, got text"),
         )),
     }
@@ -27,7 +27,7 @@ pub(super) fn parse_dir_arg(
     if !((-1..=1).contains(&n)) {
         return Err(Diagnostic::new(
             action,
-            1,
+            DIAG_LINE,
             format!("argument '{arg_name}' must be -1, 0, or 1, got {n}"),
         ));
     }

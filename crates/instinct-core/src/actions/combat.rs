@@ -24,7 +24,7 @@ pub(super) fn strike_creature(
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
             ACTION_ATTACK,
-            1,
+            DIAG_LINE,
             format!("overflow damaging creature health at ({tx},{ty})"),
         )
     })?;
@@ -157,7 +157,7 @@ pub(super) fn heal_attacker(
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(
             ACTION_CONSUME,
-            1,
+            DIAG_LINE,
             format!(
                 "overflow healing creature at ({},{})",
                 creature.x, creature.y
