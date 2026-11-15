@@ -2,7 +2,7 @@
 id: R1-04
 title: Dividir `compile/body.rs`
 phase: R1
-status: todo
+status: done
 depends_on: []
 size: M
 ---
@@ -57,4 +57,13 @@ issue sigue el mismo patrón.
 
 ## Notas de implementación
 
-（vacío tras completar: reparto final y líneas resultantes）
+Rama: `feat/r1-04-split-compile-body` (commit sobre `develop`).
+
+Reparto final de fases en `compile/`:
+- `crates/instinct-core/src/compile/body.rs` (143 líneas): `LabelRef` (`pub`, no reexportado), `CompileState` (diagnostics, lines, labels, label_refs, found_start, seen_keys, species_name, faction, health, vision, lifespan, header) y `compile()` como orquestador: `CompileState::new()` → bucle línea a línea (`strip_trailing_comment` se queda en el bucle) → `process_header_line` (cabecera, antes de `start:`) → `dispatch_body_line` (cuerpo) → `finalize_validation` → `CompileResult`. Firma de `compile()` intacta; `diagnostics.sort_by_key(|d| d.line)` al final; textos de diagnóstico idénticos.
+- `crates/instinct-core/src/compile/header.rs` (178 líneas): `Header`, `HEADER_KEYS`, `split_header`, `validate_header_value` y `process_header_line` (movido verbatim de `body.rs` líneas 74–174, adaptado a `CompileState`; retorna `true` en `start:` insertando `labels.insert("start", ...)` y `found_start = true`).
+- `crates\instinct-core\src\compile\dispatch.rs` (nuevo, 138 líneas): `dispatch_body_line` movido verbatim de `body.rs` líneas 180–294 (label, assignment, goto, if, action call, unrecognized), ahora recibe `&mut CompileState` (7 argumentos, sin `too_many_arguments`).
+- `crates\instinct-core\src\compile\validate.rs` (nuevo, 64 líneas): `finalize_validation` movido verbatim del bloque de post-validación de `body.rs` (líneas 200–246 pre-refactor): claves requeridas en línea 1, montaje de `Header`, `goto` a etiqueta desconocida, etiqueta `start` requerida y ordenado de diagnósticos.
+- `crates\instinct-core\src\compile\mod.rs`: `mod validate;` añadido; `pub use body::compile; pub use header::Header;` sin cambios.
+
+Puerta de salida: `cargo test --workspace` exit 0; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0; `git status` limpio tras el commit. Ningún cambio de lógica ni de orden/texto de diagnósticos.
