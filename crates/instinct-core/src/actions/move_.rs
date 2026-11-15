@@ -4,15 +4,14 @@
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
 use crate::actions::ActionResult;
-use crate::actions::shared::{is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg};
+use crate::actions::shared::{out_of_map_noop, parse_dir_arg, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::{CreatureId, World};
 
 /// Converts an integer into a grid index (`usize`). Rejects negatives so they
 /// never wrap into a huge index, and rejects values that do not fit in
-/// `usize`. Defensive in `Move::apply` because `validate_direction` already
-/// limits `dx`/`dy` to `{-1, 0, 1}`, but avoids any silent sign conversion.
+/// `usize`. Avoids any silent sign conversion when computing the next cell.
 pub fn index_from_i64(n: i64) -> Option<usize> {
     if n < 0 {
         return None;
@@ -65,14 +64,6 @@ impl crate::actions::Action for Move {
             y = ny;
         }
 
-        // Final destination: defensive check that we are still inside the grid.
-        if is_out_of_bounds(world, x, y) {
-            return Err(Diagnostic::new(
-                "move",
-                1,
-                "destination coordinate outside the grid".to_string(),
-            ));
-        }
         let _ = world.move_creature_to(creature_id, x as usize, y as usize);
         Ok(out_of_map_noop())
     }
