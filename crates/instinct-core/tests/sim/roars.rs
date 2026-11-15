@@ -51,11 +51,10 @@ fn test_roar_rotates_to_previous_tick() {
 }
 
 #[test]
-fn test_roars_near_and_last_roar() {
-    // Creature E (emitter) roars in tick 0. Creature L (listener) is within
-    // vision and should hear it in tick 1.
+fn test_roar_not_heard_emission_tick() {
+    // Seed 7, 1 tick: E roars in tick 0 but L hears nothing yet (roar is in
+    // roars_current until the end of the tick).
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
-
     let sp_e = species_with_program_and_faction(
         "E",
         "A",
@@ -64,10 +63,9 @@ fn test_roars_near_and_last_roar() {
         "roar(\"hola mundo\")\nwait(100)\ngoto start\n",
     );
     let _id_e = world.place_creature(&sp_e, 0, 0).expect("place emitter");
-
     let sp_l = species_with_program_and_faction(
         "L",
-        "A", // same faction so E is an ally, but we test roars, not factions
+        "A",
         100,
         1000,
         "say(roars_near)\nsay(last_roar)\nmove(0, 0, 0)\ngoto start\n",
@@ -75,11 +73,8 @@ fn test_roars_near_and_last_roar() {
     let _id_l = world
         .place_creature(&sp_l, 1, 0)
         .expect("place listener at distance 1");
-
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(7);
-
-    // Tick 0: E roars. L hears nothing yet (roar is in roars_current).
     let events = sim.step_tick();
     let said: Vec<&String> = events
         .iter()
@@ -88,7 +83,6 @@ fn test_roars_near_and_last_roar() {
             _ => None,
         })
         .collect();
-    // In tick 0, L hasn't heard anything yet (the roar goes to previous at end of tick).
     assert!(
         said.iter().any(|t| **t == "0"),
         "L hears 0 roars in tick 0, got: {said:?}"
@@ -97,9 +91,34 @@ fn test_roars_near_and_last_roar() {
         said.iter().any(|t| t.is_empty()),
         "L hears empty last_roar in tick 0, got: {said:?}"
     );
+}
 
-    // Tick 1: E's roar is now in roars_previous. L should hear it.
-    let events = sim.step_tick();
+#[test]
+fn test_roar_heard_next_tick() {
+    // Seed 7, 2 ticks: in tick 1 L hears E's roar ("1", "hola mundo").
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp_e = species_with_program_and_faction(
+        "E",
+        "A",
+        100,
+        1000,
+        "roar(\"hola mundo\")\nwait(100)\ngoto start\n",
+    );
+    let _id_e = world.place_creature(&sp_e, 0, 0).expect("place emitter");
+    let sp_l = species_with_program_and_faction(
+        "L",
+        "A",
+        100,
+        1000,
+        "say(roars_near)\nsay(last_roar)\nmove(0, 0, 0)\ngoto start\n",
+    );
+    let _id_l = world
+        .place_creature(&sp_l, 1, 0)
+        .expect("place listener at distance 1");
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(7);
+    let _events = sim.step_tick(); // tick 0
+    let events = sim.step_tick(); // tick 1
     let said: Vec<&String> = events
         .iter()
         .filter_map(|e| match e {
@@ -118,12 +137,9 @@ fn test_roars_near_and_last_roar() {
 }
 
 #[test]
-fn test_roar_is_heard_one_tick_only() {
+fn test_roar_no_says_emission_tick() {
+    // Seed 3, 1 tick: roar ends the turn, so no says in tick 0.
     let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
-
-    // E roars once then sleeps; L roars every tick and reports what it
-    // hears. E's roar must be heard by L in tick 1 (one tick after
-    // emission) and not in tick 2. L must never hear its own roars.
     let sp_e = species_with_program_and_faction(
         "E",
         "A",
@@ -134,7 +150,6 @@ fn test_roar_is_heard_one_tick_only() {
     let _id_e = world
         .place_creature(&sp_e, 0, 0)
         .expect("place emitter at (0,0)");
-
     let sp_l = species_with_program_and_faction(
         "L",
         "A",
@@ -145,11 +160,8 @@ fn test_roar_is_heard_one_tick_only() {
     let _id_l = world
         .place_creature(&sp_l, 1, 0)
         .expect("place listener at (1,0)");
-
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(3);
-
-    // Tick 0: E roars "hola", L roars "propio". No says yet (roar ends turn).
     let events = sim.step_tick();
     let said: Vec<&String> = events
         .iter()
@@ -162,10 +174,36 @@ fn test_roar_is_heard_one_tick_only() {
         said.is_empty(),
         "no says in tick 0 (roar ends turn), got: {said:?}"
     );
+}
 
-    // Tick 1: E sleeps. L says roars_near=1 (hears E's roar, not its own),
-    // last_roar="hola". Then L roars again.
-    let events = sim.step_tick();
+#[test]
+fn test_roar_heard_one_tick_after_emission() {
+    // Seed 3, 2 ticks: in tick 1 L hears E's roar (roars_near=1, last_roar="hola").
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp_e = species_with_program_and_faction(
+        "E",
+        "A",
+        100,
+        1000,
+        "roar(\"hola\")\nwait(100)\ngoto start\n",
+    );
+    let _id_e = world
+        .place_creature(&sp_e, 0, 0)
+        .expect("place emitter at (0,0)");
+    let sp_l = species_with_program_and_faction(
+        "L",
+        "A",
+        100,
+        1000,
+        "roar(\"propio\")\nsay(roars_near)\nsay(last_roar)\ngoto start\n",
+    );
+    let _id_l = world
+        .place_creature(&sp_l, 1, 0)
+        .expect("place listener at (1,0)");
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(3);
+    let _events = sim.step_tick(); // tick 0
+    let events = sim.step_tick(); // tick 1
     let said: Vec<&String> = events
         .iter()
         .filter_map(|e| match e {
@@ -175,16 +213,43 @@ fn test_roar_is_heard_one_tick_only() {
         .collect();
     assert!(
         said.iter().any(|t| **t == "1"),
-        "L hears 1 roar in tick 1 (E's roar, own excluded), got: {said:?}"
+        "L hears 1 roar in tick 1, got: {said:?}"
     );
     assert!(
         said.iter().any(|t| **t == "hola"),
         "L hears last_roar='hola' in tick 1, got: {said:?}"
     );
+}
 
-    // Tick 2: E sleeps. E's roar from tick 0 rotated out. L's own roar from
-    // tick 1 is in previous but excluded. roars_near=0, last_roar="".
-    let events = sim.step_tick();
+#[test]
+fn test_roar_expires_after_one_tick() {
+    // Seed 3, 3 ticks: in tick 2 E's roar rotated out (roars_near=0, last_roar="").
+    let mut world = build_world(&empty_map(), &[grass_terrain()], &[]);
+    let sp_e = species_with_program_and_faction(
+        "E",
+        "A",
+        100,
+        1000,
+        "roar(\"hola\")\nwait(100)\ngoto start\n",
+    );
+    let _id_e = world
+        .place_creature(&sp_e, 0, 0)
+        .expect("place emitter at (0,0)");
+    let sp_l = species_with_program_and_faction(
+        "L",
+        "A",
+        100,
+        1000,
+        "roar(\"propio\")\nsay(roars_near)\nsay(last_roar)\ngoto start\n",
+    );
+    let _id_l = world
+        .place_creature(&sp_l, 1, 0)
+        .expect("place listener at (1,0)");
+    let mut sim = Simulation::new(world);
+    sim.set_rng_seed(3);
+    let _events = sim.step_tick(); // tick 0
+    let _events = sim.step_tick(); // tick 1
+    let events = sim.step_tick(); // tick 2
     let said: Vec<&String> = events
         .iter()
         .filter_map(|e| match e {
@@ -194,7 +259,7 @@ fn test_roar_is_heard_one_tick_only() {
         .collect();
     assert!(
         said.iter().any(|t| **t == "0"),
-        "L hears 0 roars in tick 2 (E's roar expired, own excluded), got: {said:?}"
+        "L hears 0 roars in tick 2, got: {said:?}"
     );
     assert!(
         said.iter().any(|t| t.is_empty()),

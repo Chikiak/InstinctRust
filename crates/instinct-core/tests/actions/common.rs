@@ -86,3 +86,21 @@ pub(crate) fn creature_health(world: &World, id: CreatureId) -> i64 {
         .map(|c| c.health)
         .expect("creature exists")
 }
+
+/// Applies `Reproduce` to `mother` targeting `(mother.x + dx, mother.y + dy)`
+/// with the given `health` for the child. Panics if the action fails to apply.
+pub(crate) fn apply_reproduce(
+    world: &mut World,
+    mother: CreatureId,
+    dx: i64,
+    dy: i64,
+    health: i64,
+) -> ActionResult {
+    Reproduce
+        .apply(
+            world,
+            mother,
+            &[Value::Int(dx), Value::Int(dy), Value::Int(health)],
+        )
+        .expect("reproduce applies")
+}

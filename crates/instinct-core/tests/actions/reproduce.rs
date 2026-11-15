@@ -17,20 +17,13 @@ fn test_catalog_resolves_reproduce() {
 }
 
 #[test]
-fn test_reproduce_creates_offspring() {
-    // AC1: cell only terrain and mother with life > health -> child with
-    // life = health, age 0, no variables and pc at start.
+fn test_reproduce_child_in_target_cell() {
+    // AC1: the child is born in the target cell, the mother stays put, no
+    // events and no sleep turns.
     let (mut world, _, _) = world_with_grass();
     let mother = place_creature_with_health(&mut world, 1, 1, 10);
 
-    let reproduce = Reproduce;
-    let r = reproduce
-        .apply(
-            &mut world,
-            mother,
-            &[Value::Int(0), Value::Int(1), Value::Int(5)],
-        )
-        .expect("reproduce applies");
+    let r = apply_reproduce(&mut world, mother, 0, 1, 5);
     assert_eq!(r.sleep_turns, 0);
     assert!(r.events.is_empty());
 
@@ -40,48 +33,62 @@ fn test_reproduce_creates_offspring() {
         .flatten()
         .find(|c| c.id != mother)
         .expect("child must exist");
-    assert_eq!((child.x, child.y), (1, 2), "child in target cell");
-    assert_eq!(child.health, 5, "child life = health");
-    assert_eq!(child.age, 0, "age 0 at birth");
-    assert_eq!(child.state, CreatureState::Awake, "no sleep turns");
-    assert_eq!(child.pc, 0, "execution pointer at start");
-    assert!(
-        child.variables.is_empty(),
-        "the child is born without variables, got {:?}",
-        child.variables
-    );
-    assert_eq!(child.species.name, "Walker", "same species");
-    assert_eq!(
-        child.species.faction,
-        world
-            .creatures
-            .iter()
-            .flatten()
-            .find(|c| c.id == mother)
-            .unwrap()
-            .species
-            .faction,
-        "same faction"
-    );
-    assert_eq!(
-        child.species.program.is_some(),
-        world
-            .creatures
-            .iter()
-            .flatten()
-            .find(|c| c.id == mother)
-            .unwrap()
-            .species
-            .program
-            .is_some(),
-        "same program presence"
-    );
+    assert_eq!((child.x, child.y), (1, 2));
     assert!(
         matches!(world.content[2][1], CellContent::Creature(cid) if cid == child.id),
         "target cell (1,2) contains the child"
     );
-    // The mother remains in her cell.
     assert_eq!(world.creature_position(mother).unwrap(), Pos { x: 1, y: 1 });
+}
+
+#[test]
+fn test_reproduce_child_inherits_traits() {
+    // AC1: the child inherits health, age, state, pc, species, faction and
+    // program presence from the mother.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+
+    let _r = apply_reproduce(&mut world, mother, 0, 1, 5);
+
+    let child = world
+        .creatures
+        .iter()
+        .flatten()
+        .find(|c| c.id != mother)
+        .expect("child must exist");
+    let mother_creature = world
+        .creatures
+        .iter()
+        .flatten()
+        .find(|c| c.id == mother)
+        .expect("mother must exist");
+    assert_eq!(child.health, 5);
+    assert_eq!(child.age, 0);
+    assert_eq!(child.state, CreatureState::Awake);
+    assert_eq!(child.pc, 0);
+    assert_eq!(child.species.name, "Walker");
+    assert_eq!(child.species.faction, mother_creature.species.faction);
+    assert_eq!(
+        child.species.program.is_some(),
+        mother_creature.species.program.is_some()
+    );
+}
+
+#[test]
+fn test_reproduce_child_born_without_variables() {
+    // AC3: the child is born without variables.
+    let (mut world, _, _) = world_with_grass();
+    let mother = place_creature_with_health(&mut world, 1, 1, 10);
+
+    let _r = apply_reproduce(&mut world, mother, 0, 1, 5);
+
+    let child = world
+        .creatures
+        .iter()
+        .flatten()
+        .find(|c| c.id != mother)
+        .expect("child must exist");
+    assert!(child.variables.is_empty());
 }
 
 #[test]

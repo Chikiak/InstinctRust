@@ -6,116 +6,123 @@ use instinct_core::value::Value;
 use std::rc::Rc;
 
 #[test]
-fn test_move_stops_before_obstacles() {
+fn test_move_right_two_ends_at_2_0() {
+    // (0,0) dx=1 dy=0 speed=2 -> (1,0) free, (2,0) free -> ends at (2,0).
     let mv = Move;
-    struct MoveCase {
-        sx: usize,
-        sy: usize,
-        dx: i64,
-        dy: i64,
-        speed: i64,
-        ex: usize,
-        ey: usize,
-        desc: &'static str,
-    }
-    let cases: Vec<MoveCase> = vec![
-        // Right 2 from (0,0): (1,0) free, (2,0) free -> ends at (2,0).
-        MoveCase {
-            sx: 0,
-            sy: 0,
-            dx: 1,
-            dy: 0,
-            speed: 2,
-            ex: 2,
-            ey: 0,
-            desc: "right",
-        },
-        // Diagonal down-right from (0,0): (1,1) has rock -> stops at (0,0).
-        MoveCase {
-            sx: 0,
-            sy: 0,
-            dx: 1,
-            dy: 1,
-            speed: 5,
-            ex: 0,
-            ey: 0,
-            desc: "immediate_block",
-        },
-        // Right from (0,0) speed 10: row 0 is all free -> ends at (4,0).
-        MoveCase {
-            sx: 0,
-            sy: 0,
-            dx: 1,
-            dy: 0,
-            speed: 10,
-            ex: 4,
-            ey: 0,
-            desc: "speed_greater_than_free_path",
-        },
-        // Down from (0,0): (0,1) free, (0,2) free -> ends at (0,2).
-        MoveCase {
-            sx: 0,
-            sy: 0,
-            dx: 0,
-            dy: 1,
-            speed: 2,
-            ex: 0,
-            ey: 2,
-            desc: "down",
-        },
-        // Up from (2,2): (2,1) free, (2,0) free -> ends at (2,0).
-        MoveCase {
-            sx: 2,
-            sy: 2,
-            dx: 0,
-            dy: -1,
-            speed: 2,
-            ex: 2,
-            ey: 0,
-            desc: "up",
-        },
-    ];
+    let (mut world, _, _) = rock_world();
+    let id = world
+        .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
+        .unwrap();
+    let r = mv
+        .apply(
+            &mut world,
+            id,
+            &[Value::Int(1), Value::Int(0), Value::Int(2)],
+        )
+        .unwrap();
+    assert_eq!(r.sleep_turns, 0);
+    let pos = world.creature_position(id).unwrap();
+    assert_eq!((pos.x, pos.y), (2, 0));
+    assert!(
+        matches!(world.content[0][2], CellContent::Creature(cid) if cid == id),
+        "cell (2,0) holds the creature"
+    );
+}
 
-    for case in cases {
-        let (mut world, terrains, objects) = rock_world();
-        let id = world
-            .place_creature(&Rc::new(Species::new("Walker")), case.sx, case.sy)
-            .unwrap_or_else(|e| panic!("{}: place: {e:?}", case.desc));
-        let r = mv
-            .apply(
-                &mut world,
-                id,
-                &[
-                    Value::Int(case.dx),
-                    Value::Int(case.dy),
-                    Value::Int(case.speed),
-                ],
-            )
-            .unwrap_or_else(|e| panic!("{}: apply: {e:?}", case.desc));
-        assert_eq!(r.sleep_turns, 0, "{} sleep_turns", case.desc);
-        let pos = world
-            .creature_position(id)
-            .unwrap_or_else(|e| panic!("{}: position: {e:?}", case.desc));
-        assert_eq!(
-            (pos.x, pos.y),
-            (case.ex, case.ey),
-            "{} expected ({},{}) got ({},{})",
-            case.desc,
-            case.ex,
-            case.ey,
-            pos.x,
-            pos.y
-        );
-        // Grid occupancy consistent.
-        match &world.content[case.ey][case.ex] {
-            instinct_core::world::CellContent::Creature(cid) => assert_eq!(*cid, id),
-            other => panic!(
-                "{}: cell should hold the creature, got {other:?}",
-                case.desc
-            ),
-        }
-        let _ = (&terrains, &objects);
-    }
+#[test]
+fn test_move_immediate_block_stays_at_0_0() {
+    // (0,0) dx=1 dy=1 speed=5 -> (1,1) has rock -> stays at (0,0).
+    let mv = Move;
+    let (mut world, _, _) = rock_world();
+    let id = world
+        .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
+        .unwrap();
+    let r = mv
+        .apply(
+            &mut world,
+            id,
+            &[Value::Int(1), Value::Int(1), Value::Int(5)],
+        )
+        .unwrap();
+    assert_eq!(r.sleep_turns, 0);
+    let pos = world.creature_position(id).unwrap();
+    assert_eq!((pos.x, pos.y), (0, 0));
+    assert!(
+        matches!(world.content[0][0], CellContent::Creature(cid) if cid == id),
+        "cell (0,0) holds the creature"
+    );
+}
+
+#[test]
+fn test_move_speed_greater_than_free_path_ends_at_4_0() {
+    // (0,0) dx=1 dy=0 speed=10 -> row 0 all free -> ends at (4,0).
+    let mv = Move;
+    let (mut world, _, _) = rock_world();
+    let id = world
+        .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
+        .unwrap();
+    let r = mv
+        .apply(
+            &mut world,
+            id,
+            &[Value::Int(1), Value::Int(0), Value::Int(10)],
+        )
+        .unwrap();
+    assert_eq!(r.sleep_turns, 0);
+    let pos = world.creature_position(id).unwrap();
+    assert_eq!((pos.x, pos.y), (4, 0));
+    assert!(
+        matches!(world.content[0][4], CellContent::Creature(cid) if cid == id),
+        "cell (4,0) holds the creature"
+    );
+}
+
+#[test]
+fn test_move_down_two_ends_at_0_2() {
+    // (0,0) dx=0 dy=1 speed=2 -> (0,1) free, (0,2) free -> ends at (0,2).
+    let mv = Move;
+    let (mut world, _, _) = rock_world();
+    let id = world
+        .place_creature(&Rc::new(Species::new("Walker")), 0, 0)
+        .unwrap();
+    let r = mv
+        .apply(
+            &mut world,
+            id,
+            &[Value::Int(0), Value::Int(1), Value::Int(2)],
+        )
+        .unwrap();
+    assert_eq!(r.sleep_turns, 0);
+    let pos = world.creature_position(id).unwrap();
+    assert_eq!((pos.x, pos.y), (0, 2));
+    assert!(
+        matches!(world.content[2][0], CellContent::Creature(cid) if cid == id),
+        "cell (0,2) holds the creature"
+    );
+}
+
+#[test]
+fn test_move_up_two_ends_at_2_0() {
+    // (2,2) dx=0 dy=-1 speed=2 -> (2,1) free, (2,0) free -> ends at (2,0).
+    let mv = Move;
+    let (mut world, _, _) = rock_world();
+    let id = world
+        .place_creature(&Rc::new(Species::new("Walker")), 2, 2)
+        .unwrap();
+    let r = mv
+        .apply(
+            &mut world,
+            id,
+            &[Value::Int(0), Value::Int(-1), Value::Int(2)],
+        )
+        .unwrap();
+    assert_eq!(r.sleep_turns, 0);
+    let pos = world.creature_position(id).unwrap();
+    assert_eq!((pos.x, pos.y), (2, 0));
+    assert!(
+        matches!(world.content[0][2], CellContent::Creature(cid) if cid == id),
+        "cell (2,0) holds the creature"
+    );
 }
 
 #[test]
