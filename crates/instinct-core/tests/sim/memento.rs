@@ -28,7 +28,9 @@ fn test_turn_failure_rolls_back_or_dies_cleanly() {
 
     // Another healthy creature that must stay alive after the error.
     let sp_ok = species_no_program("Ok", 100, 1000);
-    let id_ok = world.place_creature(&sp_ok, 1, 0).expect("place ok creature");
+    let id_ok = world
+        .place_creature(&sp_ok, 1, 0)
+        .expect("place ok creature");
 
     let mut sim = Simulation::new(world);
     sim.set_rng_seed(1);

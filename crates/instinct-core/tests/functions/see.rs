@@ -11,11 +11,7 @@ fn see_at(world: &World, id: CreatureId, x: i64, y: i64) -> Value {
         Catalog::default().functions(),
     )
     .expect("parse see");
-    let ctx = CreatureContext::new(
-        world,
-        id,
-        Rc::new(RefCell::new(HashMap::new())),
-    );
+    let ctx = CreatureContext::new(world, id, Rc::new(RefCell::new(HashMap::new())));
     expr.accept(&mut InterpreterVisitor { ctx: &ctx })
         .expect("eval see")
 }

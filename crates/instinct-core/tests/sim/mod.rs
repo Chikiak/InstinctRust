@@ -13,6 +13,6 @@ pub mod terrain;
 pub mod text_semantics;
 
 pub use common::{
-    build_world, empty_map, grass_terrain, rock_object, species_no_program,
-    species_with_program, species_with_program_and_faction, TestRng,
+    build_world, empty_map, grass_terrain, rock_object, species_no_program, species_with_program,
+    species_with_program_and_faction, TestRng,
 };

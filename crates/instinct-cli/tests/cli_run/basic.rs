@@ -1,4 +1,4 @@
-use super::{examples_dir, instinct_cli_binary, run_cli};
+use super::{examples_dir, run_cli};
 
 #[test]
 fn test_cli_prints_map() {

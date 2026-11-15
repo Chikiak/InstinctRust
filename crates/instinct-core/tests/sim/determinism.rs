@@ -159,8 +159,7 @@ fn test_simulation_with_injected_rng_is_deterministic() {
         };
         let mut world = World::from_map(&map, &[terrain], &[]);
         assert!(world.diagnostics.is_empty());
-        let sp =
-            species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
+        let sp = species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
         let _id = world.place_creature(&sp, 0, 0).expect("place walker");
         world
     }
@@ -188,9 +187,18 @@ fn test_simulation_with_injected_rng_is_deterministic() {
             _ => None,
         })
         .collect();
-    assert!(said1.iter().any(|t| **t == "0"), "says random=0, got: {said1:?}");
-    assert!(said1.iter().any(|t| **t == "1"), "says random=1, got: {said1:?}");
-    assert!(said1.iter().any(|t| **t == "2"), "says random=2, got: {said1:?}");
+    assert!(
+        said1.iter().any(|t| **t == "0"),
+        "says random=0, got: {said1:?}"
+    );
+    assert!(
+        said1.iter().any(|t| **t == "1"),
+        "says random=1, got: {said1:?}"
+    );
+    assert!(
+        said1.iter().any(|t| **t == "2"),
+        "says random=2, got: {said1:?}"
+    );
 
     // A different TestRng produces a different history (controls random).
     let mut world3 = make_world();

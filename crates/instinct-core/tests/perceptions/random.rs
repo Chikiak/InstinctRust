@@ -1,17 +1,6 @@
 //! Random perception tests.
 
 use super::common::*;
-use instinct_core::actions::Catalog;
-use instinct_core::expr::parse;
-use instinct_core::interp::InterpreterVisitor;
-use instinct_core::perceptions::{CreatureView, Perception, PerceptionCatalog};
-use instinct_core::resources::{Map, Object, Terrain};
-use instinct_core::species::Species;
-use instinct_core::value::Value;
-use instinct_core::world::{CreatureContext, CreatureId, World};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
 
 #[test]
 fn test_random_consumes_one_draw_per_read() {

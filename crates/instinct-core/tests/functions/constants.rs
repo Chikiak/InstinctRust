@@ -39,11 +39,7 @@ fn test_constants_compare_with_see() {
         Catalog::default().functions(),
     )
     .expect("parse");
-    let ctx = CreatureContext::new(
-        &world,
-        id,
-        Rc::new(RefCell::new(HashMap::new())),
-    );
+    let ctx = CreatureContext::new(&world, id, Rc::new(RefCell::new(HashMap::new())));
     assert_eq!(
         expr.accept(&mut InterpreterVisitor { ctx: &ctx }).unwrap(),
         Value::Int(1)

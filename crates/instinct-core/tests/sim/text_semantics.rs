@@ -27,11 +27,13 @@ fn test_text_semantics_kill_on_type_error() {
     let _id_t = world.place_creature(&sp_t, 0, 1).expect("place T");
 
     // D1: text where an integer is expected (action argument) -> dies on line 2.
-    let sp_d1 = species_with_program_and_faction("D1", "A", 100, 1000, "wait(\"hola\")\ngoto start\n");
+    let sp_d1 =
+        species_with_program_and_faction("D1", "A", 100, 1000, "wait(\"hola\")\ngoto start\n");
     let _id_d1 = world.place_creature(&sp_d1, 1, 1).expect("place D1");
 
     // D2: text + integer in arithmetic -> dies on line 2.
-    let sp_d2 = species_with_program_and_faction("D2", "A", 100, 1000, "say(1 + \"a\")\ngoto start\n");
+    let sp_d2 =
+        species_with_program_and_faction("D2", "A", 100, 1000, "say(1 + \"a\")\ngoto start\n");
     let _id_d2 = world.place_creature(&sp_d2, 2, 1).expect("place D2");
 
     // D3: text in ordering comparison -> dies on line 2.
@@ -45,11 +47,13 @@ fn test_text_semantics_kill_on_type_error() {
     let _id_d3 = world.place_creature(&sp_d3, 3, 1).expect("place D3");
 
     // D4: text as numeric argument of move -> dies on line 2.
-    let sp_d4 = species_with_program_and_faction("D4", "A", 100, 1000, "move(\"a\", 0, 1)\ngoto start\n");
+    let sp_d4 =
+        species_with_program_and_faction("D4", "A", 100, 1000, "move(\"a\", 0, 1)\ngoto start\n");
     let _id_d4 = world.place_creature(&sp_d4, 4, 1).expect("place D4");
 
     // S: say(42) shows the number as text and survives.
-    let sp_s = species_with_program_and_faction("S", "A", 100, 1000, "say(42)\nwait(1)\ngoto start\n");
+    let sp_s =
+        species_with_program_and_faction("S", "A", 100, 1000, "say(42)\nwait(1)\ngoto start\n");
     let _id_s = world.place_creature(&sp_s, 0, 0).expect("place S");
 
     let mut sim = Simulation::new(world);
@@ -82,11 +86,7 @@ fn test_text_semantics_kill_on_type_error() {
         .iter()
         .filter(|e| matches!(e, Event::RuntimeError { .. }))
         .collect();
-    assert_eq!(
-        errors.len(),
-        4,
-        "four runtime errors, got: {errors:?}"
-    );
+    assert_eq!(errors.len(), 4, "four runtime errors, got: {errors:?}");
     for err in &errors {
         if let Event::RuntimeError { line, .. } = err {
             // Body: 6 header lines + `start:` -> first body line is 7.
@@ -106,18 +106,16 @@ fn test_text_semantics_kill_on_type_error() {
         );
     }
     // T and S are still alive.
-    assert!(
-        sim.world
-            .creatures
-            .iter()
-            .flatten()
-            .any(|c| c.species.name == "T")
-    );
-    assert!(
-        sim.world
-            .creatures
-            .iter()
-            .flatten()
-            .any(|c| c.species.name == "S")
-    );
+    assert!(sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .any(|c| c.species.name == "T"));
+    assert!(sim
+        .world
+        .creatures
+        .iter()
+        .flatten()
+        .any(|c| c.species.name == "S"));
 }

@@ -40,10 +40,7 @@ fn test_cli_unknown_flag_errors() {
         "0",
         "--bandera-inexistente",
     ]);
-    assert_eq!(
-        code, 2,
-        "unknown flag must exit with 2, stderr: {stderr}"
-    );
+    assert_eq!(code, 2, "unknown flag must exit with 2, stderr: {stderr}");
     assert!(
         !stderr.is_empty(),
         "stderr must report the error, got: {stderr}"

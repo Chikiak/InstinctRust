@@ -6,7 +6,10 @@ use super::{examples_dir, run_cli};
 fn test_cli_missing_map_errors() {
     let root = examples_dir();
     let (code, _, stderr) = run_cli(&["run", "--root", &root, "--ticks", "0"]);
-    assert_eq!(code, 2, "run without --map must exit with 2, stderr: {stderr}");
+    assert_eq!(
+        code, 2,
+        "run without --map must exit with 2, stderr: {stderr}"
+    );
     assert!(
         !stderr.is_empty(),
         "stderr must report the lack of --map, got: {stderr}"
