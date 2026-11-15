@@ -20,6 +20,13 @@ use crate::world::CreatureId;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reproduce;
 
+/// Construye el `Diagnostic` reportado cuando un id de criatura no existe
+/// en el mundo. Un solo sitio lo define para que ambos préstamos
+/// (inmutable y mutable) compartan el mensaje sin duplicarlo.
+fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
+    Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {creature_id:?}"))
+}
+
 impl crate::actions::Action for Reproduce {
     fn name(&self) -> &str {
         ACTION_REPRODUCE
@@ -43,13 +50,8 @@ impl crate::actions::Action for Reproduce {
 
         // --- creature context ---
         let (pos, _species, _tick) = creature_context(world, creature_id)?;
-        let mother = world.creature(creature_id).ok_or_else(|| {
-            Diagnostic::new(
-                DIAG_WORLD,
-                0,
-                format!("unknown creature id {creature_id:?}"),
-            )
-        })?;
+        let mother = world.creature(creature_id)
+            .ok_or_else(|| unknown_creature_diagnostic(&creature_id))?;
 
         // --- validation: mother must have health strictly greater than `health` ---
         if mother.health <= health {
@@ -80,13 +82,8 @@ impl crate::actions::Action for Reproduce {
         world.set_creature_health(child_id, health)?;
 
         // --- apply damage to mother ---
-        let mother = world.creature_mut(creature_id).ok_or_else(|| {
-            Diagnostic::new(
-                DIAG_WORLD,
-                0,
-                format!("unknown creature id {creature_id:?}"),
-            )
-        })?;
+        let mother = world.creature_mut(creature_id)
+            .ok_or_else(|| unknown_creature_diagnostic(&creature_id))?;
         mother.health = new_mother_health;
 
         Ok(out_of_map_noop())
