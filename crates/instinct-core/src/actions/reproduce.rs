@@ -10,7 +10,7 @@
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::{
-    is_out_of_bounds, natural_abort_noop, out_of_map_noop, parse_dir_arg, parse_int_arg,
+    creature_context, is_out_of_bounds, natural_abort_noop, out_of_map_noop, parse_dir_arg, parse_int_arg,
 };
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
@@ -39,13 +39,12 @@ impl crate::actions::Action for Reproduce {
         let dy = parse_dir_arg(&args[1], "reproduce", "dy")?;
         let health = parse_int_arg(&args[2], "reproduce", "health")?;
 
-        let pos = world.creature_position(creature_id)?;
+        let (pos, _species, _tick) = creature_context(world, creature_id)?;
         let mother = world.creature(creature_id).ok_or_else(|| {
             Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
         })?;
         // The mother must have health strictly greater than `health`.
         if mother.health <= health {
-            // Aborto natural por salud insuficiente de la madre.
             return Ok(natural_abort_noop());
         }
         let species = mother.species.clone();
