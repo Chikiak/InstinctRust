@@ -1,7 +1,7 @@
 ---
 phase: R1
 title: Legibilidad y organización (refactor no planificado)
-status: planned
+status: done
 master: ../MASTER.md
 fuentes: ../../.opencode/ledgers/refactor-recon-report.md
 issues: 9 desglosados en archivos propios (R1-01 a R1-09)
@@ -92,6 +92,10 @@ Estado inicial: todos `todo`.
 - `cargo fmt --all -- --check` → exit 0.
 - `git grep` de comentarios en español sobre `crates/` → 0 coincidencias (decisiones 1 y 2).
 - Ningún archivo `.rs` de `crates/` por encima de 300 líneas salvo excepción anotada en su issue.
+  Excepciones aceptadas al cierre (verificación independiente 2026-11-15):
+  `src/expr/parse.rs` (327 L, parser de descenso recursivo de responsabilidad única — partirlo
+  rompería la legibilidad del descenso) y `tests/actions/reproduce.rs` (307 L, tests ya
+  granulares tras R1-07, sin tests >60 L).
 - Determinismo: las pruebas con semilla fja existentes pasan sin modificarlas.
 - `git status` limpio; sin `*_out.txt` trackeados (R1-09).
 
