@@ -47,4 +47,24 @@ path = "tests/lexer/mod.rs"
 name = "program"
 path = "tests/program/mod.rs"
 
+[[test]]
+name = "rng"
+path = "tests/rng/mod.rs"
+
+[[test]]
+name = "event"
+path = "tests/event/mod.rs"
+
+[[test]]
+name = "value"
+path = "tests/value/mod.rs"
+
+[[test]]
+name = "species"
+path = "tests/species/mod.rs"
+
+[[test]]
+name = "diagnostic"
+path = "tests/diagnostic/mod.rs"
+
 [dependencies]

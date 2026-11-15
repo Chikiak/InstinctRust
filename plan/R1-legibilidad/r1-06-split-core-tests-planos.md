@@ -2,7 +2,7 @@
 id: R1-06
 title: Splitear pruebas planas de instinct-core
 phase: R1
-status: todo
+status: done
 depends_on: [R1-01]
 size: M
 ---
@@ -66,4 +66,12 @@ ejemplo ya split (`tests/lexer/mod.rs`).
 
 ## Notas de implementación
 
-（vacío tras completar: reparto final y número de tests antes/después）
+Completado en rama `feat/r1-06-split-core-tests-planos`. Se splitearon los 5 archivos planos a `tests/<area>/{mod.rs, ...}`:
+- `rng_tests.rs` → `tests/rng/{mod.rs, common.rs, gen.rs, world.rs}` (11 tests)
+- `event_tests.rs` → `tests/event/{mod.rs, common.rs, shared.rs, display.rs, world_output.rs}` (8 tests)
+- `value_tests.rs` → `tests/value/{mod.rs, common.rs, ops.rs, truthy.rs}` (8 tests)
+- `species_tests.rs` → `tests/species/{mod.rs, common.rs}` (3 tests)
+- `diagnostic_tests.rs` → `tests/diagnostic/{mod.rs, display.rs}` (1 test)
+Se añadieron `[[test]]` entries en `crates/instinct-core/Cargo.toml` y se borraron los 5 archivos planos.
+Comentarios en español traducidos al inglés conciso (event_tests L5-6/64-65/128-129/156/169/181, value_tests L93, species_tests L23-25/44-45/52-53/59); cabeceras de sección redundantes borradas, no traducidas.
+Tests antes/después: 31 → 31 (rng 11, event 8, value 8, species 3, diagnostic 1), todos en verde. Cero cambios de lógica: cuerpos movidos byte a byte.

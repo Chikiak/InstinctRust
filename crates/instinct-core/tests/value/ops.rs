@@ -1,23 +1,5 @@
-//! Unit tests for the `value` module.
-
+use super::common::{int, text};
 use instinct_core::value::Value;
-
-fn int(n: i64) -> Value {
-    Value::Int(n)
-}
-
-fn text(s: &str) -> Value {
-    Value::Text(s.to_string())
-}
-
-#[test]
-fn test_value_is_truthy() {
-    assert!(!Value::Int(0).is_truthy());
-    assert!(Value::Int(1).is_truthy());
-    assert!(Value::Int(-1).is_truthy());
-    assert!(!Value::Text("".to_string()).is_truthy());
-    assert!(Value::Text("a".to_string()).is_truthy());
-}
 
 #[test]
 fn test_floor_division_and_modulo() {
@@ -90,7 +72,7 @@ fn test_integer_order_comparisons() {
     assert_eq!(int(1).binary_op(">", &int(2)).unwrap(), int(0));
     assert_eq!(int(1).binary_op(">=", &int(1)).unwrap(), int(1));
     assert_eq!(int(0).binary_op(">=", &int(1)).unwrap(), int(0));
-    // orden con negativos y cero (semántica Python, sin floats)
+    // order with negatives and zero (Python semantics, no floats)
     assert_eq!(int(-3).binary_op("<", &int(-1)).unwrap(), int(1));
     assert_eq!(int(-1).binary_op(">", &int(-3)).unwrap(), int(1));
     assert_eq!(int(0).binary_op(">=", &int(0)).unwrap(), int(1));
