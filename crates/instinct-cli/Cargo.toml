@@ -7,5 +7,9 @@ edition = "2021"
 name = "instinct-cli"
 path = "src/main.rs"
 
+[[test]]
+name = "cli_run"
+path = "tests/cli_run/mod.rs"
+
 [dependencies]
 instinct-core = { path = "../instinct-core" }
