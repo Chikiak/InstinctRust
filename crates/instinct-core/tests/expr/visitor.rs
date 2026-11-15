@@ -1,8 +1,6 @@
 //! Node-counting visitor test.
 
-use instinct_core::expr::{
-    Binary, Call, ExprVisitor, LiteralInt, LiteralText, Name, Unary, parse,
-};
+use instinct_core::expr::{parse, Binary, Call, ExprVisitor, LiteralInt, LiteralText, Name, Unary};
 use instinct_core::functions::FunctionCatalog;
 use instinct_core::value::Value;
 

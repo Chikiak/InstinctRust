@@ -9,5 +9,3 @@ mod dwarf;
 mod ent;
 mod hobbit;
 mod uruk;
-
-pub use common::*;

@@ -35,10 +35,7 @@ fn test_draw_short_catalog_errors() {
     world.content[0][0] = CellContent::Object(5);
 
     let result = world.draw();
-    assert!(
-        result.is_err(),
-        "draw must fail with short object catalog"
-    );
+    assert!(result.is_err(), "draw must fail with short object catalog");
     let err = result.unwrap_err();
     assert!(err.message.contains("5"), "error names the index: {err:?}");
 

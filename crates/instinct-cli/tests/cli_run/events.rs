@@ -56,6 +56,12 @@ fn test_cli_determinism_same_seed() {
     };
     let (out1, err1) = run(1);
     let (out2, err2) = run(1);
-    assert_eq!(out1, out2, "two runs with the same seed give identical stdout");
-    assert_eq!(err1, err2, "two runs with the same seed give identical stderr");
+    assert_eq!(
+        out1, out2,
+        "two runs with the same seed give identical stdout"
+    );
+    assert_eq!(
+        err1, err2,
+        "two runs with the same seed give identical stderr"
+    );
 }

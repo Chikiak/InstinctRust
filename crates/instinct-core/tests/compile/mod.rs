@@ -8,12 +8,12 @@
 //! Submodules: common (shared helpers and re-exports), walker, header, body,
 //! labels, names, diagnostics.
 
-mod common;
-mod walker;
-mod header;
 mod body;
+mod common;
+mod diagnostics;
+mod header;
 mod labels;
 mod names;
-mod diagnostics;
+mod walker;
 
 pub use common::*;

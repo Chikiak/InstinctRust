@@ -49,7 +49,10 @@ pub(crate) fn species_with_vision(name: &str, vision: i64) -> Rc<Species> {
     })
 }
 
-pub(crate) fn creature_mut(world: &mut World, id: CreatureId) -> &mut instinct_core::world::Creature {
+pub(crate) fn creature_mut(
+    world: &mut World,
+    id: CreatureId,
+) -> &mut instinct_core::world::Creature {
     world
         .creatures
         .iter_mut()

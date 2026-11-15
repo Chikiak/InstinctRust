@@ -37,7 +37,10 @@ fn test_reproduce_offspring_starts_at_next_tick() {
         child.pc, 0,
         "not executed yet: starts at start on the next tick"
     );
-    assert!(child.variables.is_empty(), "the child is born without variables");
+    assert!(
+        child.variables.is_empty(),
+        "the child is born without variables"
+    );
 
     // Tick 1: the child executes its first turn from start: (label + reproduce).
     let events = sim.step_tick();

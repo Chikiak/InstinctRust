@@ -105,7 +105,9 @@ fn test_creature_uses_see_and_name() {
     let events = sim.step_tick();
 
     assert!(
-        !events.iter().any(|e| matches!(e, Event::RuntimeError { .. })),
+        !events
+            .iter()
+            .any(|e| matches!(e, Event::RuntimeError { .. })),
         "no runtime errors, got: {events:?}"
     );
     assert!(

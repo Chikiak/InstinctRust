@@ -75,10 +75,7 @@ fn test_restore_creature_from_memento() {
     assert_eq!((c.x, c.y), (1, 1));
     assert_eq!(c.pc, 0);
     assert_eq!(c.state, CreatureState::Awake);
-    assert!(
-        c.variables.is_empty(),
-        "variables must be restored empty"
-    );
+    assert!(c.variables.is_empty(), "variables must be restored empty");
 }
 
 #[test]

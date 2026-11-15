@@ -4,9 +4,9 @@
 //! Split into submodules: `see`, `name`, `constants`, `creature`. Shared helpers live in `common`.
 
 mod common;
-mod see;
-mod name;
 mod constants;
 mod creature;
+mod name;
+mod see;
 
 pub use common::*;

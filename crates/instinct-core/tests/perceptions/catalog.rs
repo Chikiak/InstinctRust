@@ -1,6 +1,5 @@
 //! Catalog extension perception tests.
 
-use super::common::*;
 use instinct_core::actions::Catalog;
 use instinct_core::perceptions::{CreatureView, Perception, PerceptionCatalog};
 use instinct_core::value::Value;

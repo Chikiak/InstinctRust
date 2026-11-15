@@ -1,6 +1,6 @@
+use super::{creature_health, grass_world, place_with_health};
 use instinct_core::actions::{Action, Consume};
 use instinct_core::value::Value;
-use super::{creature_health, grass_world, place_with_health};
 
 // Core: consume heals the attacker without cap (direct simulation test).
 #[test]

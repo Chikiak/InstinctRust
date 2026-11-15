@@ -6,9 +6,9 @@
 mod catalog;
 mod common;
 mod creature_state;
+mod nearby;
 mod random;
 mod self_world;
 mod variables;
-mod nearby;
 
 pub use common::*;
