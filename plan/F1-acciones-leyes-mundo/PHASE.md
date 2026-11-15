@@ -1,7 +1,7 @@
 ---
 phase: F1
 title: Acciones y leyes del mundo
-status: done
+status: todo
 master: ../MASTER.md
 ---
 
@@ -88,42 +88,3 @@ en lugar de improvisar.
 
 ## Registro de ejecución
 <!-- Se rellena al avanzar: resultado por issue, señales de dimensionado, hechos descubiertos. -->
-
-## Execution Log
-
-| Mejora | Commit | Build | Clippy | Tests | fmt check | Resultado |
-|--------|--------|-------|--------|-------|-----------|-----------|
-| M7: extraer `reproduce::apply` en helpers privados | 5c1ed7a | exit 0 | exit 0 | 0 failed | exit 0 | OK |
-| chore: aplicar rustfmt (combat, context_helpers, mod, parse, shared, reproduce) | 231d4c6 | exit 0 | exit 0 | 0 failed | exit 0 | OK |
-| fix: traducir comentario español en `actions::context_helpers` a inglés | afb303b | exit 0 | exit 0 | 0 failed | exit 0 | OK |
-
-Comandos de verificación (desde la raíz del workspace, todos exit 0 / 0 failed):
-- `cargo build -p instinct-core` → exit 0
-- `cargo clippy -p instinct-core --all-targets -- -D warnings` → exit 0
-- `cargo test -p instinct-core` → 0 failed (16 + 50 + 6 + 37 + 1 + 8 + 11 + 5 + 22 + 17 + 6 + 11 + 11 + 24 + 3 + 8 pruebas)
-- `cargo fmt --all -- --check` → exit 0
-- `git grep -i <palabras en español> -- crates/instinct-core/src/actions/` → 0 comentarios en español (coincidencias remanentes son falsos positivos: identificador `context_helpers` y comentarios en inglés "Parsing"/"helpers")
-
-### Implementation Notes
-
-- **Rama:** `feat/m5-m9-minors` (base `develop`).
-- **Evidencia AC-by-AC:**
-  - M7: `reproduce::apply` extraído en helpers privados (`unknown_creature_diagnostic`, `parse_input`, `creature_context`, `validate_parents`, `mother_health`, `bounds_check`, `place_child`, `damage_mother`) manteniendo el contrato del `Action` trait. Commit `5c1ed7a`. Pruebas `reproduce::*` en verde (catálogo, cría en celda objetivo, edad 0 sin variables, madre pierde salud, abortos: fuera del mapa, celda ocupada, salud insuficiente, argumentos inválidos).
-  - MM2: `ACTION_ATTACK` promovido de `const` a `pub` y usado en `world` (commit base `558fcf9`, firma autorizada).
-  - M8: `pub` justificada por test externo (acción resuelta desde `Catalog` en pruebas de integración/terminal).
-  - fmt: `cargo fmt --all` normalizó `combat.rs`, `context_helpers.rs`, `mod.rs`, `parse.rs`, `shared.rs`, `reproduce.rs` (problemas de rustfmt pre-existentes, no regresión de esta sesión). Commit `231d4c6`.
-  - Comentario en español pre-existente en `context_helpers.rs` traducido al inglés para cumplir el criterio de 0 comentarios en español en `actions/`. Commit `afb303b`.
-- **Firmas autorizadas:**
-  - MM2: promoción de `const ACTION_ATTACK` a `pub` (autorizada).
-  - M8: `pub` justificada por test externo.
-- **Archivos modificados:**
-  - `crates/instinct-core/src/actions/reproduce.rs` (M7 refactor)
-  - `crates/instinct-core/src/actions/combat.rs` (fmt)
-  - `crates/instinct-core/src/actions/context_helpers.rs` (fmt + comentario español→inglés)
-  - `crates/instinct-core/src/actions/mod.rs` (fmt)
-  - `crates/instinct-core/src/actions/parse.rs` (fmt)
-  - `crates/instinct-core/src/actions/shared.rs` (fmt)
-  - `plan/F1-acciones-leyes-mundo/PHASE.md` (esta actualización)
-- **Desviaciones:**
-  - `cargo fmt --all` tocó archivos con problemas de rustfmt pre-existentes (`combat.rs`, `mod.rs`, `parse.rs`, `shared.rs`, `reproduce.rs`); no es regresión de esta sesión.
-  - La tabla `## Issues` de este PHASE.md rastrea F1-01..F1-05 (todas `done`); no existen filas `M5-M9`/`MM1-MM3` en este archivo (se dejan constancia; no se añade alcance no previsto).
