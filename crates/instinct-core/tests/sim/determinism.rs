@@ -33,6 +33,25 @@ fn two_walker_world() -> World {
     world
 }
 
+fn make_world() -> World {
+    let map = Map {
+        name: "test".to_string(),
+        rows: vec![vec!['.'; 5], vec!['.'; 5], vec!['.'; 5]],
+    };
+    let terrain = Terrain {
+        name: "Grass".to_string(),
+        character: '.',
+        resource_max: 100,
+        regen: 2,
+        reserve: 100,
+    };
+    let mut world = World::from_map(&map, &[terrain], &[]);
+    assert!(world.diagnostics.is_empty());
+    let sp = species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
+    let _id = world.place_creature(&sp, 0, 0).expect("place walker");
+    world
+}
+
 fn run_ticks(sim: &mut Simulation, n: u64) -> Vec<Event> {
     let mut all = Vec::new();
     for _ in 0..n {
@@ -139,32 +158,8 @@ fn test_near_perceptions_are_deterministic() {
 }
 
 #[test]
-fn test_simulation_with_injected_rng_is_deterministic() {
-    // AC3: An injected TestRng controls shuffle (turn order) and
-    // next_bounded (random perception). Two runs with the same TestRng
-    // produce the same history.
-    // TestRng with fixed values: random returns 0, 1, 2 in sequence.
-    // The creature says random each turn, so the TestRng controls the output.
-    fn make_world() -> World {
-        let map = Map {
-            name: "test".to_string(),
-            rows: vec![vec!['.'; 5], vec!['.'; 5], vec!['.'; 5]],
-        };
-        let terrain = Terrain {
-            name: "Grass".to_string(),
-            character: '.',
-            resource_max: 100,
-            regen: 2,
-            reserve: 100,
-        };
-        let mut world = World::from_map(&map, &[terrain], &[]);
-        assert!(world.diagnostics.is_empty());
-        let sp = species_with_program("Walker", 100, 1000, "say(random)\nwait(1)\ngoto start\n");
-        let _id = world.place_creature(&sp, 0, 0).expect("place walker");
-        world
-    }
-
-    // TestRng with fixed values: random returns 0, 1, 2 in sequence.
+fn test_injected_rng_same_values_same_history() {
+    // Two worlds with the same injected TestRng produce the same history.
     let mut world1 = make_world();
     world1.rng = RefCell::new(Box::new(TestRng::new(vec![0, 1, 2])));
     let mut sim1 = Simulation::new(world1);
@@ -179,8 +174,17 @@ fn test_simulation_with_injected_rng_is_deterministic() {
         events1, events2,
         "same injected TestRng produces same history:\n{events1:?}\n{events2:?}"
     );
+}
 
-    let said1: Vec<&String> = events1
+#[test]
+fn test_injected_rng_says_0_1_2() {
+    // The creature says random each turn; TestRng[0,1,2] yields "0","1","2".
+    let mut world = make_world();
+    world.rng = RefCell::new(Box::new(TestRng::new(vec![0, 1, 2])));
+    let mut sim = Simulation::new(world);
+    let events = run_ticks(&mut sim, 10);
+
+    let said: Vec<&String> = events
         .iter()
         .filter_map(|e| match e {
             Event::Said { text, .. } => Some(text),
@@ -188,19 +192,27 @@ fn test_simulation_with_injected_rng_is_deterministic() {
         })
         .collect();
     assert!(
-        said1.iter().any(|t| **t == "0"),
-        "says random=0, got: {said1:?}"
+        said.iter().any(|t| **t == "0"),
+        "says random=0, got: {said:?}"
     );
     assert!(
-        said1.iter().any(|t| **t == "1"),
-        "says random=1, got: {said1:?}"
+        said.iter().any(|t| **t == "1"),
+        "says random=1, got: {said:?}"
     );
     assert!(
-        said1.iter().any(|t| **t == "2"),
-        "says random=2, got: {said1:?}"
+        said.iter().any(|t| **t == "2"),
+        "says random=2, got: {said:?}"
     );
+}
 
-    // A different TestRng produces a different history (controls random).
+#[test]
+fn test_injected_rng_different_values_different_history() {
+    // A different TestRng produces a different history.
+    let mut world1 = make_world();
+    world1.rng = RefCell::new(Box::new(TestRng::new(vec![0, 1, 2])));
+    let mut sim1 = Simulation::new(world1);
+    let events1 = run_ticks(&mut sim1, 10);
+
     let mut world3 = make_world();
     world3.rng = RefCell::new(Box::new(TestRng::new(vec![5, 5, 5])));
     let mut sim3 = Simulation::new(world3);

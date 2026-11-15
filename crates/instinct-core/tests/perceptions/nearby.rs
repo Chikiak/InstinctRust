@@ -56,15 +56,13 @@ fn test_near_counts_exclude_own_cell() {
     );
 }
 
-#[test]
-fn test_nearest_target_reports_direction() {
+fn nearest_fixture() -> (World, CreatureId) {
     let mut world = empty_world(); // 5x5 grass
     let id = world
         .place_creature(&species_with_vision("Walker", 3), 4, 2)
         .expect("place walker");
 
     // Enemy at (1, 2): distance = max(3, 0) = 3 = vision, IN
-    // dx = 1-4 = -3 -> signum -1, dy = 0
     let sp_e = Rc::new(Species {
         name: "Enemy".to_string(),
         faction: "B".to_string(),
@@ -78,17 +76,20 @@ fn test_nearest_target_reports_direction() {
         .expect("place enemy at distance 3");
 
     // Ally at (3, 2): distance = max(1, 0) = 1
-    // dx = -1, dy = 0
     let _id_ally = world
         .place_creature(&Rc::new(Species::new("Ally")), 3, 2)
         .expect("place ally at distance 1");
 
     // Object at (4, 0): distance = max(0, 2) = 2
-    // content[row][col]: row=0, col=4 => position (4, 0). Distance from (4,2): max(0, 2) = 2.
-    // dx = 0, dy = -2 -> signum -1
     world.content[0][4] = instinct_core::world::CellContent::Object(0);
 
-    // Enemy: dist 3, dx -1, dy 0
+    (world, id)
+}
+
+#[test]
+fn test_nearest_enemy_reports_dist_dx_dy() {
+    // Enemy: dist 3, dx -1, dy 0.
+    let (world, id) = nearest_fixture();
     assert_eq!(
         unwrap_int(eval(&world, id, "enemy_dist").unwrap()),
         3,
@@ -104,8 +105,12 @@ fn test_nearest_target_reports_direction() {
         0,
         "enemy dy"
     );
+}
 
-    // Ally: dist 1, dx -1, dy 0
+#[test]
+fn test_nearest_ally_reports_dist_dx_dy() {
+    // Ally: dist 1, dx -1, dy 0.
+    let (world, id) = nearest_fixture();
     assert_eq!(
         unwrap_int(eval(&world, id, "ally_dist").unwrap()),
         1,
@@ -121,8 +126,12 @@ fn test_nearest_target_reports_direction() {
         0,
         "ally dy"
     );
+}
 
-    // Object: dist 2, dx 0, dy -1
+#[test]
+fn test_nearest_object_reports_dist_dx_dy() {
+    // Object: dist 2, dx 0, dy -1.
+    let (world, id) = nearest_fixture();
     assert_eq!(
         unwrap_int(eval(&world, id, "object_dist").unwrap()),
         2,

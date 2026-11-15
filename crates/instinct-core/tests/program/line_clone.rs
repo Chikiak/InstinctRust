@@ -26,9 +26,8 @@ fn find_line(program: &Program, f: impl Fn(&Line) -> bool) -> &Line {
         .expect("expected a program line in the test")
 }
 
-#[test]
-fn test_line_clone_all_variants() {
-    // `line` stores the source line number, not the index in `lines`.
+/// Compiles the fixture program and returns it (panics on diagnostics).
+fn fixture_program() -> Program {
     let text = "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\ngoto loop\nif health > 0 goto loop\nenergy = 5\nwait(1)\nloop:\n";
     let result = compile_text(text);
     assert!(
@@ -36,9 +35,13 @@ fn test_line_clone_all_variants() {
         "unexpected diagnostics: {:?}",
         result.diagnostics
     );
-    let program = result.program;
+    result.program
+}
 
-    // ---- Label { name, line }: the clone preserves name and source line ----
+#[test]
+fn test_line_clone_preserves_label() {
+    // Label { name, line }: the clone preserves name and source line.
+    let program = fixture_program();
     let start = find_line(
         &program,
         |l| matches!(l, Line::Label { name, .. } if name == "start"),
@@ -55,8 +58,12 @@ fn test_line_clone_all_variants() {
         }
         _ => panic!("expected cloned Label"),
     }
+}
 
-    // ---- Goto { label, line } ----
+#[test]
+fn test_line_clone_preserves_goto() {
+    // Goto { label, line }: the clone preserves label and source line.
+    let program = fixture_program();
     let goto = find_line(
         &program,
         |l| matches!(l, Line::Goto { label, .. } if label == "loop"),
@@ -73,9 +80,13 @@ fn test_line_clone_all_variants() {
         }
         _ => panic!("expected cloned Goto"),
     }
+}
 
-    // ---- IfGoto { expr, label, line }: operator, label,
-    // source line and expression evaluation ----
+#[test]
+fn test_line_clone_preserves_ifgoto() {
+    // IfGoto { expr, label, line }: the clone preserves label, line,
+    // operator and expression evaluation.
+    let program = fixture_program();
     let cond = find_line(&program, |l| matches!(l, Line::IfGoto { .. }));
     let (orig_label, orig_line) = match cond {
         Line::IfGoto { label, line, .. } => (label.clone(), *line),
@@ -101,8 +112,12 @@ fn test_line_clone_all_variants() {
         }
         _ => panic!("expected cloned IfGoto"),
     }
+}
 
-    // ---- Assign { name, expr, line } ----
+#[test]
+fn test_line_clone_preserves_assign() {
+    // Assign { name, expr, line }: the clone preserves name, line and eval.
+    let program = fixture_program();
     let assign = find_line(&program, |l| matches!(l, Line::Assign { .. }));
     let (orig_name, orig_line) = match assign {
         Line::Assign { name, line, .. } => (name.clone(), *line),
@@ -133,8 +148,13 @@ fn test_line_clone_all_variants() {
         }
         _ => panic!("expected cloned Assign"),
     }
+}
 
-    // ---- Action { action, args, line } ----
+#[test]
+fn test_line_clone_preserves_action() {
+    // Action { action, args, line }: the clone preserves name, line, args
+    // and arg eval.
+    let program = fixture_program();
     let action_line = find_line(&program, |l| matches!(l, Line::Action { .. }));
     let orig_line = match action_line {
         Line::Action { line, .. } => *line,

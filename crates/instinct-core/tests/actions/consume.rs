@@ -170,8 +170,8 @@ fn test_consume_bad_direction_errors() {
 }
 
 #[test]
-fn test_consume_text_argument_errors() {
-    // AC7: text argument error naming the argument.
+fn test_consume_text_dx_error() {
+    // AC7: a text argument for `dx` names the argument.
     let (mut world, _, _) = world_with_grass();
     let attacker = place_creature_with_health(&mut world, 0, 0, 10);
     let consume = Consume;
@@ -189,6 +189,14 @@ fn test_consume_text_argument_errors() {
         )
         .unwrap_err();
     assert!(err.message.contains("dx"), "text dx error: {err:?}");
+}
+
+#[test]
+fn test_consume_text_dy_error() {
+    // AC7: a text argument for `dy` names the argument.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let consume = Consume;
 
     let err = consume
         .apply(
@@ -203,6 +211,14 @@ fn test_consume_text_argument_errors() {
         )
         .unwrap_err();
     assert!(err.message.contains("dy"), "text dy error: {err:?}");
+}
+
+#[test]
+fn test_consume_text_damage_error() {
+    // AC7: a text argument for `damage` names the argument.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let consume = Consume;
 
     let err = consume
         .apply(
@@ -217,6 +233,14 @@ fn test_consume_text_argument_errors() {
         )
         .unwrap_err();
     assert!(err.message.contains("damage"), "text damage error: {err:?}");
+}
+
+#[test]
+fn test_consume_text_heal_error() {
+    // AC7: a text argument for `heal` names the argument.
+    let (mut world, _, _) = world_with_grass();
+    let attacker = place_creature_with_health(&mut world, 0, 0, 10);
+    let consume = Consume;
 
     let err = consume
         .apply(

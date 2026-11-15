@@ -73,7 +73,7 @@ Estado inicial: todos `todo`.
 | R1-04 | Dividir `compile/body.rs` | Mezcla de fases en `compile()` | — | M | done | r1-04-split-compile-body.md |
 | R1-05 | `resources/folder.rs` genérico y limpieza de comentarios | 3 loaders cuasi-duplicados; comentarios obvios | R1-01 | S | done | r1-05-folder-loader-y-comentarios.md |
 | R1-06 | Splitear pruebas planas de instinct-core | `rng_tests`, `event_tests`, `value_tests`, `species_tests`, `diagnostic_tests` (+ comentarios ES) | R1-01 | M | done | r1-06-split-core-tests-planos.md |
-| R1-07 | Partir tests largos en módulos ya-split | 8 módulos con tests de 60-140 líneas | R1-06 | L | todo | r1-07-partir-tests-largos.md |
+| R1-07 | Partir tests largos en módulos ya-split | 8 módulos con tests de 60-140 líneas | R1-06 | L | done | r1-07-partir-tests-largos.md |
 | R1-08 | Splitear pruebas de instinct-cli y deduplicar helpers | `cli_annex`, `cli_check`, `cli_usage` planos | R1-01 | M | todo | r1-08-split-cli-tests.md |
 | R1-09 | Higiene del repo: artefacts `*_out.txt` fuera de git | Artefactos trackeados en la raíz | — | S | todo | r1-09-higiene-repo-artefactos.md |
 
@@ -105,6 +105,6 @@ Estado inicial: todos `todo`.
 | R1-04 | `compile()` mezcla fases | `body.rs` <150 líneas; cabecera en `header.rs` (`process_header_line`), despacho en `dispatch.rs` (`dispatch_body_line`), post-validación en `validate.rs` (`finalize_validation`); `compile()` orquestador sobre `CompileState`; firma y orden de diagnósticos intactos; 0 cambios de lógica | done |
 | R1-05 | Carga duplicada por tipo de recurso | `folder.rs`: un único camino de carga genérico (`load_resources_folder`) para los 3 wrappers públicos sin cambiar diagnósticos ni orden; `snapshot.rs`: borrados comentarios que releen códigos de retorno, dejados los explicativos | done |
 | R1-06 | Pruebas planas sin patrón de carpeta | `tests/rng`, `tests/event`, `tests/value`, `tests/species`, `tests/diagnostic` creados con `mod.rs` + submódulos; 5 archivos planos borrados; `[[test]]` añadidos en Cargo.toml; comentarios ES traducidos; 31→31 tests verdes | done |
-| R1-07 | Tests de 60-140 líneas ilegibles | — | todo |
+| R1-07 | Tests de 60-140 líneas ilegibles | reproduce, consume, move_, determinism, roars, nearby, catalog, line_clone divididos en tests enfocados + helpers en common.rs; 9 tests largos → 30 tests (net +21), 0 cambios de lógica; todo < 60 líneas | done |
 | R1-08 | Pruebas CLI planas, helpers duplicados | — | todo |
 | R1-09 | Artefactos versionados | — | todo |
