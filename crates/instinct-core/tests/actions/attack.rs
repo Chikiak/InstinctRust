@@ -46,7 +46,7 @@ fn test_attack_kills_creature_immediately() {
     assert!(
         r.events
             .iter()
-            .any(|e| matches!(e, Event::Died { cause, .. } if cause == "vida")),
+            .any(|e| matches!(e, Event::Died { cause, .. } if cause == "health")),
         "expected Died cause life, got {:?}",
         r.events
     );

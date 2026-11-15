@@ -36,7 +36,7 @@ fn test_cli_without_args_exits_2() {
         "no arguments should write usage to stderr"
     );
     assert!(
-        stderr.contains("Uso:"),
+        stderr.contains("Usage:"),
         "stderr should contain the usage text, got: {stderr}"
     );
 }
@@ -48,7 +48,7 @@ fn test_cli_help_exits_0() {
     assert!(!stdout.is_empty(), "--help should write usage to stdout");
     assert!(stderr.is_empty(), "--help should not write to stderr");
     assert!(
-        stdout.contains("Uso:"),
+        stdout.contains("Usage:"),
         "stdout should contain the usage text, got: {stdout}"
     );
     assert!(

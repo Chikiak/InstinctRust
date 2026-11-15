@@ -25,7 +25,7 @@ pub(crate) fn execute_run(args: &RunArgs) -> i32 {
     let map = match map {
         Some(m) => m,
         None => {
-            eprintln!("mapa no encontrado: '{}'", args.map_name);
+            eprintln!("map not found: '{}'", args.map_name);
             if !resources.maps.is_empty() {
                 eprint!("mapas disponibles: ");
                 for (i, m) in resources.maps.iter().enumerate() {
@@ -41,7 +41,7 @@ pub(crate) fn execute_run(args: &RunArgs) -> i32 {
     };
 
     if resources.terrains.is_empty() {
-        eprintln!("no hay terrenos cargados para dibujar el mapa");
+        eprintln!("no terrains loaded to draw the map");
         return 1;
     }
 
@@ -63,7 +63,7 @@ pub(crate) fn execute_run(args: &RunArgs) -> i32 {
         {
             Some(s) => Rc::new(s.clone()),
             None => {
-                eprintln!("especie desconocida: '{}'", placement.species);
+                eprintln!("unknown species: '{}'", placement.species);
                 return 1;
             }
         };

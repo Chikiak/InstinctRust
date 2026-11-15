@@ -42,7 +42,7 @@ impl Command for Help {
 /// Rejects unknown subcommands and unknown flags (C1).
 pub(crate) fn build_command(args: &[String]) -> Result<Box<dyn Command>, String> {
     if args.is_empty() {
-        return Err("se espera un subcomando: run o check".to_string());
+        return Err("expected a subcommand: run or check".to_string());
     }
     match args[0].as_str() {
         "run" => {
@@ -51,7 +51,7 @@ pub(crate) fn build_command(args: &[String]) -> Result<Box<dyn Command>, String>
         }
         "check" => {
             if args.len() != 2 {
-                return Err("el subcomando 'check' requiere un archivo .ins".to_string());
+                return Err("the 'check' subcommand requires a .ins file".to_string());
             }
             Ok(Box::new(Check {
                 path: args[1].clone(),
@@ -59,12 +59,12 @@ pub(crate) fn build_command(args: &[String]) -> Result<Box<dyn Command>, String>
         }
         "--help" | "-h" => {
             if args.len() != 1 {
-                return Err("--help no acepta argumentos".to_string());
+                return Err("--help does not accept arguments".to_string());
             }
             Ok(Box::new(Help))
         }
         _ => Err(format!(
-            "subcomando o argumento no reconocido: '{}'",
+            "unrecognized subcommand or argument: '{}'",
             args[0]
         )),
     }

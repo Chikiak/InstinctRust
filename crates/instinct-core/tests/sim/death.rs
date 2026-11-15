@@ -51,7 +51,7 @@ fn test_death_by_health_and_by_age() {
         } => {
             assert_eq!(*tick, 9); // tick counter is 9 before incrementing to 10
             assert_eq!(species, "A");
-            assert_eq!(cause, "vida");
+            assert_eq!(cause, "health");
         }
         _ => panic!("expected Died event"),
     }
@@ -97,7 +97,7 @@ fn test_death_by_health_and_by_age() {
         } => {
             assert_eq!(*tick, 4);
             assert_eq!(species, "B");
-            assert_eq!(cause, "edad");
+            assert_eq!(cause, "age");
         }
         _ => panic!("expected Died event"),
     }

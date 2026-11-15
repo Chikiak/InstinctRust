@@ -93,7 +93,7 @@ pub(super) fn strike_cell(
                     tick,
                     species: victim_species,
                     pos: died_pos,
-                    cause: "vida".to_string(),
+                    cause: "health".to_string(),
                 });
             }
         }

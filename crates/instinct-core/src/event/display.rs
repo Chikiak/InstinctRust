@@ -26,7 +26,7 @@ impl std::fmt::Display for Event {
             } => {
                 write!(
                     f,
-                    "[tick {tick}] {species}@{x},{y} muere por {cause}",
+                    "[tick {tick}] {species}@{x},{y} dies of {cause}",
                     x = pos.x,
                     y = pos.y
                 )

@@ -2,7 +2,7 @@
 id: R1-01
 title: Strings en inglés — causas de muerte, Display de eventos y UI de CLI
 phase: R1
-status: todo
+status: done
 depends_on: []
 size: L
 ---
@@ -71,4 +71,24 @@ Las pruebas de E2E afirman strings en stdout (p. ej. `[tick 9] Walker@0,0 muere 
 
 ## Notas de implementación
 
-（vacío tras completar: qué strings quedaron, decisiones, desviaciones）
+Rama: `feat/r1-01-english-strings` (sobre `develop`). Cero cambios de lógica: solo renames de strings de salida, sus aserciones y comentarios citados.
+
+Strings traducidas:
+- `crates/instinct-core/src/event/display.rs`: `"… muere por {cause}"` → `"… dies of {cause}"`.
+- `crates/instinct-core/src/world/laws.rs`: `"vida"` → `"health"`, `"edad"` → `"age"`.
+- `crates/instinct-core/src/actions/shared.rs`: `cause: "vida".to_string()` → `"health"`.
+- `crates/instinct-core/src/actions/attack.rs` (L6) y `crates/instinct-core/src/event/events.rs` (L23): comentarios/doc que citan las causas, en inglés.
+- `crates/instinct-cli/src`: `args.rs` (13 mensajes), `check.rs` (L13), `command.rs` (L45, L54, L62, L67-68), `main.rs` (USAGE), `run.rs` (L28, L44, L66): UI en inglés; placeholders, códigos de salida y streams (stdout eventos / stderr diagnóstico) sin cambios.
+
+Tests actualizados en el mismo cambio: `event_tests.rs:84,86`, `sim/death.rs:54,100`, `actions/attack.rs:49`, `cli_run/f0.rs:33`, `cli_run/e2e.rs:40,84`, `cli_usage.rs:39,51`, `world/memento.rs:22,36`.
+
+AC-by-AC evidence:
+- AC1 (PASS): `git grep -n '"vida"\|"edad"\|muere' -- crates/` → 0 coincidencias.
+- AC2 (PASS): `git grep -n -iE 'formato|desconocid|directorio|incorrecto|existe' -- crates/instinct-cli/src` → 0 coincidencias.
+- AC3 (PASS): `cargo test --workspace` → todos los targets en verde.
+- AC4 (PASS): `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all -- --check` → exit 0.
+- AC5 (PASS): `cargo test -p instinct-core --test annex_examples determinism` → 1 passed; `sim/determinism` → 4 passed. Sin editarlas.
+
+Cambios de firma de API pública: ninguno.
+
+Desviaciones: el issue marcaba `tests/world/memento.rs` (`vida_extra`) como "no tocar"; el plan táctico recibido (Ola E) lo renombra a `extra_life` (dato de programa, cero lógica) y se ejecutó tal cual. Fuera de alcance, sin tocar: `dice`, `daña`, `ruge`, el Display de `RuntimeError` (`error en línea`) y `cli_run/events.rs:24`.

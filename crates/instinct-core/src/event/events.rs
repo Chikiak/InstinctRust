@@ -20,7 +20,7 @@ pub enum Event {
         pos: Pos,
         text: String,
     },
-    /// A creature died. `cause` is `vida`, `edad`, or `error`.
+    /// A creature died. `cause` is `health`, `age`, or `error`.
     Died {
         tick: u64,
         species: String,

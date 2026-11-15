@@ -67,7 +67,7 @@ Estado inicial: todos `todo`.
 
 | ID | Título | Cubre | Depende de | Tamaño | Estado | Archivo de issue |
 |----|--------|-------|------------|--------|--------|------------------|
-| R1-01 | Strings en inglés: causas de muerte, Display de eventos y UI de CLI | Renames `vida`/`edad`, `muere por`, mensajes de CLI | — | L | todo | r1-01-english-strings.md |
+| R1-01 | Strings en inglés: causas de muerte, Display de eventos y UI de CLI | Renames `vida`/`edad`, `muere por`, mensajes de CLI | — | L | done | r1-01-english-strings.md |
 | R1-02 | Dividir `world/creature.rs` | God file (~530) | R1-01 | L | todo | r1-02-split-world-creature.md |
 | R1-03 | Dividir `perceptions/builtins.rs` | 25 structs de percepción cuasi-clones | — | L | todo | r1-03-split-perceptions-builtins.md |
 | R1-04 | Dividir `compile/body.rs` | Mezcla de fases en `compile()` | — | M | todo | r1-04-split-compile-body.md |
@@ -99,7 +99,7 @@ Estado inicial: todos `todo`.
 
 | Issue | Motivación | Alcance real | Estado |
 |-------|------------|--------------|--------|
-| R1-01 | Strings en español en salida observable | — | todo |
+| R1-01 | Strings en español en salida observable | — | done |
 | R1-02 | `creature.rs` mezcla tipos + mundo + leyes | — | todo |
 | R1-03 | Monotonía de structs en un solo archivo | — | todo |
 | R1-04 | `compile()` mezcla fases | — | todo |

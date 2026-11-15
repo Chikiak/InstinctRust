@@ -37,7 +37,7 @@ fn test_cli_e2e_attack_kills_adjacent_creature() {
         "stderr with Damaged event, got: {stderr}"
     );
     assert!(
-        stdout.contains("[tick 0] Victim@1,0 muere por vida"),
+        stdout.contains("[tick 0] Victim@1,0 dies of health"),
         "stderr with Died cause life, got: {stderr}"
     );
     // Tick 1: Victim gone, its cell (1,0) is terrain ('.').
@@ -81,7 +81,7 @@ fn test_cli_e2e_consume_kills_and_heals() {
         "stderr with Damaged event, got: {stderr}"
     );
     assert!(
-        stdout.contains("[tick 0] Food@1,0 muere por vida"),
+        stdout.contains("[tick 0] Food@1,0 dies of health"),
         "stderr with Died cause life, got: {stderr}"
     );
     // Tick 1: Consumer still present, Food gone and cell (1,0) free.
