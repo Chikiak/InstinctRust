@@ -7,7 +7,7 @@
 
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{parse_dir_arg, parse_int_arg, strike_cell};
+use crate::actions::shared::{action_result, parse_dir_args, parse_int_arg, strike_cell};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;
@@ -31,14 +31,10 @@ impl crate::actions::Action for Attack {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let dx = parse_dir_arg(&args[0], "attack", "dx")?;
-        let dy = parse_dir_arg(&args[1], "attack", "dy")?;
+        let (dx, dy) = parse_dir_args(args, "attack")?;
         let damage = parse_int_arg(&args[2], "attack", "damage")?;
 
         let events = strike_cell(world, creature_id, dx, dy, damage)?;
-        Ok(ActionResult {
-            sleep_turns: 0,
-            events,
-        })
+        Ok(action_result(0, events))
     }
 }

@@ -4,7 +4,8 @@
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::{
-    heal_attacker, is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg, strike_cell,
+    action_result, heal_attacker, is_out_of_bounds, out_of_map_noop, parse_dir_args, parse_int_arg,
+    strike_cell,
 };
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
@@ -29,8 +30,7 @@ impl crate::actions::Action for Consume {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let dx = parse_dir_arg(&args[0], "consume", "dx")?;
-        let dy = parse_dir_arg(&args[1], "consume", "dy")?;
+        let (dx, dy) = parse_dir_args(args, "consume")?;
         let damage = parse_int_arg(&args[2], "consume", "damage")?;
         let heal = parse_int_arg(&args[3], "consume", "heal")?;
 
@@ -44,9 +44,6 @@ impl crate::actions::Action for Consume {
 
         let events = strike_cell(world, creature_id, dx, dy, damage)?;
         heal_attacker(world, creature_id, heal)?;
-        Ok(ActionResult {
-            sleep_turns: 0,
-            events,
-        })
+        Ok(action_result(0, events))
     }
 }

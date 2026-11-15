@@ -3,7 +3,7 @@
 
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{creature_context, value_to_text};
+use crate::actions::shared::{action_result, creature_context, value_to_text};
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
@@ -30,14 +30,11 @@ impl crate::actions::Action for Say {
     ) -> Result<ActionResult, Diagnostic> {
         let text = value_to_text(&args[0]);
         let (pos, species, tick) = creature_context(world, creature_id)?;
-        Ok(ActionResult {
-            sleep_turns: 0,
-            events: vec![Event::Said {
-                tick,
-                species,
-                pos,
-                text,
-            }],
-        })
+        Ok(action_result(0, vec![Event::Said {
+            tick,
+            species,
+            pos,
+            text,
+        }]))
     }
 }

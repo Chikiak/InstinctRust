@@ -3,7 +3,7 @@
 
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::parse_int_arg;
+use crate::actions::shared::{action_result, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;
@@ -29,9 +29,6 @@ impl crate::actions::Action for Wait {
     ) -> Result<ActionResult, Diagnostic> {
         let n = parse_int_arg(&args[0], "wait", "n")?;
         let sleep_turns = n.max(1) as u32;
-        Ok(ActionResult {
-            sleep_turns,
-            events: Vec::new(),
-        })
+        Ok(action_result(sleep_turns, Vec::new()))
     }
 }

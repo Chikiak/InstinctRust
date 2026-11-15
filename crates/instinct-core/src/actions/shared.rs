@@ -279,3 +279,89 @@ pub fn index_from_i64(n: i64) -> Option<usize> {
     }
     usize::try_from(n).ok()
 }
+
+/// Parses the `dx` and `dy` direction arguments, naming each one in errors.
+pub(super) fn parse_dir_args(
+    args: &[Value],
+    action: &str,
+) -> Result<(i64, i64), Diagnostic> {
+    let dx = parse_dir_arg(&args[0], action, "dx")?;
+    let dy = parse_dir_arg(&args[1], action, "dy")?;
+    Ok((dx, dy))
+}
+
+/// Builds an `ActionResult` from `sleep_turns` and `events`.
+pub(super) fn action_result(sleep_turns: u32, events: Vec<Event>) -> ActionResult {
+    ActionResult {
+        sleep_turns,
+        events,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::event::{Event, Pos};
+    use crate::value::Value;
+
+    #[test]
+    fn parse_dir_args_ok() {
+        let args = [Value::Int(1), Value::Int(0)];
+        assert_eq!(parse_dir_args(&args, "attack"), Ok((1, 0)));
+    }
+
+    #[test]
+    fn parse_dir_args_bad_dx() {
+        let args = [Value::Int(2), Value::Int(0)];
+        let err = parse_dir_args(&args, "consume").unwrap_err();
+        assert!(err.message.contains("dx"));
+    }
+
+    #[test]
+    fn parse_dir_args_bad_dy() {
+        let args = [Value::Int(0), Value::Int(-2)];
+        let err = parse_dir_args(&args, "move").unwrap_err();
+        assert!(err.message.contains("dy"));
+    }
+
+    #[test]
+    fn parse_dir_args_text_dx() {
+        let args = [Value::Text("x".to_string()), Value::Int(0)];
+        let err = parse_dir_args(&args, "attack").unwrap_err();
+        assert!(err.message.contains("dx"));
+    }
+
+    #[test]
+    fn parse_dir_args_text_dy() {
+        let args = [Value::Int(0), Value::Text("y".to_string())];
+        let err = parse_dir_args(&args, "consume").unwrap_err();
+        assert!(err.message.contains("dy"));
+    }
+
+    #[test]
+    fn action_result_constructs() {
+        let result = action_result(3, vec![]);
+        assert_eq!(
+            result,
+            ActionResult {
+                sleep_turns: 3,
+                events: vec![]
+            }
+        );
+    }
+
+    #[test]
+    fn action_result_with_events() {
+        let result = action_result(
+            0,
+            vec![Event::Said {
+                tick: 5,
+                species: "wolf".to_string(),
+                pos: Pos { x: 1, y: 2 },
+                text: "hi".to_string(),
+            }],
+        );
+        assert_eq!(result.sleep_turns, 0);
+        assert_eq!(result.events.len(), 1);
+    }
+}
