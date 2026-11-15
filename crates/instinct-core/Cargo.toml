@@ -31,4 +31,8 @@ path = "tests/annex_examples/mod.rs"
 name = "functions"
 path = "tests/functions/mod.rs"
 
+[[test]]
+name = "expr"
+path = "tests/expr/mod.rs"
+
 [dependencies]
