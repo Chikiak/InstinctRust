@@ -1,4 +1,4 @@
-//! Parsing de argumentos de acción.
+//! Parsing of action arguments.
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use super::consts::{ARG_DX, ARG_DY};

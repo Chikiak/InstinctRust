@@ -1,4 +1,4 @@
-//! Lógica de strike sobre criatura/objeto/terreno y heal del atacante.
+//! Strike logic for creature/object/terrain and attacker heal.
 use super::{consts::*, events::damaged_event};
 use super::context_helpers::action_result;
 use crate::actions::{ActionContext, ActionResult, WriteContext};

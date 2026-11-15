@@ -1,4 +1,4 @@
-//! Nombres de acción, argumento y contexto de diagnóstico.
+//! Action, argument, and diagnostic context names.
 
 pub(super) const ACTION_WAIT: &str = "wait";
 pub(super) const ACTION_MOVE: &str = "move";

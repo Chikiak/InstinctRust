@@ -1,8 +1,8 @@
 //! Shared helpers for actions: direction validation, striking an adjacent
 //! cell, and healing the attacker.
-//! Ahora es un re-exportador delgado de los submódulos cohesionados.
-//! Los `pub(super) use` que aparecen sin referencia local son usados por
-//! los módulos de acción (`attack`, `consume`, etc.) a través de
+//! Thin re-export of the cohesive submodules.
+//! The `pub(super) use` items without a local reference are used by
+//! the action modules (`attack`, `consume`, etc.) via
 //! `crate::actions::shared::{...}`.
 
 #[allow(unused_imports)]
@@ -27,6 +27,11 @@ pub(super) use crate::actions::context_helpers::{
 /// Converts an integer into a grid index (`usize`). Rejects negatives so they
 /// never wrap into a huge index, and rejects values that do not fit in
 /// `usize`. Avoids any silent sign conversion when computing the next cell.
+///
+/// It is `pub` (and re-exported as `crate::actions::index_from_i64` in
+/// `mod.rs`) because the integration test `tests/actions/index.rs` calls
+/// `instinct_core::actions::index_from_i64` directly; keeping it `pub`
+/// avoids an `index_from_i64` copy in every action module.
 pub fn index_from_i64(n: i64) -> Option<usize> {
     if n < 0 {
         return None;

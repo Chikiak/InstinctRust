@@ -20,9 +20,9 @@ use crate::world::CreatureId;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reproduce;
 
-/// Construye el `Diagnostic` reportado cuando un id de criatura no existe
-/// en el mundo. Un solo sitio lo define para que ambos préstamos
-/// (inmutable y mutable) compartan el mensaje sin duplicarlo.
+/// Builds the `Diagnostic` reported when a creature id does not exist
+/// in the world. A single site defines it so both borrows
+/// (immutable and mutable) share the message without duplicating it.
 fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
     Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {creature_id:?}"))
 }
