@@ -4,7 +4,7 @@
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
 use crate::actions::shared::{
-    index_from_i64, noop_result, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
+    is_out_of_bounds, noop_result, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -46,10 +46,12 @@ impl crate::actions::Action for Move {
         for _ in 0..speed {
             let nx = x + dx;
             let ny = y + dy;
-            // Rejects negative coordinates: they are never converted to usize.
-            let Some(nxi) = index_from_i64(nx) else { break };
-            let Some(nyi) = index_from_i64(ny) else { break };
-            if !world.cell_is_free(nxi, nyi) {
+            // Out of map: stop before leaving the map (same as rejecting
+            // the conversion to usize).
+            if is_out_of_bounds(world, nx, ny) {
+                break;
+            }
+            if !world.cell_is_free(nx as usize, ny as usize) {
                 break;
             }
             x = nx;

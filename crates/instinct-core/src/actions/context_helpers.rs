@@ -1,4 +1,5 @@
-//! Helpers de contexto: bounds, salud, noop, value_to_text, creature_context, action_result.
+//! Context helpers: bounds, health, noop, value_to_text, creature_context, action_result.
+use crate::actions::consts::DIAG_LINE;
 use crate::actions::{ActionResult, ReadContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
@@ -14,7 +15,7 @@ pub(super) fn checked_sub_health(
     current.checked_sub(amount).ok_or_else(|| {
         Diagnostic::new(
             action,
-            1,
+            DIAG_LINE,
             format!("overflow reducing {action} health at ({},{})", pos.x, pos.y),
         )
     })

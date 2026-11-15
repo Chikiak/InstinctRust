@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 /// Catalog of actions and perceptions by name. Resolves each kind of name
 /// against its own registry, validating arity for actions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Catalog {
     actions: ActionCatalog,
     perceptions: PerceptionCatalog,
@@ -101,16 +101,5 @@ impl Catalog {
     /// Returns a reference to the action catalog.
     pub fn actions(&self) -> &ActionCatalog {
         &self.actions
-    }
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for Catalog {
-    fn default() -> Self {
-        Catalog {
-            actions: ActionCatalog::default(),
-            perceptions: PerceptionCatalog::default(),
-            functions: FunctionCatalog::default(),
-        }
     }
 }

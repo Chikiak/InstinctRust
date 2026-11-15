@@ -1,6 +1,6 @@
-//! Lógica de strike sobre criatura/objeto/terreno y heal del atacante.
-use super::{consts::*, events::damaged_event};
+//! Strike logic for creature/object/terrain and attacker heal.
 use super::context_helpers::action_result;
+use super::{consts::*, events::damaged_event};
 use crate::actions::{ActionContext, ActionResult, WriteContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
@@ -9,7 +9,6 @@ use crate::world::{CellContent, CreatureId};
 #[allow(clippy::too_many_arguments)]
 pub(super) fn strike_creature(
     ctx: &mut dyn WriteContext,
-    _attacker_id: CreatureId,
     target_id: CreatureId,
     attacker_pos: Pos,
     attacker_species: &str,
@@ -24,7 +23,7 @@ pub(super) fn strike_creature(
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
             ACTION_ATTACK,
-            1,
+            DIAG_LINE,
             format!("overflow damaging creature health at ({tx},{ty})"),
         )
     })?;
@@ -124,17 +123,9 @@ pub(super) fn strike_cell(
     }
 
     match target {
-        CellContent::Creature(target_id) => strike_creature(
-            ctx,
-            creature_id,
-            target_id,
-            pos,
-            &species,
-            tick,
-            tx,
-            ty,
-            damage,
-        ),
+        CellContent::Creature(target_id) => {
+            strike_creature(ctx, target_id, pos, &species, tick, tx, ty, damage)
+        }
         CellContent::Object(_obj_idx) => strike_object(ctx, &species, pos, tick, tx, ty, damage),
         CellContent::Empty => strike_terrain(ctx, &species, pos, tick, tx, ty, damage),
     }
@@ -157,7 +148,7 @@ pub(super) fn heal_attacker(
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(
             ACTION_CONSUME,
-            1,
+            DIAG_LINE,
             format!(
                 "overflow healing creature at ({},{})",
                 creature.x, creature.y
