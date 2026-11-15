@@ -2,8 +2,7 @@
 //! additionally the attacking creature gains `heal` health points (no cap).
 
 use crate::actions::shared::{
-    action_result, heal_attacker, is_out_of_bounds, out_of_map_noop, parse_dir_args, parse_int_arg,
-    strike_cell,
+    action_result, heal_attacker, out_of_map_noop, parse_dir_args, parse_int_arg, strike_cell,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -34,15 +33,15 @@ impl crate::actions::Action for Consume {
         let damage = parse_int_arg(&args[2], "consume", "damage")?;
         let heal = parse_int_arg(&args[3], "consume", "heal")?;
 
-        // Out of map: no-op, neither damage nor healing, turn consumed.
-        let pos = world.creature_position(creature_id)?;
-        let tx = pos.x as i64 + dx;
-        let ty = pos.y as i64 + dy;
-        if is_out_of_bounds(world, tx, ty) {
+        let events = strike_cell(world, creature_id, dx, dy, damage)?;
+
+        // Si strike_cell devolvió eventos vacíos, el objetivo estaba fuera del mapa.
+        // strike_cell solo devuelve eventos vacíos en caso de OOB; en cualquier otro
+        // caso genera al menos un damaged_event. No curar en ese caso.
+        if events.is_empty() {
             return Ok(out_of_map_noop());
         }
 
-        let events = strike_cell(world, creature_id, dx, dy, damage)?;
         heal_attacker(world, creature_id, heal)?;
         Ok(action_result(0, events))
     }
