@@ -2,8 +2,96 @@
 
 use super::common::*;
 use instinct_core::actions::Move;
+use instinct_core::actions::ActionContext;
+use instinct_core::diagnostic::Diagnostic;
+use instinct_core::event::Pos;
+use instinct_core::species::Species;
 use instinct_core::value::Value;
+use instinct_core::world::{CellContent, CreatureId};
 use std::rc::Rc;
+
+/// Mock `ActionContext` where `move_creature_to` always returns an error.
+struct FailingMoveContext;
+
+impl ActionContext for FailingMoveContext {
+    fn creature_position(&self, _id: CreatureId) -> Result<Pos, Diagnostic> {
+        Ok(Pos { x: 0, y: 0 })
+    }
+    fn creature_species(&self, _id: CreatureId) -> Result<String, Diagnostic> {
+        Ok("Walker".to_string())
+    }
+    fn creature(&self, _id: CreatureId) -> Option<&instinct_core::world::creature::Creature> {
+        None
+    }
+    fn tick(&self) -> u64 {
+        0
+    }
+    fn columns(&self) -> usize {
+        5
+    }
+    fn rows(&self) -> usize {
+        5
+    }
+    fn cell_is_free(&self, _x: usize, _y: usize) -> bool {
+        true
+    }
+    fn content_at(&self, _x: usize, _y: usize) -> CellContent {
+        CellContent::Empty
+    }
+    fn terrain_at(&self, _x: usize, _y: usize) -> usize {
+        0
+    }
+    fn creature_mut(&mut self, _id: CreatureId) -> Option<&mut instinct_core::world::creature::Creature> {
+        None
+    }
+    fn remove_creature(&mut self, _id: CreatureId) -> Result<(), Diagnostic> {
+        Ok(())
+    }
+    fn place_creature(
+        &mut self,
+        _species: &Rc<Species>,
+        _x: usize,
+        _y: usize,
+    ) -> Result<CreatureId, Diagnostic> {
+        Err(Diagnostic::new("move", 0, "fail"))
+    }
+    fn set_creature_health(&mut self, _id: CreatureId, _health: i64) -> Result<(), Diagnostic> {
+        Ok(())
+    }
+    fn move_creature_to(&mut self, _id: CreatureId, _x: usize, _y: usize) -> Result<(), Diagnostic> {
+        Err(Diagnostic::new("move", 0, "move_creature_to failed"))
+    }
+    fn add_roar(&mut self, _id: CreatureId, _species: String, _pos: Pos, _text: String) {}
+    fn damage_cell_content(
+        &mut self,
+        _x: usize,
+        _y: usize,
+        _damage: i64,
+    ) -> Result<(), Diagnostic> {
+        Ok(())
+    }
+    fn damage_terrain_reserve(
+        &mut self,
+        _terrain_idx: usize,
+        _damage: i64,
+    ) -> Result<(), Diagnostic> {
+        Ok(())
+    }
+}
+
+#[test]
+fn test_move_propagates_move_creature_to_error() {
+    // When `move_creature_to` returns Err, `Move::apply` must propagate it.
+    let mv = Move;
+    let mut world = FailingMoveContext;
+    let id = CreatureId(0);
+    let result = mv.apply(
+        &mut world,
+        id,
+        &[Value::Int(1), Value::Int(0), Value::Int(2)],
+    );
+    assert!(result.is_err(), "expected error from move_creature_to");
+}
 
 #[test]
 fn test_move_right_two_ends_at_2_0() {

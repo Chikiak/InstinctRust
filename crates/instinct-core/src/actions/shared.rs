@@ -241,6 +241,15 @@ pub(super) fn out_of_map_noop() -> ActionResult {
     }
 }
 
+/// No-op result for a natural abort (e.g. insufficient health to reproduce):
+/// does nothing, but consumes the turn.
+pub(super) fn natural_abort_noop() -> ActionResult {
+    ActionResult {
+        sleep_turns: 0,
+        events: Vec::new(),
+    }
+}
+
 /// Converts a `Value` to its textual representation (integers are shown as
 /// their decimal string).
 pub(super) fn value_to_text(value: &Value) -> String {

@@ -65,9 +65,7 @@ impl crate::actions::Action for Move {
             y = ny;
         }
 
-        let _ = world.move_creature_to(creature_id, x as usize, y as usize);
+        world.move_creature_to(creature_id, x as usize, y as usize)?;
         Ok(out_of_map_noop())
     }
 }
-
-

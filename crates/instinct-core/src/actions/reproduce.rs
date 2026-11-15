@@ -10,7 +10,7 @@
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::{
-    is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg,
+    is_out_of_bounds, natural_abort_noop, out_of_map_noop, parse_dir_arg, parse_int_arg,
 };
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
@@ -45,7 +45,8 @@ impl crate::actions::Action for Reproduce {
         })?;
         // The mother must have health strictly greater than `health`.
         if mother.health <= health {
-            return Ok(out_of_map_noop());
+            // Aborto natural por salud insuficiente de la madre.
+            return Ok(natural_abort_noop());
         }
         let species = mother.species.clone();
         let mother_health = mother.health;
