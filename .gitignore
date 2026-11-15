@@ -1,3 +1,10 @@
 /target/
 .idea/
 *.lock
+
+# Artefactos de salida de comandos (se mantienen en disco, no se versionan)
+*_out.txt
+cli_out.txt
+clippy_out.txt
+fmt_out.txt
+test_out.txt
