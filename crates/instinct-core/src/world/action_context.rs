@@ -1,6 +1,7 @@
 //! `ActionContext` implementation for `World`.
 
 use super::World;
+use crate::actions::consts::ACTION_ATTACK;
 use crate::actions::{ActionContext, ReadContext, WriteContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::Pos;
@@ -47,7 +48,7 @@ impl World {
         let t = &mut self.terrains[terrain_idx];
         t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
             Diagnostic::new(
-                "attack",
+                ACTION_ATTACK,
                 1,
                 format!("overflow damaging terrain index {terrain_idx}"),
             )

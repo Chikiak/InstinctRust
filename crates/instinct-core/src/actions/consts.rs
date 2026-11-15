@@ -3,7 +3,7 @@
 pub(super) const ACTION_WAIT: &str = "wait";
 pub(super) const ACTION_MOVE: &str = "move";
 pub(super) const ACTION_SAY: &str = "say";
-pub(super) const ACTION_ATTACK: &str = "attack";
+pub const ACTION_ATTACK: &str = "attack";
 pub(super) const ACTION_CONSUME: &str = "consume";
 pub(super) const ACTION_REPRODUCE: &str = "reproduce";
 pub(super) const ACTION_ROAR: &str = "roar";
