@@ -5,20 +5,10 @@
 
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{out_of_map_noop, parse_dir_arg, parse_int_arg};
+use crate::actions::shared::{index_from_i64, out_of_map_noop, parse_dir_arg, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;
-
-/// Converts an integer into a grid index (`usize`). Rejects negatives so they
-/// never wrap into a huge index, and rejects values that do not fit in
-/// `usize`. Avoids any silent sign conversion when computing the next cell.
-pub fn index_from_i64(n: i64) -> Option<usize> {
-    if n < 0 {
-        return None;
-    }
-    usize::try_from(n).ok()
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Move;

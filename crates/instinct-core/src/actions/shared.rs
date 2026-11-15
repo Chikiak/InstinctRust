@@ -269,3 +269,13 @@ pub(super) fn creature_context(
     let tick = ctx.tick();
     Ok((pos, species, tick))
 }
+
+/// Converts an integer into a grid index (`usize`). Rejects negatives so they
+/// never wrap into a huge index, and rejects values that do not fit in
+/// `usize`. Avoids any silent sign conversion when computing the next cell.
+pub fn index_from_i64(n: i64) -> Option<usize> {
+    if n < 0 {
+        return None;
+    }
+    usize::try_from(n).ok()
+}
