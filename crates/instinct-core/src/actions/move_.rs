@@ -3,11 +3,12 @@
 //! Direction (0, 0) or speed <= 0: does not move and does not fail. dx or dy
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
+use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::{out_of_map_noop, parse_dir_arg, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 /// Converts an integer into a grid index (`usize`). Rejects negatives so they
 /// never wrap into a huge index, and rejects values that do not fit in
@@ -34,7 +35,7 @@ impl crate::actions::Action for Move {
     }
     fn apply(
         &self,
-        world: &mut World,
+        world: &mut dyn ActionContext,
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {

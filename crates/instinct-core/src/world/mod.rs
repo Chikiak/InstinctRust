@@ -16,6 +16,7 @@ pub mod snapshot;
 pub mod ticks;
 #[allow(clippy::module_inception)]
 pub mod world;
+pub mod action_context;
 
 pub use context::CreatureContext;
 pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState};

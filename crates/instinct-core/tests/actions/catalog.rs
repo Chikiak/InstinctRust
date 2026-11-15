@@ -1,7 +1,7 @@
 //! Catalog action tests.
 
 use super::common::*;
-use instinct_core::actions::{Action, Catalog};
+use instinct_core::actions::{Action, ActionContext, Catalog};
 use instinct_core::value::Value;
 use std::rc::Rc;
 
@@ -51,7 +51,7 @@ fn test_catalog_extension_with_test_only_action() {
         }
         fn apply(
             &self,
-            _world: &mut World,
+            _world: &mut dyn ActionContext,
             _creature_id: CreatureId,
             _args: &[Value],
         ) -> Result<ActionResult, Diagnostic> {

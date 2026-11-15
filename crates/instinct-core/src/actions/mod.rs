@@ -6,6 +6,7 @@
 
 pub mod attack;
 pub mod catalog;
+pub mod context;
 pub mod consume;
 pub mod move_;
 pub mod reproduce;
@@ -18,6 +19,7 @@ pub mod wait;
 pub use attack::Attack;
 pub use catalog::Catalog;
 pub use consume::Consume;
+pub use context::ActionContext;
 pub use move_::{index_from_i64, Move};
 pub use r#trait::{Action, ActionResult};
 pub use reproduce::Reproduce;

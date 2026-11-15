@@ -1,11 +1,12 @@
 //! `wait(n)`: sleeps `n-1` turns; `n < 1` counts as 1 (zero sleep); text
 //! argument fails.
 
+use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::parse_int_arg;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wait;
@@ -22,7 +23,7 @@ impl crate::actions::Action for Wait {
     }
     fn apply(
         &self,
-        _world: &mut World,
+        _world: &mut dyn ActionContext,
         _creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {

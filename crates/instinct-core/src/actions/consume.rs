@@ -1,13 +1,14 @@
 //! `consume(dx, dy, damage, heal)`: like `attack` on the adjacent cell, and
 //! additionally the attacking creature gains `heal` health points (no cap).
 
+use crate::actions::ActionContext;
+use crate::actions::ActionResult;
 use crate::actions::shared::{
     heal_attacker, is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg, strike_cell,
 };
-use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Consume;
@@ -24,7 +25,7 @@ impl crate::actions::Action for Consume {
     }
     fn apply(
         &self,
-        world: &mut World,
+        world: &mut dyn ActionContext,
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {

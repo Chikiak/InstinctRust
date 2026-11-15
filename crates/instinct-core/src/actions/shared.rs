@@ -1,11 +1,11 @@
 //! Shared helpers for actions: direction validation, striking an adjacent
 //! cell, and healing the attacker.
 
-use super::ActionResult;
+use super::{ActionContext, ActionResult};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
 use crate::value::Value;
-use crate::world::{CellContent, CreatureId, World};
+use crate::world::{CellContent, CreatureId};
 
 /// Builds an `Event::Damaged` for a strike on cell `(tx, ty)` by the attacker
 /// at `pos` belonging to `species`, at `tick`, dealing `amount` damage.
@@ -28,7 +28,7 @@ pub(super) fn damaged_event(
 /// Strikes a creature at `target_id`: reduces its health, kills it at <= 0,
 /// and returns damage/died events.
 pub(super) fn strike_creature(
-    world: &mut World,
+    ctx: &mut dyn ActionContext,
     _attacker_id: CreatureId,
     target_id: CreatureId,
     attacker_pos: Pos,
@@ -38,7 +38,7 @@ pub(super) fn strike_creature(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let creature = world.creature_mut(target_id).ok_or_else(|| {
+    let creature = ctx.creature_mut(target_id).ok_or_else(|| {
         Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
     })?;
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
@@ -62,7 +62,7 @@ pub(super) fn strike_creature(
         // die_by_error.
         let victim_species = creature.species.name.clone();
         let died_pos = Pos { x: creature.x, y: creature.y };
-        world.remove_creature(target_id)?;
+        ctx.remove_creature(target_id)?;
         events.push(Event::Died {
             tick,
             species: victim_species,
@@ -76,7 +76,7 @@ pub(super) fn strike_creature(
 /// Strikes an object at cell `(tx, ty)`: reduces its reserve and returns a
 /// damage event.
 pub(super) fn strike_object(
-    world: &mut World,
+    ctx: &mut dyn ActionContext,
     attacker_species: &str,
     attacker_pos: Pos,
     tick: u64,
@@ -84,7 +84,7 @@ pub(super) fn strike_object(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    world.damage_cell_content(tx, ty, damage)?;
+    ctx.damage_cell_content(tx, ty, damage)?;
     Ok(vec![damaged_event(
         tick,
         attacker_species,
@@ -97,7 +97,7 @@ pub(super) fn strike_object(
 /// Strikes the terrain at cell `(tx, ty)`: reduces its reserve and returns a
 /// damage event.
 pub(super) fn strike_terrain(
-    world: &mut World,
+    ctx: &mut dyn ActionContext,
     attacker_species: &str,
     attacker_pos: Pos,
     tick: u64,
@@ -105,15 +105,8 @@ pub(super) fn strike_terrain(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let t_idx = world.terrain[ty][tx];
-    let t = &mut world.terrains[t_idx];
-    t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
-        Diagnostic::new(
-            "attack",
-            1,
-            format!("overflow damaging terrain at ({tx},{ty})"),
-        )
-    })?;
+    let t_idx = ctx.terrain_at(tx, ty);
+    ctx.damage_terrain_reserve(t_idx, damage)?;
     Ok(vec![damaged_event(
         tick,
         attacker_species,
@@ -129,27 +122,27 @@ pub(super) fn strike_terrain(
 /// of map: no-op, no event, no error. `(0, 0)` targets the terrain under the
 /// creature itself.
 pub(super) fn strike_cell(
-    world: &mut World,
+    ctx: &mut dyn ActionContext,
     creature_id: CreatureId,
     dx: i64,
     dy: i64,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let pos = world.creature_position(creature_id)?;
-    let species = world.creature_species(creature_id)?;
-    let tick = world.tick();
+    let pos = ctx.creature_position(creature_id)?;
+    let species = ctx.creature_species(creature_id)?;
+    let tick = ctx.tick();
 
     let tx = pos.x as i64 + dx;
     let ty = pos.y as i64 + dy;
 
     // Destination out of map: no-op, no error, no event.
-    if tx < 0 || ty < 0 || tx >= world.columns as i64 || ty >= world.rows as i64 {
+    if tx < 0 || ty < 0 || tx >= ctx.columns() as i64 || ty >= ctx.rows() as i64 {
         return Ok(Vec::new());
     }
     let tx = tx as usize;
     let ty = ty as usize;
 
-    let mut target = world.content[ty][tx].clone();
+    let mut target = ctx.content_at(tx, ty);
     // The attacker's own cell (dx=0, dy=0) strikes the terrain under it,
     // never the creature itself.
     if tx == pos.x && ty == pos.y {
@@ -158,7 +151,7 @@ pub(super) fn strike_cell(
 
     match target {
         CellContent::Creature(target_id) => strike_creature(
-            world,
+            ctx,
             creature_id,
             target_id,
             pos,
@@ -169,20 +162,20 @@ pub(super) fn strike_cell(
             damage,
         ),
         CellContent::Object(_obj_idx) => {
-            strike_object(world, &species, pos, tick, tx, ty, damage)
+            strike_object(ctx, &species, pos, tick, tx, ty, damage)
         }
-        CellContent::Empty => strike_terrain(world, &species, pos, tick, tx, ty, damage),
+        CellContent::Empty => strike_terrain(ctx, &species, pos, tick, tx, ty, damage),
     }
 }
 
 /// Applies `heal` to the attacking creature's health (no cap; can accumulate).
 /// Returns a runtime error on overflow.
 pub(super) fn heal_attacker(
-    world: &mut World,
+    ctx: &mut dyn ActionContext,
     creature_id: CreatureId,
     heal: i64,
 ) -> Result<(), Diagnostic> {
-    let creature = world.creature_mut(creature_id).ok_or_else(|| {
+    let creature = ctx.creature_mut(creature_id).ok_or_else(|| {
         Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
     })?;
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
@@ -236,8 +229,8 @@ pub(super) fn parse_dir_arg(
 }
 
 /// Returns `true` if `(x, y)` is outside the world grid.
-pub(super) fn is_out_of_bounds(world: &World, x: i64, y: i64) -> bool {
-    x < 0 || y < 0 || x >= world.columns as i64 || y >= world.rows as i64
+pub(super) fn is_out_of_bounds(ctx: &dyn ActionContext, x: i64, y: i64) -> bool {
+    x < 0 || y < 0 || x >= ctx.columns() as i64 || y >= ctx.rows() as i64
 }
 
 /// No-op result for actions whose target is outside the map.
@@ -259,11 +252,11 @@ pub(super) fn value_to_text(value: &Value) -> String {
 
 /// Returns the creature's position, species name, and the current tick.
 pub(super) fn creature_context(
-    world: &World,
+    ctx: &dyn ActionContext,
     creature_id: CreatureId,
 ) -> Result<(Pos, String, u64), Diagnostic> {
-    let pos = world.creature_position(creature_id)?;
-    let species = world.creature_species(creature_id)?;
-    let tick = world.tick();
+    let pos = ctx.creature_position(creature_id)?;
+    let species = ctx.creature_species(creature_id)?;
+    let tick = ctx.tick();
     Ok((pos, species, tick))
 }

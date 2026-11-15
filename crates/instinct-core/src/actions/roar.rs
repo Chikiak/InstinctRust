@@ -2,12 +2,13 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
+use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::actions::shared::{creature_context, value_to_text};
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roar;
@@ -24,7 +25,7 @@ impl crate::actions::Action for Roar {
     }
     fn apply(
         &self,
-        world: &mut World,
+        world: &mut dyn ActionContext,
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {

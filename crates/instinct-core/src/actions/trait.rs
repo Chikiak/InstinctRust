@@ -1,10 +1,11 @@
 //! `Action` trait and `ActionResult`: the interpreter applies actions through
 //! this trait and the world applies the returned action.
 
+use crate::actions::ActionContext;
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 /// Result of applying an action: the number of sleep turns (0 = awake) and
 /// any events to append to the world's event log.
@@ -26,7 +27,7 @@ pub trait Action: std::fmt::Debug {
     /// given creature id. Returns an `ActionResult`.
     fn apply(
         &self,
-        world: &mut World,
+        world: &mut dyn ActionContext,
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic>;

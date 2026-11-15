@@ -7,13 +7,14 @@
 //! snapshot excludes it from the current tick). Any failure is a natural
 //! abort: it does nothing, but consumes the turn.
 
+use crate::actions::ActionContext;
+use crate::actions::ActionResult;
 use crate::actions::shared::{
     is_out_of_bounds, out_of_map_noop, parse_dir_arg, parse_int_arg,
 };
-use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use crate::world::{CreatureId, World};
+use crate::world::CreatureId;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reproduce;
@@ -30,7 +31,7 @@ impl crate::actions::Action for Reproduce {
     }
     fn apply(
         &self,
-        world: &mut World,
+        world: &mut dyn ActionContext,
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
