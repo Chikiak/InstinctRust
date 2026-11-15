@@ -1,57 +1,14 @@
-//! Unit tests para el núcleo de tipos compilados: `Program`, `Line` y la
-//! tabla de etiquetas (`labels`).
-//!
-//! Los programas se construyen de verdad con `compile`; no se mockea el
-//! núcleo.
+//! Tests that `Line::clone` preserves expression, arguments and source
+//! line for every variant.
 
-use instinct_core::actions::Catalog;
-use instinct_core::compile;
+use super::compile_text;
 use instinct_core::expr::{Expr, FakeContext};
 use instinct_core::interp::InterpreterVisitor;
-use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::program::{Line, Program};
 use instinct_core::value::Value;
 
-fn default_catalogs() -> (Catalog, PerceptionCatalog) {
-    (Catalog::default(), PerceptionCatalog::default())
-}
-
-fn compile_text(text: &str) -> instinct_core::compile::CompileResult {
-    let (cat, pc) = default_catalogs();
-    compile::compile(text, &cat, &pc, "test.ins")
-}
-
-// ---------------------------------------------------------------------------
-// AC2: resolve_label con etiqueta conocida y desconocida
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_resolve_label_known_and_unknown() {
-    let text =
-        "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\ngoto end\nend:\n";
-    let result = compile_text(text);
-    assert!(
-        result.diagnostics.is_empty(),
-        "diagnósticos inesperados: {:?}",
-        result.diagnostics
-    );
-
-    // Índices de `lines` (solo el cuerpo entra en `lines`):
-    // 0 = Label start, 1 = Goto end, 2 = Label end
-    assert_eq!(result.program.resolve_label("start"), Some(0));
-    assert_eq!(result.program.resolve_label("end"), Some(2));
-    assert_eq!(result.program.resolve_label("no_existe"), None);
-
-    // Programa vacío: sin etiquetas.
-    assert_eq!(Program::new().resolve_label("cualquiera"), None);
-    assert_eq!(Program::default().resolve_label("cualquiera"), None);
-}
-
-// ---------------------------------------------------------------------------
-// AC3: Line::clone conserva expresión, argumentos y línea por variante
-// ---------------------------------------------------------------------------
-
-/// Evalúa `expr` con `health = value` y devuelve si el resultado es Int(1).
+/// Evaluates `expr` with `health = value` and returns whether the result
+/// is Int(1).
 fn eval_expr(expr: &dyn Expr, value: i64) -> bool {
     let ctx = FakeContext::new().with("health", Value::Int(value));
     matches!(
@@ -60,35 +17,35 @@ fn eval_expr(expr: &dyn Expr, value: i64) -> bool {
     )
 }
 
-/// Busca la primera línea que cumple `f` (el programa vive prestado).
+/// Finds the first line satisfying `f` (the program is borrowed).
 fn find_line(program: &Program, f: impl Fn(&Line) -> bool) -> &Line {
     program
         .lines
         .iter()
         .find(|l| f(l))
-        .expect("se esperaba una línea del programa en el test")
+        .expect("expected a program line in the test")
 }
 
 #[test]
 fn test_line_clone_all_variants() {
-    // `line` guarda el número de línea de origen, no el índice en `lines`.
+    // `line` stores the source line number, not the index in `lines`.
     let text = "creature X\nfaction any\nhealth 10\nvision 3\nlifespan 100\nstart:\ngoto loop\nif health > 0 goto loop\nenergy = 5\nwait(1)\nloop:\n";
     let result = compile_text(text);
     assert!(
         result.diagnostics.is_empty(),
-        "diagnósticos inesperados: {:?}",
+        "unexpected diagnostics: {:?}",
         result.diagnostics
     );
     let program = result.program;
 
-    // ---- Label { name, line }: el clon conserva nombre y línea de origen ----
+    // ---- Label { name, line }: the clone preserves name and source line ----
     let start = find_line(
         &program,
         |l| matches!(l, Line::Label { name, .. } if name == "start"),
     );
     let (orig_name, orig_line) = match start {
         Line::Label { name, line } => (name.clone(), *line),
-        _ => panic!("se esperaba Label"),
+        _ => panic!("expected Label"),
     };
     match start.clone() {
         Line::Label { name, line } => {
@@ -96,7 +53,7 @@ fn test_line_clone_all_variants() {
             assert_eq!(name, orig_name);
             assert_eq!(line, orig_line);
         }
-        _ => panic!("se esperaba Label clonado"),
+        _ => panic!("expected cloned Label"),
     }
 
     // ---- Goto { label, line } ----
@@ -106,7 +63,7 @@ fn test_line_clone_all_variants() {
     );
     let (orig_label, orig_line) = match goto {
         Line::Goto { label, line } => (label.clone(), *line),
-        _ => panic!("se esperaba Goto"),
+        _ => panic!("expected Goto"),
     };
     match goto.clone() {
         Line::Goto { label, line } => {
@@ -114,15 +71,15 @@ fn test_line_clone_all_variants() {
             assert_eq!(label, orig_label);
             assert_eq!(line, orig_line);
         }
-        _ => panic!("se esperaba Goto clonado"),
+        _ => panic!("expected cloned Goto"),
     }
 
-    // ---- IfGoto { expr, label, line }: se conserva operador, etiqueta,
-    // línea de origen y evaluación de la expresión ----
+    // ---- IfGoto { expr, label, line }: operator, label,
+    // source line and expression evaluation ----
     let cond = find_line(&program, |l| matches!(l, Line::IfGoto { .. }));
     let (orig_label, orig_line) = match cond {
         Line::IfGoto { label, line, .. } => (label.clone(), *line),
-        _ => panic!("se esperaba IfGoto"),
+        _ => panic!("expected IfGoto"),
     };
     match cond {
         Line::IfGoto { expr, label, .. } => {
@@ -131,7 +88,7 @@ fn test_line_clone_all_variants() {
             assert!(eval_expr(&**expr, 5));
             assert!(!eval_expr(&**expr, 0));
         }
-        _ => panic!("se esperaba IfGoto"),
+        _ => panic!("expected IfGoto"),
     }
     match cond.clone() {
         Line::IfGoto { expr, label, line } => {
@@ -142,14 +99,14 @@ fn test_line_clone_all_variants() {
             assert!(eval_expr(&*expr, 5));
             assert!(!eval_expr(&*expr, 0));
         }
-        _ => panic!("se esperaba IfGoto clonado"),
+        _ => panic!("expected cloned IfGoto"),
     }
 
     // ---- Assign { name, expr, line } ----
     let assign = find_line(&program, |l| matches!(l, Line::Assign { .. }));
     let (orig_name, orig_line) = match assign {
         Line::Assign { name, line, .. } => (name.clone(), *line),
-        _ => panic!("se esperaba Assign"),
+        _ => panic!("expected Assign"),
     };
     match assign {
         Line::Assign { name, expr, .. } => {
@@ -161,7 +118,7 @@ fn test_line_clone_all_variants() {
                 Value::Int(5)
             );
         }
-        _ => panic!("se esperaba Assign"),
+        _ => panic!("expected Assign"),
     }
     match assign.clone() {
         Line::Assign { name, expr, line } => {
@@ -174,14 +131,14 @@ fn test_line_clone_all_variants() {
                 Value::Int(5)
             );
         }
-        _ => panic!("se esperaba Assign clonado"),
+        _ => panic!("expected cloned Assign"),
     }
 
     // ---- Action { action, args, line } ----
     let action_line = find_line(&program, |l| matches!(l, Line::Action { .. }));
     let orig_line = match action_line {
         Line::Action { line, .. } => *line,
-        _ => panic!("se esperaba Action"),
+        _ => panic!("expected Action"),
     };
     match action_line {
         Line::Action { action, args, .. } => {
@@ -195,7 +152,7 @@ fn test_line_clone_all_variants() {
                 Value::Int(1)
             );
         }
-        _ => panic!("se esperaba Action"),
+        _ => panic!("expected Action"),
     }
     match action_line.clone() {
         Line::Action { action, args, line } => {
@@ -210,6 +167,6 @@ fn test_line_clone_all_variants() {
                 Value::Int(1)
             );
         }
-        _ => panic!("se esperaba Action clonado"),
+        _ => panic!("expected cloned Action"),
     }
 }
