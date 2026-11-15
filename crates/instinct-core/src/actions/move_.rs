@@ -3,9 +3,9 @@
 //! Direction (0, 0) or speed <= 0: does not move and does not fail. dx or dy
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
+use crate::actions::shared::{index_from_i64, out_of_map_noop, parse_dir_args, parse_int_arg};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{index_from_i64, out_of_map_noop, parse_dir_args, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;

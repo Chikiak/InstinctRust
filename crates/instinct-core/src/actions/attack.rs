@@ -5,9 +5,9 @@
 //! consumed, no error. A creature dropping to health <= 0 dies on the spot
 //! (cell freed, Died cause "health") in the same tick.
 
+use crate::actions::shared::{action_result, parse_dir_args, parse_int_arg, strike_cell};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{action_result, parse_dir_args, parse_int_arg, strike_cell};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;

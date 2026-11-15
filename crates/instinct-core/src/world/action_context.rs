@@ -1,7 +1,7 @@
 //! `ActionContext` implementation for `World`.
 
 use super::World;
-use crate::actions::ActionContext;
+use crate::actions::{ActionContext, ReadContext, WriteContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::Pos;
 use crate::species::Species;
@@ -46,13 +46,17 @@ impl World {
     ) -> Result<(), Diagnostic> {
         let t = &mut self.terrains[terrain_idx];
         t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
-            Diagnostic::new("attack", 1, format!("overflow damaging terrain index {terrain_idx}"))
+            Diagnostic::new(
+                "attack",
+                1,
+                format!("overflow damaging terrain index {terrain_idx}"),
+            )
         })?;
         Ok(())
     }
 }
 
-impl ActionContext for World {
+impl ReadContext for World {
     fn creature_position(&self, id: CreatureId) -> Result<Pos, Diagnostic> {
         self.creature_position(id)
     }
@@ -88,7 +92,9 @@ impl ActionContext for World {
     fn terrain_at(&self, x: usize, y: usize) -> usize {
         self.terrain_at(x, y)
     }
+}
 
+impl WriteContext for World {
     fn creature_mut(&mut self, id: CreatureId) -> Option<&mut Creature> {
         self.creature_mut(id)
     }
@@ -118,12 +124,7 @@ impl ActionContext for World {
         self.add_roar(id, species, pos, text)
     }
 
-    fn damage_cell_content(
-        &mut self,
-        x: usize,
-        y: usize,
-        damage: i64,
-    ) -> Result<(), Diagnostic> {
+    fn damage_cell_content(&mut self, x: usize, y: usize, damage: i64) -> Result<(), Diagnostic> {
         self.damage_cell_content(x, y, damage)
     }
 
@@ -135,3 +136,5 @@ impl ActionContext for World {
         self.damage_terrain_reserve(terrain_idx, damage)
     }
 }
+
+impl ActionContext for World {}

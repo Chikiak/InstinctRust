@@ -37,11 +37,7 @@ impl ActionCatalog {
 
     /// Resolves an action by name, validating arity. Returns a diagnostic
     /// naming the argument if unknown or wrong arity.
-    pub fn resolve(
-        &self,
-        name: &str,
-        arg_count: usize,
-    ) -> Result<Rc<dyn Action>, Diagnostic> {
+    pub fn resolve(&self, name: &str, arg_count: usize) -> Result<Rc<dyn Action>, Diagnostic> {
         match self.actions.iter().find(|a| a.name() == name) {
             Some(action) => {
                 if action.arity() != arg_count {

@@ -7,11 +7,12 @@
 //! snapshot excludes it from the current tick). Any failure is a natural
 //! abort: it does nothing, but consumes the turn.
 
+use crate::actions::shared::{
+    checked_sub_health, creature_context, is_out_of_bounds, natural_abort_noop, out_of_map_noop,
+    parse_dir_arg, parse_int_arg,
+};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{
-    creature_context, is_out_of_bounds, natural_abort_noop, out_of_map_noop, parse_dir_arg, parse_int_arg,
-};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;
@@ -35,36 +36,36 @@ impl crate::actions::Action for Reproduce {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
+        // --- parsing ---
         let dx = parse_dir_arg(&args[0], "reproduce", "dx")?;
         let dy = parse_dir_arg(&args[1], "reproduce", "dy")?;
         let health = parse_int_arg(&args[2], "reproduce", "health")?;
 
+        // --- creature context ---
         let (pos, _species, _tick) = creature_context(world, creature_id)?;
         let mother = world.creature(creature_id).ok_or_else(|| {
             Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
         })?;
-        // The mother must have health strictly greater than `health`.
+
+        // --- validation: mother must have health strictly greater than `health` ---
         if mother.health <= health {
             return Ok(natural_abort_noop());
         }
         let species = mother.species.clone();
         let mother_health = mother.health;
 
-        // New mother health with checked arithmetic, before mutating anything.
-        let new_mother_health = mother_health.checked_sub(health).ok_or_else(|| {
-            Diagnostic::new(
-                "reproduce",
-                1,
-                format!("overflow reducing mother health at ({},{})", pos.x, pos.y),
-            )
-        })?;
+        // --- mother health: checked subtraction ---
+        let new_mother_health = checked_sub_health(mother_health, health, "reproduce", pos)?;
 
+        // --- bounds check ---
         let tx = pos.x as i64 + dx;
         let ty = pos.y as i64 + dy;
         // Out of map: natural abort.
         if is_out_of_bounds(world, tx, ty) {
             return Ok(out_of_map_noop());
         }
+
+        // --- place child ---
         // `place_creature` validates bounds and free cell: occupied cell ->
         // natural abort without touching the mother.
         let child_id = match world.place_creature(&species, tx as usize, ty as usize) {
@@ -74,6 +75,7 @@ impl crate::actions::Action for Reproduce {
         // `place_creature` initializes with `species.health`; adjust to `health`.
         world.set_creature_health(child_id, health)?;
 
+        // --- apply damage to mother ---
         let mother = world.creature_mut(creature_id).ok_or_else(|| {
             Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
         })?;

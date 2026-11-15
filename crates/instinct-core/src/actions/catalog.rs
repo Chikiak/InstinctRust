@@ -104,6 +104,7 @@ impl Catalog {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Catalog {
     fn default() -> Self {
         Catalog {

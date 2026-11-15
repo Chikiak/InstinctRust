@@ -1,9 +1,9 @@
 //! `wait(n)`: sleeps `n-1` turns; `n < 1` counts as 1 (zero sleep); text
 //! argument fails.
 
+use crate::actions::shared::{action_result, parse_int_arg};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{action_result, parse_int_arg};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 use crate::world::CreatureId;

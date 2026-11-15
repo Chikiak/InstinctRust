@@ -2,9 +2,9 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
+use crate::actions::shared::{action_result, creature_context, value_to_text};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
-use crate::actions::shared::{action_result, creature_context, value_to_text};
 use crate::diagnostic::Diagnostic;
 use crate::event::Event;
 use crate::value::Value;
@@ -32,11 +32,14 @@ impl crate::actions::Action for Roar {
         let text = value_to_text(&args[0]);
         let (pos, species, tick) = creature_context(world, creature_id)?;
         world.add_roar(creature_id, species.clone(), pos, text.clone());
-        Ok(action_result(0, vec![Event::Roared {
-            tick,
-            species,
-            pos,
-            text,
-        }]))
+        Ok(action_result(
+            0,
+            vec![Event::Roared {
+                tick,
+                species,
+                pos,
+                text,
+            }],
+        ))
     }
 }

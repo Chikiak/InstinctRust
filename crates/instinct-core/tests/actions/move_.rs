@@ -2,7 +2,7 @@
 
 use super::common::*;
 use instinct_core::actions::Move;
-use instinct_core::actions::ActionContext;
+use instinct_core::actions::{ActionContext, ReadContext, WriteContext};
 use instinct_core::diagnostic::Diagnostic;
 use instinct_core::event::Pos;
 use instinct_core::species::Species;
@@ -13,7 +13,7 @@ use std::rc::Rc;
 /// Mock `ActionContext` where `move_creature_to` always returns an error.
 struct FailingMoveContext;
 
-impl ActionContext for FailingMoveContext {
+impl ReadContext for FailingMoveContext {
     fn creature_position(&self, _id: CreatureId) -> Result<Pos, Diagnostic> {
         Ok(Pos { x: 0, y: 0 })
     }
@@ -41,7 +41,13 @@ impl ActionContext for FailingMoveContext {
     fn terrain_at(&self, _x: usize, _y: usize) -> usize {
         0
     }
-    fn creature_mut(&mut self, _id: CreatureId) -> Option<&mut instinct_core::world::creature::Creature> {
+}
+
+impl WriteContext for FailingMoveContext {
+    fn creature_mut(
+        &mut self,
+        _id: CreatureId,
+    ) -> Option<&mut instinct_core::world::creature::Creature> {
         None
     }
     fn remove_creature(&mut self, _id: CreatureId) -> Result<(), Diagnostic> {
@@ -58,7 +64,12 @@ impl ActionContext for FailingMoveContext {
     fn set_creature_health(&mut self, _id: CreatureId, _health: i64) -> Result<(), Diagnostic> {
         Ok(())
     }
-    fn move_creature_to(&mut self, _id: CreatureId, _x: usize, _y: usize) -> Result<(), Diagnostic> {
+    fn move_creature_to(
+        &mut self,
+        _id: CreatureId,
+        _x: usize,
+        _y: usize,
+    ) -> Result<(), Diagnostic> {
         Err(Diagnostic::new("move", 0, "move_creature_to failed"))
     }
     fn add_roar(&mut self, _id: CreatureId, _species: String, _pos: Pos, _text: String) {}
@@ -78,6 +89,8 @@ impl ActionContext for FailingMoveContext {
         Ok(())
     }
 }
+
+impl ActionContext for FailingMoveContext {}
 
 #[test]
 fn test_move_propagates_move_creature_to_error() {

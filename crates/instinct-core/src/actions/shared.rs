@@ -1,7 +1,7 @@
 //! Shared helpers for actions: direction validation, striking an adjacent
 //! cell, and healing the attacker.
 
-use super::{ActionContext, ActionResult};
+use super::{ActionContext, ActionResult, ReadContext, WriteContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
 use crate::value::Value;
@@ -9,13 +9,7 @@ use crate::world::{CellContent, CreatureId};
 
 /// Builds an `Event::Damaged` for a strike on cell `(tx, ty)` by the attacker
 /// at `pos` belonging to `species`, at `tick`, dealing `amount` damage.
-pub(super) fn damaged_event(
-    tick: u64,
-    species: &str,
-    pos: Pos,
-    target: Pos,
-    amount: i64,
-) -> Event {
+pub(super) fn damaged_event(tick: u64, species: &str, pos: Pos, target: Pos, amount: i64) -> Event {
     Event::Damaged {
         tick,
         species: species.to_string(),
@@ -27,8 +21,9 @@ pub(super) fn damaged_event(
 
 /// Strikes a creature at `target_id`: reduces its health, kills it at <= 0,
 /// and returns damage/died events.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn strike_creature(
-    ctx: &mut dyn ActionContext,
+    ctx: &mut dyn WriteContext,
     _attacker_id: CreatureId,
     target_id: CreatureId,
     attacker_pos: Pos,
@@ -38,9 +33,9 @@ pub(super) fn strike_creature(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let creature = ctx.creature_mut(target_id).ok_or_else(|| {
-        Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
-    })?;
+    let creature = ctx
+        .creature_mut(target_id)
+        .ok_or_else(|| Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}")))?;
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
             "attack",
@@ -61,7 +56,10 @@ pub(super) fn strike_creature(
         // attacker; consistent with end_of_tick_creatures and
         // die_by_error.
         let victim_species = creature.species.name.clone();
-        let died_pos = Pos { x: creature.x, y: creature.y };
+        let died_pos = Pos {
+            x: creature.x,
+            y: creature.y,
+        };
         ctx.remove_creature(target_id)?;
         events.push(Event::Died {
             tick,
@@ -76,7 +74,7 @@ pub(super) fn strike_creature(
 /// Strikes an object at cell `(tx, ty)`: reduces its reserve and returns a
 /// damage event.
 pub(super) fn strike_object(
-    ctx: &mut dyn ActionContext,
+    ctx: &mut dyn WriteContext,
     attacker_species: &str,
     attacker_pos: Pos,
     tick: u64,
@@ -161,9 +159,7 @@ pub(super) fn strike_cell(
             ty,
             damage,
         ),
-        CellContent::Object(_obj_idx) => {
-            strike_object(ctx, &species, pos, tick, tx, ty, damage)
-        }
+        CellContent::Object(_obj_idx) => strike_object(ctx, &species, pos, tick, tx, ty, damage),
         CellContent::Empty => strike_terrain(ctx, &species, pos, tick, tx, ty, damage),
     }
 }
@@ -171,7 +167,7 @@ pub(super) fn strike_cell(
 /// Applies `heal` to the attacking creature's health (no cap; can accumulate).
 /// Returns a runtime error on overflow.
 pub(super) fn heal_attacker(
-    ctx: &mut dyn ActionContext,
+    ctx: &mut dyn WriteContext,
     creature_id: CreatureId,
     heal: i64,
 ) -> Result<(), Diagnostic> {
@@ -190,6 +186,23 @@ pub(super) fn heal_attacker(
     })?;
     creature.health = new_health;
     Ok(())
+}
+
+/// Checks `current - amount` with overflow protection, returning a diagnostic
+/// on overflow. Used by actions that reduce a creature's health.
+pub(super) fn checked_sub_health(
+    current: i64,
+    amount: i64,
+    action: &str,
+    pos: Pos,
+) -> Result<i64, Diagnostic> {
+    current.checked_sub(amount).ok_or_else(|| {
+        Diagnostic::new(
+            action,
+            1,
+            format!("overflow reducing {action} health at ({},{})", pos.x, pos.y),
+        )
+    })
 }
 
 /// Parses an integer argument, returning an error naming the argument if it is text.
@@ -220,16 +233,14 @@ pub(super) fn parse_dir_arg(
         return Err(Diagnostic::new(
             action,
             1,
-            format!(
-                "argument '{arg_name}' must be -1, 0, or 1, got {n}"
-            ),
+            format!("argument '{arg_name}' must be -1, 0, or 1, got {n}"),
         ));
     }
     Ok(n)
 }
 
 /// Returns `true` if `(x, y)` is outside the world grid.
-pub(super) fn is_out_of_bounds(ctx: &dyn ActionContext, x: i64, y: i64) -> bool {
+pub(super) fn is_out_of_bounds(ctx: &dyn ReadContext, x: i64, y: i64) -> bool {
     x < 0 || y < 0 || x >= ctx.columns() as i64 || y >= ctx.rows() as i64
 }
 
@@ -261,7 +272,7 @@ pub(super) fn value_to_text(value: &Value) -> String {
 
 /// Returns the creature's position, species name, and the current tick.
 pub(super) fn creature_context(
-    ctx: &dyn ActionContext,
+    ctx: &dyn ReadContext,
     creature_id: CreatureId,
 ) -> Result<(Pos, String, u64), Diagnostic> {
     let pos = ctx.creature_position(creature_id)?;
@@ -281,10 +292,7 @@ pub fn index_from_i64(n: i64) -> Option<usize> {
 }
 
 /// Parses the `dx` and `dy` direction arguments, naming each one in errors.
-pub(super) fn parse_dir_args(
-    args: &[Value],
-    action: &str,
-) -> Result<(i64, i64), Diagnostic> {
+pub(super) fn parse_dir_args(args: &[Value], action: &str) -> Result<(i64, i64), Diagnostic> {
     let dx = parse_dir_arg(&args[0], action, "dx")?;
     let dy = parse_dir_arg(&args[1], action, "dy")?;
     Ok((dx, dy))
@@ -363,5 +371,26 @@ mod tests {
         );
         assert_eq!(result.sleep_turns, 0);
         assert_eq!(result.events.len(), 1);
+    }
+
+    #[test]
+    fn checked_sub_health_ok() {
+        let pos = Pos { x: 3, y: 4 };
+        assert_eq!(checked_sub_health(10, 3, "test", pos), Ok(7));
+    }
+
+    #[test]
+    fn checked_sub_health_no_overflow() {
+        let pos = Pos { x: 0, y: 0 };
+        assert_eq!(checked_sub_health(5, 3, "test", pos), Ok(2));
+    }
+
+    #[test]
+    fn checked_sub_health_overflow() {
+        let pos = Pos { x: 9, y: 9 };
+        let err = checked_sub_health(i64::MIN, 1, "reproduce", pos).unwrap_err();
+        assert!(err
+            .message
+            .contains("overflow reducing reproduce health at (9,9)"));
     }
 }

@@ -4,6 +4,7 @@
 //! the generator) and the shared catalog of actions and perceptions. Each
 //! creature keeps its own variable map.
 
+pub mod action_context;
 pub mod clone_debug;
 pub mod context;
 pub mod creature;
@@ -16,7 +17,6 @@ pub mod snapshot;
 pub mod ticks;
 #[allow(clippy::module_inception)]
 pub mod world;
-pub mod action_context;
 
 pub use context::CreatureContext;
 pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState};
