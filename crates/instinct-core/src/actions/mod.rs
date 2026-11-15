@@ -4,6 +4,7 @@
 //! (`Rc<dyn Action>`). The interpreter resolves each name against the catalog
 //! validating arity; there are no `if name == ...` chains by name.
 
+pub mod action_catalog;
 pub mod attack;
 pub mod catalog;
 pub mod context;
@@ -16,6 +17,7 @@ pub mod shared;
 pub mod r#trait;
 pub mod wait;
 
+pub use action_catalog::ActionCatalog;
 pub use attack::Attack;
 pub use catalog::Catalog;
 pub use consume::Consume;
