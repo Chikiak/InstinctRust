@@ -75,7 +75,7 @@ Estado inicial: todos `todo`.
 | R1-06 | Splitear pruebas planas de instinct-core | `rng_tests`, `event_tests`, `value_tests`, `species_tests`, `diagnostic_tests` (+ comentarios ES) | R1-01 | M | done | r1-06-split-core-tests-planos.md |
 | R1-07 | Partir tests largos en módulos ya-split | 8 módulos con tests de 60-140 líneas | R1-06 | L | done | r1-07-partir-tests-largos.md |
 | R1-08 | Splitear pruebas de instinct-cli y deduplicar helpers | `cli_annex`, `cli_check`, `cli_usage` planos | R1-01 | M | done | r1-08-split-cli-tests.md |
-| R1-09 | Higiene del repo: artefacts `*_out.txt` fuera de git | Artefactos trackeados en la raíz | — | S | todo | r1-09-higiene-repo-artefactos.md |
+| R1-09 | Higiene del repo: artefacts `*_out.txt` fuera de git | Artefactos trackeados en la raíz | — | S | done | r1-09-higiene-repo-artefactos.md |
 
 ### Orden y dependencias
 
@@ -107,4 +107,4 @@ Estado inicial: todos `todo`.
 | R1-06 | Pruebas planas sin patrón de carpeta | `tests/rng`, `tests/event`, `tests/value`, `tests/species`, `tests/diagnostic` creados con `mod.rs` + submódulos; 5 archivos planos borrados; `[[test]]` añadidos en Cargo.toml; comentarios ES traducidos; 31→31 tests verdes | done |
 | R1-07 | Tests de 60-140 líneas ilegibles | reproduce, consume, move_, determinism, roars, nearby, catalog, line_clone divididos en tests enfocados + helpers en common.rs; 9 tests largos → 30 tests (net +21), 0 cambios de lógica; todo < 60 líneas | done |
 | R1-08 | Pruebas CLI planas, helpers duplicados | `tests/cli_annex`, `tests/cli_check`, `tests/cli_usage` con `mod.rs`+`helpers.rs`+`*.rs` siguiendo el patrón `cli_run`; planos borrados; `[[test]]` añadidos en `Cargo.toml`; helpers dedup por target (no compartido entre crates de test); comentario ES traducido; `"inexistente"`→`"missing"` en entrada de test | done |
-| R1-09 | Artefactos versionados | — | todo |
+| R1-09 | Artefactos versionados | git rm --cached de cli_out.txt, clippy_out.txt, fmt_out.txt, test_out.txt (archivos conservados en disco); añadidos *_out.txt y nombres explícitos al .gitignore raíz; commit chore: untrack command output artifacts; 0 *_out.txt trackeados tras commit. | done |

@@ -2,7 +2,7 @@
 id: R1-09
 title: Higiene del repo — artefactos `*_out.txt` fuera de git
 phase: R1
-status: todo
+status: done
 depends_on: []
 size: S
 ---
@@ -45,4 +45,4 @@ Higiene detectada en el reconocimiento; no es lógica.
 
 ## Notas de implementación
 
-（vacío tras completar: patrones añadidos al .gitignore)
+Patrones añadidos al .gitignore raíz: *_out.txt, cli_out.txt, clippy_out.txt, fmt_out.txt, test_out.txt. Los 4 archivos siguen en disco, solo dejan de estar trackeados.
