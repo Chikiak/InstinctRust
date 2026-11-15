@@ -7,6 +7,122 @@ use crate::event::{Event, Pos};
 use crate::value::Value;
 use crate::world::{CellContent, CreatureId, World};
 
+/// Builds an `Event::Damaged` for a strike on cell `(tx, ty)` by the attacker
+/// at `pos` belonging to `species`, at `tick`, dealing `amount` damage.
+pub(super) fn damaged_event(
+    tick: u64,
+    species: &str,
+    pos: Pos,
+    target: Pos,
+    amount: i64,
+) -> Event {
+    Event::Damaged {
+        tick,
+        species: species.to_string(),
+        pos,
+        target,
+        amount,
+    }
+}
+
+/// Strikes a creature at `target_id`: reduces its health, kills it at <= 0,
+/// and returns damage/died events.
+pub(super) fn strike_creature(
+    world: &mut World,
+    _attacker_id: CreatureId,
+    target_id: CreatureId,
+    attacker_pos: Pos,
+    attacker_species: &str,
+    tick: u64,
+    tx: usize,
+    ty: usize,
+    damage: i64,
+) -> Result<Vec<Event>, Diagnostic> {
+    let creature = world.creature_mut(target_id).ok_or_else(|| {
+        Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
+    })?;
+    let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
+        Diagnostic::new(
+            "attack",
+            1,
+            format!("overflow damaging creature health at ({tx},{ty})"),
+        )
+    })?;
+    creature.health = new_health;
+    let mut events = vec![damaged_event(
+        tick,
+        attacker_species,
+        attacker_pos,
+        Pos { x: tx, y: ty },
+        damage,
+    )];
+    if new_health <= 0 {
+        // `Died` identifies the creature that dies (victim), not the
+        // attacker; consistent with end_of_tick_creatures and
+        // die_by_error.
+        let victim_species = creature.species.name.clone();
+        let died_pos = Pos { x: creature.x, y: creature.y };
+        world.remove_creature(target_id)?;
+        events.push(Event::Died {
+            tick,
+            species: victim_species,
+            pos: died_pos,
+            cause: "health".to_string(),
+        });
+    }
+    Ok(events)
+}
+
+/// Strikes an object at cell `(tx, ty)`: reduces its reserve and returns a
+/// damage event.
+pub(super) fn strike_object(
+    world: &mut World,
+    attacker_species: &str,
+    attacker_pos: Pos,
+    tick: u64,
+    tx: usize,
+    ty: usize,
+    damage: i64,
+) -> Result<Vec<Event>, Diagnostic> {
+    world.damage_cell_content(tx, ty, damage)?;
+    Ok(vec![damaged_event(
+        tick,
+        attacker_species,
+        attacker_pos,
+        Pos { x: tx, y: ty },
+        damage,
+    )])
+}
+
+/// Strikes the terrain at cell `(tx, ty)`: reduces its reserve and returns a
+/// damage event.
+pub(super) fn strike_terrain(
+    world: &mut World,
+    attacker_species: &str,
+    attacker_pos: Pos,
+    tick: u64,
+    tx: usize,
+    ty: usize,
+    damage: i64,
+) -> Result<Vec<Event>, Diagnostic> {
+    let t_idx = world.terrain[ty][tx];
+    let t = &mut world.terrains[t_idx];
+    t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
+        Diagnostic::new(
+            "attack",
+            1,
+            format!("overflow damaging terrain at ({tx},{ty})"),
+        )
+    })?;
+    Ok(vec![damaged_event(
+        tick,
+        attacker_species,
+        attacker_pos,
+        Pos { x: tx, y: ty },
+        damage,
+    )])
+}
+
 /// Shared logic for "striking an adjacent cell": reduces a creature's health
 /// (immediate death at <= 0), an object's reserve, or the terrain reserve of
 /// cell `(x+dx, y+dy)` of the attacking creature. Returns damage events. Out
@@ -39,77 +155,24 @@ pub(super) fn strike_cell(
     if tx == pos.x && ty == pos.y {
         target = CellContent::Empty;
     }
-    let mut events: Vec<Event> = Vec::new();
 
     match target {
-        CellContent::Creature(target_id) => {
-            let creature = world.creature_mut(target_id).ok_or_else(|| {
-                Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}"))
-            })?;
-            let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
-                Diagnostic::new(
-                    "attack",
-                    1,
-                    format!("overflow damaging creature health at ({tx},{ty})"),
-                )
-            })?;
-            creature.health = new_health;
-            events.push(Event::Damaged {
-                tick,
-                species: species.clone(),
-                pos,
-                target: Pos { x: tx, y: ty },
-                amount: damage,
-            });
-            if new_health <= 0 {
-                // `Died` identifies the creature that dies (victim), not the
-                // attacker; consistent with end_of_tick_creatures and
-                // die_by_error.
-                let victim_species = creature.species.name.clone();
-                let died_pos = Pos {
-                    x: creature.x,
-                    y: creature.y,
-                };
-                world.remove_creature(target_id)?;
-                events.push(Event::Died {
-                    tick,
-                    species: victim_species,
-                    pos: died_pos,
-                    cause: "health".to_string(),
-                });
-            }
-        }
+        CellContent::Creature(target_id) => strike_creature(
+            world,
+            creature_id,
+            target_id,
+            pos,
+            &species,
+            tick,
+            tx,
+            ty,
+            damage,
+        ),
         CellContent::Object(_obj_idx) => {
-            world.damage_cell_content(tx, ty, damage)?;
-            events.push(Event::Damaged {
-                tick,
-                species: species.clone(),
-                pos,
-                target: Pos { x: tx, y: ty },
-                amount: damage,
-            });
+            strike_object(world, &species, pos, tick, tx, ty, damage)
         }
-        CellContent::Empty => {
-            let t_idx = world.terrain[ty][tx];
-            let t = &mut world.terrains[t_idx];
-            t.reserve = t.reserve.checked_sub(damage).ok_or_else(|| {
-                Diagnostic::new(
-                    "attack",
-                    1,
-                    format!("overflow damaging terrain at ({tx},{ty})"),
-                )
-            })?;
-            events.push(Event::Damaged {
-                tick,
-                species: species.clone(),
-                pos,
-                target: Pos { x: tx, y: ty },
-                amount: damage,
-            });
-        }
+        CellContent::Empty => strike_terrain(world, &species, pos, tick, tx, ty, damage),
     }
-
-    Ok(events)
 }
 
 /// Applies `heal` to the attacking creature's health (no cap; can accumulate).
