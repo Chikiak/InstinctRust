@@ -39,4 +39,8 @@ path = "tests/expr/mod.rs"
 name = "resources"
 path = "tests/resources/mod.rs"
 
+[[test]]
+name = "lexer"
+path = "tests/lexer/mod.rs"
+
 [dependencies]
