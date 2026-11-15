@@ -3,7 +3,7 @@
 //! the terrain reserve of that cell. dx/dy outside {-1, 0, 1} or text
 //! arguments fail naming the argument. Destination out of map: no-op, turn
 //! consumed, no error. A creature dropping to health <= 0 dies on the spot
-//! (cell freed, Died cause "vida") in the same tick.
+//! (cell freed, Died cause "health") in the same tick.
 
 use crate::actions::move_::parse_move_arg;
 use crate::actions::shared::{strike_cell, validate_direction};

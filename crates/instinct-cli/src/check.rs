@@ -10,7 +10,7 @@ pub(crate) fn execute_check(path: &str) -> i32 {
         Ok(c) => c,
         Err(e) => {
             eprintln!("{USAGE}");
-            eprintln!("error: no se pudo leer el archivo '{path}': {e}");
+            eprintln!("error: could not read file '{path}': {e}");
             return 1;
         }
     };

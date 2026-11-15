@@ -30,7 +30,7 @@ fn test_cli_f0_walker_no_regression() {
     );
     // Walker has health 10 -> dies by life at end of tick 10.
     assert!(
-        stdout.contains("[tick 9] Walker@0,0 muere por vida") || stdout.contains("muere por vida"),
+        stdout.contains("[tick 9] Walker@0,0 dies of health") || stdout.contains("dies of health"),
         "stderr reports death by life, got: {stderr}"
     );
     assert!(

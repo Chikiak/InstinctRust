@@ -19,7 +19,7 @@ fn test_creature_memento_captures_state() {
             c.pc = 5;
             c.state = CreatureState::Sleeping(3);
             c.variables.insert("oro".to_string(), Value::Int(100));
-            c.variables.insert("vida_extra".to_string(), Value::Int(10));
+            c.variables.insert("extra_life".to_string(), Value::Int(10));
         }
     }
 
@@ -33,7 +33,7 @@ fn test_creature_memento_captures_state() {
     assert_eq!(memento.pc, 5);
     assert_eq!(memento.state, CreatureState::Sleeping(3));
     assert_eq!(memento.variables.get("oro"), Some(&Value::Int(100)));
-    assert_eq!(memento.variables.get("vida_extra"), Some(&Value::Int(10)));
+    assert_eq!(memento.variables.get("extra_life"), Some(&Value::Int(10)));
 }
 
 #[test]

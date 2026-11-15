@@ -81,9 +81,9 @@ fn test_display_died() {
         tick: 7,
         species: "Slug".to_string(),
         pos: Pos { x: 1, y: 0 },
-        cause: "edad".to_string(),
+        cause: "age".to_string(),
     };
-    assert_eq!(ev.to_string(), "[tick 7] Slug@1,0 muere por edad");
+    assert_eq!(ev.to_string(), "[tick 7] Slug@1,0 dies of age");
 }
 
 #[test]

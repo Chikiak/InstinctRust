@@ -70,7 +70,7 @@ impl World {
                 (Some(next_health), Some(next_age)) => {
                     if next_health <= 0 || next_age >= creature.lifespan {
                         dead_indices.push(index);
-                        let cause = if next_health <= 0 { "vida" } else { "edad" };
+                        let cause = if next_health <= 0 { "health" } else { "age" };
                         died.push(Event::Died {
                             tick: self.ticks,
                             species: creature.species.name.clone(),
