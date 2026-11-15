@@ -2,53 +2,7 @@
 //! Runs the real `instinct-cli` binary with the four species placed on the
 //! same map and checks exit code, empty stderr and determinism.
 
-use std::process::{Command, Stdio};
-
-/// Example resources root directory, relative to this crate's manifest.
-fn examples_dir() -> String {
-    format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"))
-}
-
-/// Locates the integration test binary.
-fn instinct_cli_binary() -> std::path::PathBuf {
-    std::env::var("BIN_INSTINCT_CLI")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_BIN_EXE_instinct-cli")).to_path_buf())
-}
-
-fn run_cli(args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(instinct_cli_binary())
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .expect("could not run the instinct-cli binary");
-    (
-        output.status.code().unwrap_or(-1),
-        String::from_utf8_lossy(&output.stdout).to_string(),
-        String::from_utf8_lossy(&output.stderr).to_string(),
-    )
-}
-
-/// Fichas de la rejilla ASCII tras la cabecera `== tick N ==`.
-fn rows_after_tick(stdout: &str, tick: u64) -> Vec<String> {
-    let marker = format!("== tick {tick} ==");
-    let mut rows: Vec<String> = Vec::new();
-    let mut found = false;
-    for line in stdout.lines() {
-        if line == marker {
-            found = true;
-            continue;
-        }
-        if found {
-            if line.starts_with("== tick ") {
-                break;
-            }
-            rows.push(line.to_string());
-        }
-    }
-    rows
-}
+use super::{examples_dir, rows_after_tick, run_cli};
 
 // ---------------------------------------------------------------------------
 // AC6: the four annex species run together on the same map
