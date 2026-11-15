@@ -1,7 +1,7 @@
 //! `wait(n)`: sleeps `n-1` turns; `n < 1` counts as 1 (zero sleep); text
 //! argument fails.
 
-use crate::actions::shared::{action_result, parse_int_arg};
+use crate::actions::shared::{action_result, parse_int_arg, ACTION_WAIT, ARG_N};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
@@ -13,7 +13,7 @@ pub struct Wait;
 
 impl crate::actions::Action for Wait {
     fn name(&self) -> &str {
-        "wait"
+        ACTION_WAIT
     }
     fn arity(&self) -> usize {
         1
@@ -27,7 +27,7 @@ impl crate::actions::Action for Wait {
         _creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let n = parse_int_arg(&args[0], "wait", "n")?;
+        let n = parse_int_arg(&args[0], ACTION_WAIT, ARG_N)?;
         let sleep_turns = n.max(1) as u32;
         Ok(action_result(sleep_turns, Vec::new()))
     }

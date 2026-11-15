@@ -3,7 +3,9 @@
 //! Direction (0, 0) or speed <= 0: does not move and does not fail. dx or dy
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
-use crate::actions::shared::{index_from_i64, out_of_map_noop, parse_dir_args, parse_int_arg};
+use crate::actions::shared::{
+    index_from_i64, out_of_map_noop, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
+};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
@@ -15,7 +17,7 @@ pub struct Move;
 
 impl crate::actions::Action for Move {
     fn name(&self) -> &str {
-        "move"
+        ACTION_MOVE
     }
     fn arity(&self) -> usize {
         3
@@ -29,8 +31,8 @@ impl crate::actions::Action for Move {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let (dx, dy) = parse_dir_args(args, "move")?;
-        let speed = parse_int_arg(&args[2], "move", "speed")?;
+        let (dx, dy) = parse_dir_args(args, ACTION_MOVE)?;
+        let speed = parse_int_arg(&args[2], ACTION_MOVE, ARG_SPEED)?;
 
         // Direction (0, 0) or speed <= 0: no move, no error.
         if (dx == 0 && dy == 0) || speed <= 0 {

@@ -2,7 +2,7 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
-use crate::actions::shared::{action_result, creature_context, value_to_text};
+use crate::actions::shared::{action_result, creature_context, value_to_text, ACTION_ROAR};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
@@ -15,7 +15,7 @@ pub struct Roar;
 
 impl crate::actions::Action for Roar {
     fn name(&self) -> &str {
-        "roar"
+        ACTION_ROAR
     }
     fn arity(&self) -> usize {
         1

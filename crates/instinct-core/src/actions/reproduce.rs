@@ -9,7 +9,7 @@
 
 use crate::actions::shared::{
     checked_sub_health, creature_context, is_out_of_bounds, natural_abort_noop, out_of_map_noop,
-    parse_dir_arg, parse_int_arg,
+    parse_dir_arg, parse_int_arg, ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH, DIAG_WORLD,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -22,7 +22,7 @@ pub struct Reproduce;
 
 impl crate::actions::Action for Reproduce {
     fn name(&self) -> &str {
-        "reproduce"
+        ACTION_REPRODUCE
     }
     fn arity(&self) -> usize {
         3
@@ -37,14 +37,18 @@ impl crate::actions::Action for Reproduce {
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
         // --- parsing ---
-        let dx = parse_dir_arg(&args[0], "reproduce", "dx")?;
-        let dy = parse_dir_arg(&args[1], "reproduce", "dy")?;
-        let health = parse_int_arg(&args[2], "reproduce", "health")?;
+        let dx = parse_dir_arg(&args[0], ACTION_REPRODUCE, ARG_DX)?;
+        let dy = parse_dir_arg(&args[1], ACTION_REPRODUCE, ARG_DY)?;
+        let health = parse_int_arg(&args[2], ACTION_REPRODUCE, ARG_HEALTH)?;
 
         // --- creature context ---
         let (pos, _species, _tick) = creature_context(world, creature_id)?;
         let mother = world.creature(creature_id).ok_or_else(|| {
-            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+            Diagnostic::new(
+                DIAG_WORLD,
+                0,
+                format!("unknown creature id {creature_id:?}"),
+            )
         })?;
 
         // --- validation: mother must have health strictly greater than `health` ---
@@ -55,7 +59,7 @@ impl crate::actions::Action for Reproduce {
         let mother_health = mother.health;
 
         // --- mother health: checked subtraction ---
-        let new_mother_health = checked_sub_health(mother_health, health, "reproduce", pos)?;
+        let new_mother_health = checked_sub_health(mother_health, health, ACTION_REPRODUCE, pos)?;
 
         // --- bounds check ---
         let tx = pos.x as i64 + dx;
@@ -77,7 +81,11 @@ impl crate::actions::Action for Reproduce {
 
         // --- apply damage to mother ---
         let mother = world.creature_mut(creature_id).ok_or_else(|| {
-            Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+            Diagnostic::new(
+                DIAG_WORLD,
+                0,
+                format!("unknown creature id {creature_id:?}"),
+            )
         })?;
         mother.health = new_mother_health;
 

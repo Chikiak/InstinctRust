@@ -33,12 +33,12 @@ pub(super) fn strike_creature(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let creature = ctx
-        .creature_mut(target_id)
-        .ok_or_else(|| Diagnostic::new("world", 0, format!("unknown creature id {target_id:?}")))?;
+    let creature = ctx.creature_mut(target_id).ok_or_else(|| {
+        Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {target_id:?}"))
+    })?;
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
-            "attack",
+            ACTION_ATTACK,
             1,
             format!("overflow damaging creature health at ({tx},{ty})"),
         )
@@ -65,7 +65,7 @@ pub(super) fn strike_creature(
             tick,
             species: victim_species,
             pos: died_pos,
-            cause: "health".to_string(),
+            cause: ARG_HEALTH.to_string(),
         });
     }
     Ok(events)
@@ -172,11 +172,15 @@ pub(super) fn heal_attacker(
     heal: i64,
 ) -> Result<(), Diagnostic> {
     let creature = ctx.creature_mut(creature_id).ok_or_else(|| {
-        Diagnostic::new("world", 0, format!("unknown creature id {creature_id:?}"))
+        Diagnostic::new(
+            DIAG_WORLD,
+            0,
+            format!("unknown creature id {creature_id:?}"),
+        )
     })?;
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(
-            "consume",
+            ACTION_CONSUME,
             1,
             format!(
                 "overflow healing creature at ({},{})",
@@ -293,8 +297,8 @@ pub fn index_from_i64(n: i64) -> Option<usize> {
 
 /// Parses the `dx` and `dy` direction arguments, naming each one in errors.
 pub(super) fn parse_dir_args(args: &[Value], action: &str) -> Result<(i64, i64), Diagnostic> {
-    let dx = parse_dir_arg(&args[0], action, "dx")?;
-    let dy = parse_dir_arg(&args[1], action, "dy")?;
+    let dx = parse_dir_arg(&args[0], action, ARG_DX)?;
+    let dy = parse_dir_arg(&args[1], action, ARG_DY)?;
     Ok((dx, dy))
 }
 
@@ -305,6 +309,28 @@ pub(super) fn action_result(sleep_turns: u32, events: Vec<Event>) -> ActionResul
         events,
     }
 }
+
+/// Nombres de acción (usados en `name()` y en diagnósticos).
+pub(super) const ACTION_WAIT: &str = "wait";
+pub(super) const ACTION_MOVE: &str = "move";
+pub(super) const ACTION_SAY: &str = "say";
+pub(super) const ACTION_ATTACK: &str = "attack";
+pub(super) const ACTION_CONSUME: &str = "consume";
+pub(super) const ACTION_REPRODUCE: &str = "reproduce";
+pub(super) const ACTION_ROAR: &str = "roar";
+
+/// Nombres de argumento (usados en mensajes de diagnóstico).
+pub(super) const ARG_DX: &str = "dx";
+pub(super) const ARG_DY: &str = "dy";
+pub(super) const ARG_DAMAGE: &str = "damage";
+pub(super) const ARG_HEAL: &str = "heal";
+pub(super) const ARG_SPEED: &str = "speed";
+pub(super) const ARG_HEALTH: &str = "health";
+pub(super) const ARG_N: &str = "n";
+
+/// Nombres de contexto para diagnósticos.
+pub(super) const DIAG_CATALOG: &str = "catalog";
+pub(super) const DIAG_WORLD: &str = "world";
 
 #[cfg(test)]
 mod tests {
