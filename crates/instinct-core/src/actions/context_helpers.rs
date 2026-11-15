@@ -1,4 +1,4 @@
-//! Helpers de contexto: bounds, salud, noop, value_to_text, creature_context, action_result.
+//! Context helpers: bounds, health, noop, value_to_text, creature_context, action_result.
 use crate::actions::consts::DIAG_LINE;
 use crate::actions::{ActionResult, ReadContext};
 use crate::diagnostic::Diagnostic;
