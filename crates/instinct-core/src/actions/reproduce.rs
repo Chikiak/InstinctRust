@@ -27,7 +27,11 @@ pub struct Reproduce;
 /// in the world. A single site defines it so both borrows
 /// (immutable and mutable) share the message without duplicating it.
 fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
-    Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {creature_id:?}"))
+    Diagnostic::new(
+        DIAG_WORLD,
+        0,
+        format!("unknown creature id {creature_id:?}"),
+    )
 }
 
 /// Parses `(dx, dy, health)` from the args, naming the offending argument.
@@ -72,12 +76,7 @@ fn mother_health(current: i64, health: i64, pos: Pos) -> Result<i64, Diagnostic>
 }
 
 /// Target cell `(tx, ty)`; `None` when out of map (natural abort).
-fn bounds_check(
-    world: &dyn ActionContext,
-    pos: Pos,
-    dx: i64,
-    dy: i64,
-) -> Option<(usize, usize)> {
+fn bounds_check(world: &dyn ActionContext, pos: Pos, dx: i64, dy: i64) -> Option<(usize, usize)> {
     let tx = pos.x as i64 + dx;
     let ty = pos.y as i64 + dy;
     if is_out_of_bounds(world, tx, ty) {
@@ -109,7 +108,8 @@ fn damage_mother(
     creature_id: CreatureId,
     new_mother_health: i64,
 ) -> Result<(), Diagnostic> {
-    let mother = world.creature_mut(creature_id)
+    let mother = world
+        .creature_mut(creature_id)
         .ok_or_else(|| unknown_creature_diagnostic(&creature_id))?;
     mother.health = new_mother_health;
     Ok(())
@@ -138,8 +138,7 @@ impl crate::actions::Action for Reproduce {
         let (pos, _species, _tick) = creature_context(world, creature_id)?;
 
         // --- validation: mother exists and health > `health` ---
-        let Some((species, mother_start_health)) =
-            validate_parents(world, creature_id, health)?
+        let Some((species, mother_start_health)) = validate_parents(world, creature_id, health)?
         else {
             return Ok(noop_result());
         };

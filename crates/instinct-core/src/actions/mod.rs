@@ -7,18 +7,18 @@
 pub mod action_catalog;
 pub mod attack;
 pub mod catalog;
+pub mod combat;
+pub mod consts;
 pub mod consume;
 pub mod context;
+pub mod context_helpers;
+pub mod events;
 pub mod move_;
+pub mod parse;
 pub mod reproduce;
 pub mod roar;
 pub mod say;
 pub mod shared;
-pub mod consts;
-pub mod parse;
-pub mod events;
-pub mod combat;
-pub mod context_helpers;
 pub mod r#trait;
 pub mod wait;
 

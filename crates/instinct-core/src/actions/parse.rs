@@ -1,7 +1,7 @@
 //! Parsing of action arguments.
+use super::consts::{ARG_DX, ARG_DY, DIAG_LINE};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
-use super::consts::{ARG_DX, ARG_DY, DIAG_LINE};
 
 pub(super) fn parse_int_arg(
     value: &Value,

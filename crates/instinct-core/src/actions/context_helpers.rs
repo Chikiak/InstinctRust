@@ -1,6 +1,6 @@
 //! Helpers de contexto: bounds, salud, noop, value_to_text, creature_context, action_result.
-use crate::actions::{ActionResult, ReadContext};
 use crate::actions::consts::DIAG_LINE;
+use crate::actions::{ActionResult, ReadContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
 use crate::value::Value;

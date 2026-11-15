@@ -1,6 +1,6 @@
 //! Strike logic for creature/object/terrain and attacker heal.
-use super::{consts::*, events::damaged_event};
 use super::context_helpers::action_result;
+use super::{consts::*, events::damaged_event};
 use crate::actions::{ActionContext, ActionResult, WriteContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
@@ -123,16 +123,9 @@ pub(super) fn strike_cell(
     }
 
     match target {
-        CellContent::Creature(target_id) => strike_creature(
-            ctx,
-            target_id,
-            pos,
-            &species,
-            tick,
-            tx,
-            ty,
-            damage,
-        ),
+        CellContent::Creature(target_id) => {
+            strike_creature(ctx, target_id, pos, &species, tick, tx, ty, damage)
+        }
         CellContent::Object(_obj_idx) => strike_object(ctx, &species, pos, tick, tx, ty, damage),
         CellContent::Empty => strike_terrain(ctx, &species, pos, tick, tx, ty, damage),
     }
