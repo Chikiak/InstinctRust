@@ -9,7 +9,6 @@ use crate::world::{CellContent, CreatureId};
 #[allow(clippy::too_many_arguments)]
 pub(super) fn strike_creature(
     ctx: &mut dyn WriteContext,
-    _attacker_id: CreatureId,
     target_id: CreatureId,
     attacker_pos: Pos,
     attacker_species: &str,
@@ -126,7 +125,6 @@ pub(super) fn strike_cell(
     match target {
         CellContent::Creature(target_id) => strike_creature(
             ctx,
-            creature_id,
             target_id,
             pos,
             &species,
