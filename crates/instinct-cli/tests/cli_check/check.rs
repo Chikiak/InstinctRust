@@ -1,37 +1,6 @@
 //! Integration tests for the `check` subcommand (F0-06, AC7).
 
-use std::process::{Command, Stdio};
-
-/// Example resources root directory, relative to this crate's manifest.
-fn examples_dir() -> String {
-    format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"))
-}
-
-/// Fixtures directory for invalid `.ins` files.
-fn fixtures_dir() -> String {
-    format!("{}/tests/fixtures", env!("CARGO_MANIFEST_DIR"))
-}
-
-/// Locates the integration test binary.
-fn instinct_cli_binary() -> std::path::PathBuf {
-    std::env::var("BIN_INSTINCT_CLI")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::Path::new(env!("CARGO_BIN_EXE_instinct-cli")).to_path_buf())
-}
-
-fn run_cli(args: &[&str]) -> (i32, String, String) {
-    let output = Command::new(instinct_cli_binary())
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .expect("could not run the instinct-cli binary");
-    (
-        output.status.code().unwrap_or(-1),
-        String::from_utf8_lossy(&output.stdout).to_string(),
-        String::from_utf8_lossy(&output.stderr).to_string(),
-    )
-}
+use super::{examples_dir, fixtures_dir, run_cli};
 
 #[test]
 fn test_cli_check_valid_exits_0() {
@@ -55,7 +24,7 @@ fn test_cli_check_invalid_exits_1() {
         !stderr.is_empty(),
         "stderr should contain diagnostics, got: {stderr}"
     );
-    // Diagnostic form: archivo:línea: mensaje
+    // Diagnostic form: file:line: message
     assert!(
         stderr.contains("missing required header key 'faction'")
             || stderr.contains("missing required header key 'lifespan'"),
@@ -92,7 +61,7 @@ fn test_cli_check_nonexistent_file() {
 
 #[test]
 fn test_cli_check_wrong_arg_count_errors() {
-    // check sin argumentos -> exit 2 (uso incorrecto).
+    // check with no args -> exit 2 (incorrect usage).
     let (code, _, stderr) = run_cli(&["check"]);
     assert_eq!(
         code, 2,
@@ -103,7 +72,7 @@ fn test_cli_check_wrong_arg_count_errors() {
         "stderr debe reportar el error, got: {stderr}"
     );
 
-    // check con dos archivos -> exit 2 (uso incorrecto).
+    // check with two files -> exit 2 (incorrect usage).
     let root = format!("{}/../../examples", env!("CARGO_MANIFEST_DIR"));
     let (code, _, stderr) = run_cli(&[
         "check",
@@ -116,6 +85,6 @@ fn test_cli_check_wrong_arg_count_errors() {
     );
     assert!(
         !stderr.is_empty(),
-        "stderr debe reportar el error, got: {stderr}"
+        "stderr should report the error, got: {stderr}"
     );
 }

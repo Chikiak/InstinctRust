@@ -11,5 +11,17 @@ path = "src/main.rs"
 name = "cli_run"
 path = "tests/cli_run/mod.rs"
 
+[[test]]
+name = "cli_annex"
+path = "tests/cli_annex/mod.rs"
+
+[[test]]
+name = "cli_check"
+path = "tests/cli_check/mod.rs"
+
+[[test]]
+name = "cli_usage"
+path = "tests/cli_usage/mod.rs"
+
 [dependencies]
 instinct-core = { path = "../instinct-core" }

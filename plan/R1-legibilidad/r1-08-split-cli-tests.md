@@ -2,7 +2,7 @@
 id: R1-08
 title: Splitear pruebas de instinct-cli y deduplicar helpers
 phase: R1
-status: todo
+status: done
 depends_on: [R1-01]
 size: M
 ---
@@ -59,4 +59,15 @@ Los tres archivos planos, `cli_run/mod.rs`, `cli_run/helpers.rs`, `cli_run/e2e_h
 
 ## Notas de implementación
 
-（vacío tras completar: reparto final y decisión sobre helpers)
+- Rama: `feat/r1-08-split-cli-tests` (checkeada desde `develop`; sin cambios de rama).
+- Reparto final: `tests/cli_annex/{mod.rs,helpers.rs,annex.rs}`, `tests/cli_check/{mod.rs,helpers.rs,check.rs}`, `tests/cli_usage/{mod.rs,helpers.rs,usage.rs}` siguiendo el patrón `tests/cli_run/` (`mod.rs` declara submódulos y hace `pub use` de helpers; submódulos importan con `use super::{...}`). Planos borrados: `cli_annex.rs`, `cli_check.rs`, `cli_usage.rs`.
+- Decisión sobre helpers compartidos: NO se extrajo a módulo compartido entre targets. Cada `[[test]] target` es un crate separado y `helpers.rs` se mantiene local por carpeta (idéntico a `cli_run` y precedente R1-06); no es posible `use cli_run::helpers` entre targets. Los tres helpers duplicados (`examples_dir`, `instinct_cli_binary`, `run_cli`) se deduplicaron dentro de cada target (una sola definición por target) y `rows_after_tick` vive en `cli_annex/helpers.rs` (idéntico a `cli_run/e2e_helpers.rs`). Justificación por escrito, AC2 cubierta.
+- Cambios de firma autorizados: ninguno; todas las firmas de helpers son idénticas a las originales. `fixtures_dir` se mantuvo en `cli_check/helpers.rs` con firma idéntica a la original (uso exclusivo de `check.rs`).
+- Archivos modificados: `crates/instinct-cli/Cargo.toml` (3x `[[test]]` añadidos, `cli_run` mantenido); creados los 9 archivos de las 3 carpetas; borrados los 3 planos. Fixtures `.ins` intocables; `cli_run/` sin cambios; `cli_usage`/`cli_run` sin tocar.
+- Desviaciones del plan táctico: ninguna. Strings: `"inexistente"` → `"missing"` solo en entrada de `test_cli_unknown_subcommand_exits_2`; aserción de ese test sin tocar. Comentario ES de `cli_check.rs` L58 traducido (`Diagnostic form: file:line: message`); resto de comentarios de `check.rs` traducidos a inglés; aserciones sin cambios.
+- Evidencia AC-by-AC:
+  - AC1 (PASS): `git status --short` — planos borrados, carpetas con `mod.rs` cableado en `Cargo.toml`.
+  - AC2 (PASS): helpers deduplicados por target; decisión documentada arriba.
+  - AC3 (PASS): `cargo test -p instinct-cli` → `test result: ok. 2 passed` (annex), `6 passed` (check), `3 passed` (usage); 11 tests CLI, nombres exactos, asserts sin modificar.
+  - AC4 (PASS): `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all -- --check` exit 0.
+  - Puerta adicional: `cargo test --workspace` exit 0 (0 fallos en todo el workspace).
