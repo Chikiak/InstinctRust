@@ -21,16 +21,45 @@ pub(super) fn list_sorted_files(dir: &Path, extension: &str) -> Vec<PathBuf> {
     output
 }
 
-/// Loads all terrains from a folder, in alphabetical order. Duplicates of
-/// `character` or `name` among terrains are reported and discarded.
-pub fn load_terrains_folder(path: &Path) -> (Vec<Terrain>, Vec<Diagnostic>) {
-    let mut terrains: Vec<Terrain> = Vec::new();
+/// Opciones de carga para `load_resources_folder`.
+struct FolderLoadOptions {
+    extension: &'static str,
+    existing_characters: Vec<char>,
+    existing_names: Vec<String>,
+    check_duplicates: bool,
+}
+
+/// Generic loader for resources in a folder, in alphabetical path order.
+///
+/// `existing_characters` / `existing_names` are values already taken by
+/// resources loaded before (empty for terrains, the terrains' ones for objects).
+/// When `check_duplicates` is true, a repeated `character` or `name` produces
+/// a diagnostic and the file is discarded.
+fn load_resources_folder<T, F, C, N>(
+    path: &Path,
+    options: FolderLoadOptions,
+    load: F,
+    character_of: C,
+    name_of: N,
+) -> (Vec<T>, Vec<Diagnostic>)
+where
+    F: Fn(&str, &str) -> (Option<T>, Vec<Diagnostic>),
+    C: Fn(&T) -> char,
+    N: Fn(&T) -> String,
+{
+    let FolderLoadOptions {
+        extension,
+        existing_characters,
+        existing_names,
+        check_duplicates,
+    } = options;
+    let mut resources: Vec<T> = Vec::new();
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
 
-    let mut characters_used: Vec<char> = Vec::new();
-    let mut names_used: Vec<String> = Vec::new();
+    let mut characters_used: Vec<char> = existing_characters;
+    let mut names_used: Vec<String> = existing_names;
 
-    for path in list_sorted_files(path, "te") {
+    for path in list_sorted_files(path, extension) {
         let file = path.to_string_lossy().to_string();
         let content = match fs::read_to_string(&path) {
             Ok(c) => c,
@@ -43,114 +72,82 @@ pub fn load_terrains_folder(path: &Path) -> (Vec<Terrain>, Vec<Diagnostic>) {
                 continue;
             }
         };
-        match load_terrain(&content, &file) {
-            (Some(t), mut d) => {
-                // Verify duplicate character and name against already loaded terrains.
-                if characters_used.contains(&t.character)
-                    || terrains
-                        .iter()
-                        .any(|terrain| terrain.character == t.character)
-                {
-                    d.push(Diagnostic::new(
-                        &file,
-                        1,
-                        format!(
-                            "the character '{}' is already in use by another resource",
-                            t.character
-                        ),
-                    ));
-                    diagnostics.append(&mut d);
-                    continue;
-                }
-                if names_used.contains(&t.name)
-                    || terrains.iter().any(|terrain| terrain.name == t.name)
-                {
-                    d.push(Diagnostic::new(
-                        &file,
-                        1,
-                        format!(
-                            "the name '{}' is already in use by another resource",
-                            t.name
-                        ),
-                    ));
-                    diagnostics.append(&mut d);
-                    continue;
+        match load(&content, &file) {
+            (Some(resource), mut d) => {
+                if check_duplicates {
+                    let character = character_of(&resource);
+                    let name = name_of(&resource);
+                    if characters_used.contains(&character)
+                        || resources.iter().any(|r| character_of(r) == character)
+                    {
+                        d.push(Diagnostic::new(
+                            &file,
+                            1,
+                            format!(
+                                "the character '{}' is already in use by another resource",
+                                character
+                            ),
+                        ));
+                        diagnostics.append(&mut d);
+                        continue;
+                    }
+                    if names_used.contains(&name) || resources.iter().any(|r| name_of(r) == name) {
+                        d.push(Diagnostic::new(
+                            &file,
+                            1,
+                            format!("the name '{}' is already in use by another resource", name),
+                        ));
+                        diagnostics.append(&mut d);
+                        continue;
+                    }
+                    characters_used.push(character);
+                    names_used.push(name);
                 }
                 diagnostics.append(&mut d);
-                characters_used.push(t.character);
-                names_used.push(t.name.clone());
-                terrains.push(t);
+                resources.push(resource);
             }
             (None, mut d) => {
                 diagnostics.append(&mut d);
             }
         }
     }
-    (terrains, diagnostics)
+    (resources, diagnostics)
+}
+
+/// Loads all terrains from a folder, in alphabetical order. Duplicates of
+/// `character` or `name` among terrains are reported and discarded.
+pub fn load_terrains_folder(path: &Path) -> (Vec<Terrain>, Vec<Diagnostic>) {
+    load_resources_folder(
+        path,
+        FolderLoadOptions {
+            extension: "te",
+            existing_characters: Vec::new(),
+            existing_names: Vec::new(),
+            check_duplicates: true,
+        },
+        load_terrain,
+        |terrain| terrain.character,
+        |terrain| terrain.name.clone(),
+    )
 }
 
 /// Loads all objects from a folder, in alphabetical order, verifying that
 /// they do not repeat `character` or `name` with terrains or objects already loaded.
 pub fn load_objects_folder(path: &Path, terrains: &[Terrain]) -> (Vec<Object>, Vec<Diagnostic>) {
-    let mut objects: Vec<Object> = Vec::new();
-    let mut diagnostics: Vec<Diagnostic> = Vec::new();
-
-    let mut characters_used: Vec<char> = terrains.iter().map(|t| t.character).collect();
-    let mut names_used: Vec<String> = terrains.iter().map(|t| clone_name(&t.name)).collect();
-
-    for path in list_sorted_files(path, "ob") {
-        let file = path.to_string_lossy().to_string();
-        let content = match fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(e) => {
-                diagnostics.push(Diagnostic::new(
-                    &file,
-                    1,
-                    format!("could not read the file: {e}"),
-                ));
-                continue;
-            }
-        };
-        match load_object(&content, &file) {
-            (Some(o), mut d) => {
-                // Verify duplicate character and name against already loaded.
-                if characters_used.contains(&o.character)
-                    || objects.iter().any(|obj| obj.character == o.character)
-                {
-                    d.push(Diagnostic::new(
-                        &file,
-                        1,
-                        format!(
-                            "the character '{}' is already in use by another resource",
-                            o.character
-                        ),
-                    ));
-                    diagnostics.append(&mut d);
-                    continue;
-                }
-                if names_used.contains(&o.name) || objects.iter().any(|obj| obj.name == o.name) {
-                    d.push(Diagnostic::new(
-                        &file,
-                        1,
-                        format!(
-                            "the name '{}' is already in use by another resource",
-                            o.name
-                        ),
-                    ));
-                    diagnostics.append(&mut d);
-                    continue;
-                }
-                diagnostics.append(&mut d);
-                characters_used.push(o.character);
-                names_used.push(o.name.clone());
-                objects.push(o);
-            }
-            (None, mut d) => {
-                diagnostics.append(&mut d);
-            }
-        }
-    }
-    (objects, diagnostics)
+    let existing_characters: Vec<char> = terrains.iter().map(|t| t.character).collect();
+    let existing_names: Vec<String> = terrains.iter().map(|t| clone_name(&t.name)).collect();
+    load_resources_folder(
+        path,
+        FolderLoadOptions {
+            extension: "ob",
+            existing_characters,
+            existing_names,
+            check_duplicates: true,
+        },
+        load_object,
+        |object| object.character,
+        |object| clone_name(&object.name),
+    )
 }
 
 fn clone_name(s: &str) -> String {
@@ -165,34 +162,19 @@ pub fn load_maps_folder(
     terrains: &[Terrain],
     objects: &[Object],
 ) -> (Vec<Map>, Vec<Diagnostic>) {
-    let mut maps: Vec<Map> = Vec::new();
-    let mut diagnostics: Vec<Diagnostic> = Vec::new();
-
     let mut valid_characters: Vec<char> = terrains.iter().map(|t| t.character).collect();
     valid_characters.extend(objects.iter().map(|o| o.character));
-
-    for path in list_sorted_files(path, "map") {
-        let file = path.to_string_lossy().to_string();
-        let content = match fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(e) => {
-                diagnostics.push(Diagnostic::new(
-                    &file,
-                    1,
-                    format!("could not read the file: {e}"),
-                ));
-                continue;
-            }
-        };
-        match load_map(&content, &file, &valid_characters) {
-            (Some(m), mut d) => {
-                diagnostics.append(&mut d);
-                maps.push(m);
-            }
-            (None, mut d) => {
-                diagnostics.append(&mut d);
-            }
-        }
-    }
-    (maps, diagnostics)
+    load_resources_folder(
+        path,
+        FolderLoadOptions {
+            extension: "map",
+            existing_characters: Vec::new(),
+            existing_names: Vec::new(),
+            check_duplicates: false,
+        },
+        move |content, file| load_map(content, file, &valid_characters),
+        // No duplicate validation for maps: these closures are never invoked.
+        |_map| '\0',
+        |_map| String::new(),
+    )
 }
