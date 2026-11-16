@@ -87,4 +87,13 @@ en lugar de improvisar.
 ```
 
 ## Registro de ejecución
-<!-- Se rellena al avanzar: resultado por issue, señales de dimensionado, hechos descubiertos. -->
+
+### Issue 1 — DRY rápido (módulo `actions`)
+- **Branch**: `feat/fix-actions-dry-rapido`
+- **AC1 (context_helpers)**: `unknown_creature_diagnostic` added to `context_helpers.rs`; `DIAG_WORLD` added to imports. (PASS: `cargo check -p instinct-core` clean)
+- **AC2 (shared.rs)**: `unknown_creature_diagnostic` added to re-export block. (PASS: `cargo check -p instinct-core` clean)
+- **AC3 (reproduce.rs)**: Removed local `unknown_creature_diagnostic` (lines 29-35) and `creature_context` (lines 46-54); both now imported from `shared`. (PASS: `cargo test -p instinct-core actions::` → 13 unit + 11 reproduce integration tests all pass)
+- **AC4 (combat.rs)**: `strike_creature` and `heal_attacker` use `unknown_creature_diagnostic`; `strike_cell` uses `is_out_of_bounds`. (PASS: `cargo clippy -p instinct-core` → no warnings)
+- **AC5 (consts.rs)**: No changes needed; `ACTION_ATTACK` is `pub`, rest `pub(super)`, already consistent.
+- **Behavior**: No external behavior change. All 50 action tests + full workspace tests pass.
+- **Commit**: done
