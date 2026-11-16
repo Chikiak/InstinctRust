@@ -1,7 +1,7 @@
 //! `say(val)`: emits a Said event with the creature's current position and
 //! tick, does not consume a turn. A number is shown as text.
 
-use crate::actions::shared::{action_result, creature_context, value_to_text, ACTION_SAY};
+use crate::actions::shared::{creature_context, event_result, value_to_text, ACTION_SAY};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
@@ -30,14 +30,11 @@ impl crate::actions::Action for Say {
     ) -> Result<ActionResult, Diagnostic> {
         let text = value_to_text(&args[0]);
         let (pos, species, tick) = creature_context(world, creature_id)?;
-        Ok(action_result(
-            0,
-            vec![Event::Said {
-                tick,
-                species,
-                pos,
-                text,
-            }],
-        ))
+        Ok(event_result(Event::Said {
+            tick,
+            species,
+            pos,
+            text,
+        }))
     }
 }

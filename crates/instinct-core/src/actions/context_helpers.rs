@@ -61,6 +61,10 @@ pub(super) fn action_result(sleep_turns: u32, events: Vec<Event>) -> ActionResul
     }
 }
 
+pub(super) fn event_result(event: Event) -> ActionResult {
+    action_result(0, vec![event])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,6 +103,27 @@ mod tests {
         );
         assert_eq!(result.sleep_turns, 0);
         assert_eq!(result.events.len(), 1);
+    }
+
+    #[test]
+    fn event_result_constructs() {
+        let result = event_result(Event::Roared {
+            tick: 3,
+            species: "wolf".to_string(),
+            pos: Pos { x: 1, y: 2 },
+            text: "auau".to_string(),
+        });
+        assert_eq!(result.sleep_turns, 0);
+        assert_eq!(result.events.len(), 1);
+        assert!(matches!(
+            result.events[0],
+            Event::Roared {
+                tick: 3,
+                ref species,
+                ref pos,
+                ref text
+            } if species == "wolf" && *pos == Pos { x: 1, y: 2 } && text == "auau"
+        ));
     }
 
     #[test]
