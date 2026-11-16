@@ -1,5 +1,5 @@
 //! Parsing of action arguments.
-use super::consts::{ARG_DX, ARG_DY, DIAG_LINE};
+use super::consts::{ARG_DAMAGE, ARG_DX, ARG_DY, DIAG_LINE};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 
@@ -40,6 +40,16 @@ pub(super) fn parse_dir_args(args: &[Value], action: &str) -> Result<(i64, i64),
     Ok((dx, dy))
 }
 
+pub(super) fn parse_strike_args(
+    action: &str,
+    args: &[Value],
+) -> Result<(i64, i64, i64), Diagnostic> {
+    let dx = parse_dir_arg(&args[0], action, ARG_DX)?;
+    let dy = parse_dir_arg(&args[1], action, ARG_DY)?;
+    let damage = parse_int_arg(&args[2], action, ARG_DAMAGE)?;
+    Ok((dx, dy, damage))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,5 +87,29 @@ mod tests {
         let args = [Value::Int(0), Value::Text("y".to_string())];
         let err = parse_dir_args(&args, "consume").unwrap_err();
         assert!(err.message.contains("dy"));
+    }
+
+    #[test]
+    fn parse_strike_args_ok() {
+        let args = [Value::Int(1), Value::Int(0), Value::Int(10)];
+        assert_eq!(parse_strike_args("attack", &args), Ok((1, 0, 10)));
+    }
+
+    #[test]
+    fn parse_strike_args_bad_dx() {
+        let args = [Value::Int(2), Value::Int(0), Value::Int(10)];
+        let err = parse_strike_args("consume", &args).unwrap_err();
+        assert!(err.message.contains("dx"));
+    }
+
+    #[test]
+    fn parse_strike_args_text_damage() {
+        let args = [
+            Value::Int(1),
+            Value::Int(0),
+            Value::Text("tres".to_string()),
+        ];
+        let err = parse_strike_args("attack", &args).unwrap_err();
+        assert!(err.message.contains("damage"));
     }
 }

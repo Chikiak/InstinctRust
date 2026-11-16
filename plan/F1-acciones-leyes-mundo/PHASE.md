@@ -97,3 +97,18 @@ en lugar de improvisar.
 - **AC5 (consts.rs)**: No changes needed; `ACTION_ATTACK` is `pub`, rest `pub(super)`, already consistent.
 - **Behavior**: No external behavior change. All 50 action tests + full workspace tests pass.
 - **Commit**: done
+
+### Issue 2 — DRY: unificar acciones gemelas y registro del catálogo
+- **Branch**: `feat/fix-actions-dry-gemas`
+- **AC1 (parse.rs)**: Added `parse_strike_args(action, args) -> Result<(i64,i64,i64), Diagnostic>` with 3 tests (ok, bad direction, text damage). (PASS: `cargo test -p instinct-core parse_strike_args` → 3 pass)
+- **AC2 (context_helpers.rs)**: Added `event_result(event: Event) -> ActionResult` with 1 test. (PASS: `cargo test -p instinct-core event_result` → 1 pass)
+- **AC3 (shared.rs)**: Re-exported `parse_strike_args` and `event_result` in `pub(super) use` blocks. (PASS: `cargo check -p instinct-core` clean)
+- **B1 (roar.rs)**: Replaced `action_result(0, vec![Event::Roared{...}])` with `event_result(Event::Roared{...})`. Import `action_result` → `event_result`. (PASS: `cargo check -p instinct-core` clean)
+- **B2 (say.rs)**: Replaced `action_result(0, vec![Event::Said{...}])` with `event_result(Event::Said{...})`. Import `action_result` → `event_result`. (PASS: `cargo check -p instinct-core` clean)
+- **B3 (attack.rs)**: Replaced `parse_dir_args` + `parse_int_arg` with `parse_strike_args(ACTION_ATTACK, args)?`. Removed `parse_dir_args`, `parse_int_arg`, `ARG_DAMAGE` imports; added `parse_strike_args`. (PASS: `cargo check -p instinct-core` clean)
+- **B4 (consume.rs)**: Replaced `parse_dir_args` + `parse_int_arg(damage)` with `parse_strike_args(ACTION_CONSUME, args)?`. Kept `parse_int_arg` for heal. Removed `parse_dir_args`, `ARG_DAMAGE` imports; added `parse_strike_args`. (PASS: `cargo check -p instinct-core` clean)
+- **C1 (action_catalog.rs)**: Replaced 7 `let _ = c.register(...)` lines with array + loop + `expect`. Added test `default_registers_all_actions` verifying all 7 names via `is_action_name`. (PASS: `cargo test -p instinct-core default_registers_all_actions` → 1 pass)
+- **Verification**: `cargo check -p instinct-core` clean; `cargo test -p instinct-core actions::` → 18 unit + 50 integration tests all pass; `cargo clippy -p instinct-core -- -D warnings` PASS; `cargo fmt -p instinct-core -- --check` PASS.
+- **Behavior**: No external behavior change. All 50 action tests + full workspace tests pass.
+- **Modified files**: `crates/instinct-core/src/actions/parse.rs`, `crates/instinct-core/src/actions/context_helpers.rs`, `crates/instinct-core/src/actions/shared.rs`, `crates/instinct-core/src/actions/roar.rs`, `crates/instinct-core/src/actions/say.rs`, `crates/instinct-core/src/actions/attack.rs`, `crates/instinct-core/src/actions/consume.rs`, `crates/instinct-core/src/actions/action_catalog.rs`, `plan/F1-acciones-leyes-mundo/PHASE.md`.
+- **Commit**: done

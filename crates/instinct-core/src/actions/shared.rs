@@ -17,13 +17,15 @@ pub(super) use crate::actions::consts::{
 };
 #[allow(unused_imports)]
 pub(super) use crate::actions::context_helpers::{
-    action_result, checked_sub_health, creature_context, is_out_of_bounds, noop_result,
-    unknown_creature_diagnostic, value_to_text,
+    action_result, checked_sub_health, creature_context, event_result, is_out_of_bounds,
+    noop_result, unknown_creature_diagnostic, value_to_text,
 };
 #[allow(unused_imports)]
 pub(super) use crate::actions::events::damaged_event;
 #[allow(unused_imports)]
-pub(super) use crate::actions::parse::{parse_dir_arg, parse_dir_args, parse_int_arg};
+pub(super) use crate::actions::parse::{
+    parse_dir_arg, parse_dir_args, parse_int_arg, parse_strike_args,
+};
 
 /// Converts an integer into a grid index (`usize`). Rejects negatives so they
 /// never wrap into a huge index, and rejects values that do not fit in

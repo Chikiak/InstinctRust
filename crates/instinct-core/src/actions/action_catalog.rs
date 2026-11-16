@@ -72,13 +72,40 @@ impl ActionCatalog {
 impl Default for ActionCatalog {
     fn default() -> Self {
         let mut c = ActionCatalog::new();
-        let _ = c.register(Rc::new(Wait));
-        let _ = c.register(Rc::new(Move));
-        let _ = c.register(Rc::new(Say));
-        let _ = c.register(Rc::new(Attack));
-        let _ = c.register(Rc::new(Consume));
-        let _ = c.register(Rc::new(Reproduce));
-        let _ = c.register(Rc::new(Roar));
+        let actions: [Rc<dyn Action>; 7] = [
+            Rc::new(Wait),
+            Rc::new(Move),
+            Rc::new(Say),
+            Rc::new(Attack),
+            Rc::new(Consume),
+            Rc::new(Reproduce),
+            Rc::new(Roar),
+        ];
+        for action in actions {
+            c.register(action)
+                .expect("action catalog default: duplicate registration");
+        }
         c
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_registers_all_actions() {
+        let cat = ActionCatalog::default();
+        for name in [
+            "wait",
+            "move",
+            "say",
+            "attack",
+            "consume",
+            "reproduce",
+            "roar",
+        ] {
+            assert!(cat.is_action_name(name), "action '{name}' not registered");
+        }
     }
 }

@@ -5,9 +5,7 @@
 //! consumed, no error. A creature dropping to health <= 0 dies on the spot
 //! (cell freed, Died cause "health") in the same tick.
 
-use crate::actions::shared::{
-    apply_strike, parse_dir_args, parse_int_arg, ACTION_ATTACK, ARG_DAMAGE,
-};
+use crate::actions::shared::{apply_strike, parse_strike_args, ACTION_ATTACK};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
@@ -33,8 +31,7 @@ impl crate::actions::Action for Attack {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
-        let (dx, dy) = parse_dir_args(args, ACTION_ATTACK)?;
-        let damage = parse_int_arg(&args[2], ACTION_ATTACK, ARG_DAMAGE)?;
+        let (dx, dy, damage) = parse_strike_args(ACTION_ATTACK, args)?;
 
         apply_strike(world, creature_id, dx, dy, damage, None)
     }
