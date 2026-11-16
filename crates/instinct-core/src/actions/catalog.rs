@@ -102,4 +102,9 @@ impl Catalog {
     pub fn actions(&self) -> &ActionCatalog {
         &self.actions
     }
+
+    /// Returns a reference to the perception catalog.
+    pub fn perceptions(&self) -> &PerceptionCatalog {
+        &self.perceptions
+    }
 }
