@@ -17,9 +17,9 @@ pub(super) fn strike_creature(
     ty: usize,
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
-    let creature = ctx.creature_mut(target_id).ok_or_else(|| {
-        unknown_creature_diagnostic(&target_id)
-    })?;
+    let creature = ctx
+        .creature_mut(target_id)
+        .ok_or_else(|| unknown_creature_diagnostic(&target_id))?;
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
             ACTION_ATTACK,
@@ -138,9 +138,9 @@ pub(super) fn heal_attacker(
     creature_id: CreatureId,
     heal: i64,
 ) -> Result<(), Diagnostic> {
-    let creature = ctx.creature_mut(creature_id).ok_or_else(|| {
-        unknown_creature_diagnostic(&creature_id)
-    })?;
+    let creature = ctx
+        .creature_mut(creature_id)
+        .ok_or_else(|| unknown_creature_diagnostic(&creature_id))?;
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(
             ACTION_CONSUME,

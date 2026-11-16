@@ -26,7 +26,11 @@ pub(super) fn is_out_of_bounds(ctx: &dyn ReadContext, x: i64, y: i64) -> bool {
 }
 
 pub(super) fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
-    Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {creature_id:?}"))
+    Diagnostic::new(
+        DIAG_WORLD,
+        0,
+        format!("unknown creature id {creature_id:?}"),
+    )
 }
 
 pub(super) fn noop_result() -> ActionResult {

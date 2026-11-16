@@ -96,4 +96,4 @@ en lugar de improvisar.
 - **AC4 (combat.rs)**: `strike_creature` and `heal_attacker` use `unknown_creature_diagnostic`; `strike_cell` uses `is_out_of_bounds`. (PASS: `cargo clippy -p instinct-core` → no warnings)
 - **AC5 (consts.rs)**: No changes needed; `ACTION_ATTACK` is `pub`, rest `pub(super)`, already consistent.
 - **Behavior**: No external behavior change. All 50 action tests + full workspace tests pass.
-- **Commit**: pending
+- **Commit**: done
