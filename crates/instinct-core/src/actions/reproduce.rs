@@ -8,8 +8,9 @@
 //! abort: it does nothing, but consumes the turn.
 
 use crate::actions::shared::{
-    checked_sub_health, is_out_of_bounds, noop_result, parse_dir_arg, parse_int_arg,
-    ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH, DIAG_WORLD,
+    checked_sub_health, creature_context, is_out_of_bounds, noop_result, parse_dir_arg,
+    parse_int_arg, unknown_creature_diagnostic,
+    ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -23,34 +24,12 @@ use std::rc::Rc;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reproduce;
 
-/// Builds the `Diagnostic` reported when a creature id does not exist
-/// in the world. A single site defines it so both borrows
-/// (immutable and mutable) share the message without duplicating it.
-fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
-    Diagnostic::new(
-        DIAG_WORLD,
-        0,
-        format!("unknown creature id {creature_id:?}"),
-    )
-}
-
 /// Parses `(dx, dy, health)` from the args, naming the offending argument.
 fn parse_input(args: &[Value]) -> Result<(i64, i64, i64), Diagnostic> {
     let dx = parse_dir_arg(&args[0], ACTION_REPRODUCE, ARG_DX)?;
     let dy = parse_dir_arg(&args[1], ACTION_REPRODUCE, ARG_DY)?;
     let health = parse_int_arg(&args[2], ACTION_REPRODUCE, ARG_HEALTH)?;
     Ok((dx, dy, health))
-}
-
-/// Position, species name and tick of the mother.
-fn creature_context(
-    world: &dyn ActionContext,
-    creature_id: CreatureId,
-) -> Result<(Pos, String, u64), Diagnostic> {
-    let pos = world.creature_position(creature_id)?;
-    let species = world.creature_species(creature_id)?;
-    let tick = world.tick();
-    Ok((pos, species, tick))
 }
 
 /// Mother exists and `mother.health > health`. Returns `(species,

@@ -1,5 +1,5 @@
 //! Context helpers: bounds, health, noop, value_to_text, creature_context, action_result.
-use crate::actions::consts::DIAG_LINE;
+use crate::actions::consts::{DIAG_LINE, DIAG_WORLD};
 use crate::actions::{ActionResult, ReadContext};
 use crate::diagnostic::Diagnostic;
 use crate::event::{Event, Pos};
@@ -23,6 +23,10 @@ pub(super) fn checked_sub_health(
 
 pub(super) fn is_out_of_bounds(ctx: &dyn ReadContext, x: i64, y: i64) -> bool {
     x < 0 || y < 0 || x >= ctx.columns() as i64 || y >= ctx.rows() as i64
+}
+
+pub(super) fn unknown_creature_diagnostic(creature_id: &CreatureId) -> Diagnostic {
+    Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {creature_id:?}"))
 }
 
 pub(super) fn noop_result() -> ActionResult {

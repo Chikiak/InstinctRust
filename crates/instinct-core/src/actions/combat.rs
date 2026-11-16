@@ -1,5 +1,5 @@
 //! Strike logic for creature/object/terrain and attacker heal.
-use super::context_helpers::action_result;
+use super::context_helpers::{action_result, is_out_of_bounds, unknown_creature_diagnostic};
 use super::{consts::*, events::damaged_event};
 use crate::actions::{ActionContext, ActionResult, WriteContext};
 use crate::diagnostic::Diagnostic;
@@ -18,7 +18,7 @@ pub(super) fn strike_creature(
     damage: i64,
 ) -> Result<Vec<Event>, Diagnostic> {
     let creature = ctx.creature_mut(target_id).ok_or_else(|| {
-        Diagnostic::new(DIAG_WORLD, 0, format!("unknown creature id {target_id:?}"))
+        unknown_creature_diagnostic(&target_id)
     })?;
     let new_health = creature.health.checked_sub(damage).ok_or_else(|| {
         Diagnostic::new(
@@ -109,7 +109,7 @@ pub(super) fn strike_cell(
     let ty = pos.y as i64 + dy;
 
     // Destination out of map: no-op, no error, no event.
-    if tx < 0 || ty < 0 || tx >= ctx.columns() as i64 || ty >= ctx.rows() as i64 {
+    if is_out_of_bounds(ctx, tx, ty) {
         return Ok(Vec::new());
     }
     let tx = tx as usize;
@@ -139,11 +139,7 @@ pub(super) fn heal_attacker(
     heal: i64,
 ) -> Result<(), Diagnostic> {
     let creature = ctx.creature_mut(creature_id).ok_or_else(|| {
-        Diagnostic::new(
-            DIAG_WORLD,
-            0,
-            format!("unknown creature id {creature_id:?}"),
-        )
+        unknown_creature_diagnostic(&creature_id)
     })?;
     let new_health = creature.health.checked_add(heal).ok_or_else(|| {
         Diagnostic::new(

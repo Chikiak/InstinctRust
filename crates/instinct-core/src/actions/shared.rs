@@ -18,7 +18,7 @@ pub(super) use crate::actions::consts::{
 #[allow(unused_imports)]
 pub(super) use crate::actions::context_helpers::{
     action_result, checked_sub_health, creature_context, is_out_of_bounds, noop_result,
-    value_to_text,
+    unknown_creature_diagnostic, value_to_text,
 };
 #[allow(unused_imports)]
 pub(super) use crate::actions::events::damaged_event;
