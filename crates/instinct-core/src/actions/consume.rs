@@ -2,7 +2,7 @@
 //! additionally the attacking creature gains `heal` health points (no cap).
 
 use crate::actions::shared::{
-    apply_strike, parse_int_arg, parse_strike_args, ACTION_CONSUME, ARG_HEAL,
+    apply_strike, check_arity, parse_int_arg, parse_strike_args, ACTION_CONSUME, ARG_HEAL,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -29,6 +29,7 @@ impl crate::actions::Action for Consume {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
+        check_arity(ACTION_CONSUME, self.arity(), args.len())?;
         let (dx, dy, damage) = parse_strike_args(ACTION_CONSUME, args)?;
         let heal = parse_int_arg(&args[3], ACTION_CONSUME, ARG_HEAL)?;
 

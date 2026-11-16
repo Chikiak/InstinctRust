@@ -8,7 +8,7 @@
 //! abort: it does nothing, but consumes the turn.
 
 use crate::actions::shared::{
-    checked_sub_health, creature_context, is_out_of_bounds, noop_result, parse_dir_arg,
+    checked_sub_health, check_arity, creature_context, is_out_of_bounds, noop_result, parse_dir_arg,
     parse_int_arg, unknown_creature_diagnostic, ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH,
 };
 use crate::actions::ActionContext;
@@ -36,11 +36,13 @@ impl crate::actions::Action for Reproduce {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
+        check_arity(ACTION_REPRODUCE, self.arity(), args.len())?;
+        // --- Phase 1: reads and pure computations only (nothing mutated) ---
         let dx = parse_dir_arg(&args[0], ACTION_REPRODUCE, ARG_DX)?;
         let dy = parse_dir_arg(&args[1], ACTION_REPRODUCE, ARG_DY)?;
         let health = parse_int_arg(&args[2], ACTION_REPRODUCE, ARG_HEALTH)?;
 
-        let (pos, _species, _tick) = creature_context(world, creature_id)?;
+        let (pos, _species, _) = creature_context(world, creature_id)?;
 
         let mother = world
             .creature(creature_id)
@@ -61,11 +63,26 @@ impl crate::actions::Action for Reproduce {
         }
         let (tx, ty) = (tx as usize, ty as usize);
 
+        // --- Fase 2: escrituras ---
         let child_id = match world.place_creature(&species, tx, ty) {
             Ok(id) => id,
             Err(_) => return Ok(noop_result()),
         };
-        world.set_creature_health(child_id, health)?;
+        // If we cannot assign health to the child, revert creation so as not to
+        // leave an orphaned, health-less child. If the revert also fails,
+        // combine both errors to not lose information.
+        if let Err(e) = world.set_creature_health(child_id, health) {
+            if let Err(revert_err) = world.remove_creature(child_id) {
+                return Err(Diagnostic::new(
+                    ACTION_REPRODUCE,
+                    crate::actions::consts::DIAG_LINE,
+                    format!(
+                        "failed to set child health: {e}; failed to revert child creation: {revert_err}"
+                    ),
+                ));
+            }
+            return Err(e);
+        }
 
         let mother = world
             .creature_mut(creature_id)

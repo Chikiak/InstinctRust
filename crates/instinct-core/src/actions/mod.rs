@@ -19,16 +19,16 @@ pub mod reproduce;
 pub mod roar;
 pub mod say;
 pub mod shared;
-pub mod r#trait;
+pub mod action_trait;
 pub mod wait;
 
 pub use action_catalog::ActionCatalog;
+pub use action_trait::{Action, ActionResult};
 pub use attack::Attack;
 pub use catalog::Catalog;
 pub use consume::Consume;
 pub use context::{ActionContext, ReadContext, WriteContext};
 pub use move_::Move;
-pub use r#trait::{Action, ActionResult};
 pub use reproduce::Reproduce;
 pub use roar::Roar;
 pub use say::Say;

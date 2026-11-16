@@ -2,11 +2,12 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
-use crate::actions::shared::{creature_context, event_result, value_to_text, ACTION_ROAR};
+use crate::actions::shared::{
+    check_arity, creature_context, say_like, value_to_text, ACTION_ROAR,
+};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;
-use crate::event::Event;
 use crate::value::Value;
 use crate::world::CreatureId;
 
@@ -29,14 +30,9 @@ impl crate::actions::Action for Roar {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
+        check_arity(ACTION_ROAR, self.arity(), args.len())?;
         let text = value_to_text(&args[0]);
         let (pos, species, tick) = creature_context(world, creature_id)?;
-        world.add_roar(creature_id, species.clone(), pos, text.clone());
-        Ok(event_result(Event::Roared {
-            tick,
-            species,
-            pos,
-            text,
-        }))
+        say_like(world, creature_id, species, pos, tick, text, true)
     }
 }

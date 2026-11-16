@@ -4,7 +4,8 @@
 //! outside {-1, 0, 1}, or text arguments: error naming the argument.
 
 use crate::actions::shared::{
-    is_out_of_bounds, noop_result, parse_dir_args, parse_int_arg, ACTION_MOVE, ARG_SPEED,
+    check_arity, is_out_of_bounds, noop_result, parse_dir_args, parse_int_arg, ACTION_MOVE,
+    ARG_SPEED,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
@@ -31,6 +32,7 @@ impl crate::actions::Action for Move {
         creature_id: CreatureId,
         args: &[Value],
     ) -> Result<ActionResult, Diagnostic> {
+        check_arity(ACTION_MOVE, self.arity(), args.len())?;
         let (dx, dy) = parse_dir_args(args, ACTION_MOVE)?;
         let speed = parse_int_arg(&args[2], ACTION_MOVE, ARG_SPEED)?;
 

@@ -3,6 +3,22 @@ use super::consts::{ARG_DAMAGE, ARG_DX, ARG_DY, DIAG_LINE};
 use crate::diagnostic::Diagnostic;
 use crate::value::Value;
 
+/// Validates that the argument count matches the expected arity. Returns a
+/// diagnostic naming the action if they do not match.
+pub(super) fn check_arity(action: &str, expected: usize, actual: usize) -> Result<(), Diagnostic> {
+    if actual != expected {
+        return Err(Diagnostic::new(
+            action,
+            DIAG_LINE,
+            format!(
+                "action '{}' expects {} arguments, got {}",
+                action, expected, actual
+            ),
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn parse_int_arg(
     value: &Value,
     action: &str,
@@ -35,6 +51,17 @@ pub(super) fn parse_dir_arg(
 }
 
 pub(super) fn parse_dir_args(args: &[Value], action: &str) -> Result<(i64, i64), Diagnostic> {
+    if args.len() < 2 {
+        return Err(Diagnostic::new(
+            action,
+            DIAG_LINE,
+            format!(
+                "action '{}' expects at least 2 arguments for direction, got {}",
+                action,
+                args.len()
+            ),
+        ));
+    }
     let dx = parse_dir_arg(&args[0], action, ARG_DX)?;
     let dy = parse_dir_arg(&args[1], action, ARG_DY)?;
     Ok((dx, dy))
@@ -44,6 +71,17 @@ pub(super) fn parse_strike_args(
     action: &str,
     args: &[Value],
 ) -> Result<(i64, i64, i64), Diagnostic> {
+    if args.len() < 3 {
+        return Err(Diagnostic::new(
+            action,
+            DIAG_LINE,
+            format!(
+                "action '{}' expects at least 3 arguments for strike, got {}",
+                action,
+                args.len()
+            ),
+        ));
+    }
     let dx = parse_dir_arg(&args[0], action, ARG_DX)?;
     let dy = parse_dir_arg(&args[1], action, ARG_DY)?;
     let damage = parse_int_arg(&args[2], action, ARG_DAMAGE)?;
