@@ -82,7 +82,7 @@ use sin tocar el núcleo.
 | R2-04 | DRY residual y cohesión en `actions/` | Revisar attack/consume/combat/shared/parse | R2-01 | M | done | r2-04-dry-actions.md |
 | R2-05 | CLI: separación de streams y validaciones | Revisar stdout/stderr, `--ticks`, `--every`, `--root` | R2-01 | S | done | r2-05-cli-streams-validation.md |
 | R2-06 | Testing coverage gaps | `program_tests.rs`, `Display` de eventos, edge cases | R2-02, R2-03 | M | done | r2-06-testing-coverage.md |
-| R2-07 | Higiene final y verificación de salida | Archivos >300 L, comentarios ES, puertas verdes | R2-02…R2-06 | S | todo | r2-07-higiene-final.md |
+| R2-07 | Higiene final y verificación de salida | Archivos >300 L, comentarios ES, puertas verdes | R2-02…R2-06 | S | done | r2-07-higiene-final.md |
 
 ### Orden y dependencias
 
@@ -140,6 +140,6 @@ repórtalo en lugar de improvisar.
 | R2-04 | DRY / extracción de helpers | Duplicación residual en `actions/` | Ninguno: solo movimiento de código | done | 4 puertas verdes (test/clippy/fmt/build) + determinismo idéntico (SHA256 D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8 x2); coste 0 líneas movidas. |
 | R2-05 | Traducción de string de diagnóstico + assert de test | stderr decía "mapas disponibles:" (español) | Un cambio de código (run.rs:30) + 1 assert (basic.rs) | done | cargo test --workspace exit 0 / clippy -D warnings exit 0 / fmt --check exit 0 / determinismo --seed 7 idéntico (SHA256 D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8 x2) |
 | R2-06 | Pruebas (cobertura de huecos) | Cobertura de huecos detectados sin tocar lógica de negocio | 0 líneas de fuente: solo registro `[[test]] interp` + imports/campo en tests existentes | done | cargo test --workspace exit 0 (18 tests de `interp` entre ellos) / clippy -D warnings exit 0 / fmt --check exit 0 / determinismo --seed 7 dos corridas idénticas (SHA256 D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8) |
-| R2-07 | Higiene | Techo de líneas, comentarios ES | Ninguno | todo | — |
+| R2-07 | Higiene | Techo de líneas, comentarios ES | Ninguno | done | cargo test --workspace exit 0 / clippy -D warnings exit 0 / fmt --check exit 0 / 0 comentarios ES en crates/ / 0 strings ES en salida / determinismo --seed 7 dos corridas idénticas (SHA256 D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8) / 3 excepciones de tamaño anotadas (parse.rs 327, reproduce.rs 307, move_.rs 303) / commit 549a9f3 |
 
 <!-- Se rellena al avanzar: enfoque, motivación, coste, mediciones. -->
