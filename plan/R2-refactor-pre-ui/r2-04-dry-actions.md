@@ -1,7 +1,7 @@
 ---
 id: R2-04
 title: DRY residual y cohesión en actions/
-status: todo
+status: done
 phase: R2
 depends_on: [R2-01]
 size: M
@@ -48,4 +48,10 @@ la cohesión, sin cambiar lógica de negocio.
 
 ## Notas de implementación
 
-<!-- Rellenar al completar: qué se movió, qué se eliminó, qué se dejó igual y por qué. -->
+Se realizó la pasada final de DRY sobre `crates/instinct-core/src/actions/`. La revisión evidenció que NO hay duplicación real, ni código muerto, ni wrappers triviales: todos los helpers viven centralizados en `shared.rs`, `combat.rs`, `consts.rs`, `parse.rs`, `context_helpers.rs` y `events.rs`; cada archivo de acción tiene ≤ 95 líneas; `ACTION_ATTACK` es `pub(crate)` justificado en `world/action_context.rs:4,51`. Por tanto:
+- ¿Qué se movió? Nada. 0 líneas movidas.
+- ¿Qué se eliminó? Nada. 0 líneas eliminadas.
+- ¿Qué se dejó igual? Todo el módulo `actions/` sin cambios de código Rust (0 líneas agregadas/modificadas/eliminadas), porque no quedaba duplicación residual que eliminar sin alterar lógica de negocio.
+- Puertas validadas: `cargo test --workspace` exit 0; `cargo clippy --workspace --all-targets -- -D warnings` exit 0; `cargo fmt --all --check` exit 0; `cargo build --bin instinct-cli` exit 0.
+- Determinismo: dos corridas de `instinct-cli run --root examples --map "Plain with rocks" --seed 7 --ticks 30 --place Dwarf@1,0 --place Ent@5,1 --place Hobbit@10,0 --place Uruk@12,3` produjeron SHA256 idéntico `D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8` (byte a byte).
+- Commit: solo los 2 archivos de plan (PHASE.md + este issue), sin cambios de código Rust.
