@@ -50,6 +50,10 @@ fn test_cli_unknown_map_exits_1() {
         stderr.contains("Plain with rocks"),
         "stderr should list available maps, got: {stderr}"
     );
+    assert!(
+        stderr.contains("available maps"),
+        "stderr should say 'available maps' in English, got: {stderr}"
+    );
 }
 
 #[test]
