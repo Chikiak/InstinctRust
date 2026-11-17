@@ -33,7 +33,7 @@ fn test_cli_e2e_attack_kills_adjacent_creature() {
         "tick 0: Victim present, rows={rows0:?}"
     );
     assert!(
-        stdout.contains("[tick 0] Attacker@0,0 daña 1,0 por 10"),
+        stdout.contains("[tick 0] Attacker@0,0 damages 1,0 by 10"),
         "stderr with Damaged event, got: {stderr}"
     );
     assert!(
@@ -77,7 +77,7 @@ fn test_cli_e2e_consume_kills_and_heals() {
     ]);
     assert_eq!(code, 0, "exit code 0, stderr: {stderr}");
     assert!(
-        stdout.contains("[tick 0] Consumer@0,0 daña 1,0 por 10"),
+        stdout.contains("[tick 0] Consumer@0,0 damages 1,0 by 10"),
         "stderr with Damaged event, got: {stderr}"
     );
     assert!(
@@ -163,7 +163,7 @@ fn test_cli_e2e_roar_emits_event() {
     ]);
     assert_eq!(code, 0, "exit code 0, stderr: {stderr}");
     assert!(
-        stdout.contains("[tick 0] Roarer@1,1 ruge: ¡auau!"),
+        stdout.contains("[tick 0] Roarer@1,1 roars: ¡auau!"),
         "stderr with Roared event, got: {stderr}"
     );
 }

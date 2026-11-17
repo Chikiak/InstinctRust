@@ -8,8 +8,9 @@
 //! abort: it does nothing, but consumes the turn.
 
 use crate::actions::shared::{
-    checked_sub_health, check_arity, creature_context, is_out_of_bounds, noop_result, parse_dir_arg,
-    parse_int_arg, unknown_creature_diagnostic, ACTION_REPRODUCE, ARG_DX, ARG_DY, ARG_HEALTH,
+    check_arity, checked_sub_health, creature_context, is_out_of_bounds, noop_result,
+    parse_dir_arg, parse_int_arg, unknown_creature_diagnostic, ACTION_REPRODUCE, ARG_DX, ARG_DY,
+    ARG_HEALTH,
 };
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;

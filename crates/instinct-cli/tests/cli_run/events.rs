@@ -21,7 +21,7 @@ fn test_cli_events_stdout_diagnostics_stderr() {
     assert_eq!(code, 0, "exit code 0, stderr: {stderr}");
     // The RuntimeError event must go to stdout (via CliOutput).
     assert!(
-        stdout.contains("error en línea") || stdout.contains("division by zero"),
+        stdout.contains("error at line") || stdout.contains("division by zero"),
         "stdout must contain the RuntimeError event, got:\n{stdout}"
     );
     // No load diagnostics must go to stdout.

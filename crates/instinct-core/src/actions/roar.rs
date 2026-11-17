@@ -2,9 +2,7 @@
 //! (integer or text) is valid; an integer is shown as its textual
 //! representation. Consumes a turn. Does not damage or kill.
 
-use crate::actions::shared::{
-    check_arity, creature_context, say_like, value_to_text, ACTION_ROAR,
-};
+use crate::actions::shared::{check_arity, creature_context, say_like, value_to_text, ACTION_ROAR};
 use crate::actions::ActionContext;
 use crate::actions::ActionResult;
 use crate::diagnostic::Diagnostic;

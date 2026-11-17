@@ -50,9 +50,19 @@ pub(super) fn say_like(
         ctx.add_roar(creature_id, species.clone(), pos, text.clone());
     }
     let event = if is_roar {
-        Event::Roared { tick, species, pos, text }
+        Event::Roared {
+            tick,
+            species,
+            pos,
+            text,
+        }
     } else {
-        Event::Said { tick, species, pos, text }
+        Event::Said {
+            tick,
+            species,
+            pos,
+            text,
+        }
     };
     Ok(event_result(event))
 }

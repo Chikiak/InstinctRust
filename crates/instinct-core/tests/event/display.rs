@@ -12,7 +12,7 @@ fn test_display_said() {
         pos: Pos { x: 5, y: 2 },
         text: "hola".to_string(),
     };
-    assert_eq!(ev.to_string(), "[tick 3] Walker@5,2 dice: hola");
+    assert_eq!(ev.to_string(), "[tick 3] Walker@5,2 says: hola");
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn test_display_runtime_error() {
     };
     assert_eq!(
         ev.to_string(),
-        "[tick 2] Sp@0,0 error en línea 4: division by zero"
+        "[tick 2] Sp@0,0 error at line 4: division by zero"
     );
 }
 
@@ -50,7 +50,7 @@ fn test_display_damaged() {
         target: Pos { x: 2, y: 3 },
         amount: 5,
     };
-    assert_eq!(ev.to_string(), "[tick 1] A@1,1 daña 2,3 por 5");
+    assert_eq!(ev.to_string(), "[tick 1] A@1,1 damages 2,3 by 5");
 }
 
 #[test]
@@ -61,5 +61,5 @@ fn test_display_roared() {
         pos: Pos { x: 0, y: 0 },
         text: "aaa".to_string(),
     };
-    assert_eq!(ev.to_string(), "[tick 9] R@0,0 ruge: aaa");
+    assert_eq!(ev.to_string(), "[tick 9] R@0,0 roars: aaa");
 }

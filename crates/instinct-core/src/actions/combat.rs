@@ -29,7 +29,10 @@ pub(super) fn strike_creature(
         Diagnostic::new(
             ACTION_ATTACK,
             DIAG_LINE,
-            format!("overflow damaging creature health at ({},{})", target.tx, target.ty),
+            format!(
+                "overflow damaging creature health at ({},{})",
+                target.tx, target.ty
+            ),
         )
     })?;
     creature.health = new_health;
@@ -134,20 +137,18 @@ pub(super) fn strike_cell(
     }
 
     match target {
-        CellContent::Creature(target_id) => {
-            strike_creature(
-                ctx,
-                &StrikeTarget {
-                    target_id,
-                    attacker_pos: pos,
-                    attacker_species: species,
-                    tick,
-                    tx,
-                    ty,
-                    damage,
-                },
-            )
-        }
+        CellContent::Creature(target_id) => strike_creature(
+            ctx,
+            &StrikeTarget {
+                target_id,
+                attacker_pos: pos,
+                attacker_species: species,
+                tick,
+                tx,
+                ty,
+                damage,
+            },
+        ),
         CellContent::Object(_obj_idx) => strike_object(ctx, &species, pos, tick, tx, ty, damage),
         CellContent::Empty => strike_terrain(ctx, &species, pos, tick, tx, ty, damage),
     }
