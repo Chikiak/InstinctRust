@@ -1,7 +1,7 @@
 ---
 phase: R2
 title: Refactor interno y preparación para la UI
-status: todo
+status: done
 master: ../MASTER.md
 fuentes:
   - ../../docs/PATRONES_DISENO_ARQUITECTURA.md
