@@ -12,7 +12,7 @@ use instinct_core::perceptions::PerceptionCatalog;
 use instinct_core::resources::{Map, Terrain};
 use instinct_core::sim::Simulation;
 use instinct_core::species::Species;
-use instinct_core::world::{CreatureState, World};
+use instinct_core::world::World;
 use std::cell::RefCell;
 use std::rc::Rc;
 

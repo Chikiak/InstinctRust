@@ -8,7 +8,6 @@ use super::common::*;
 use instinct_core::expr::LiteralInt;
 use instinct_core::interp::{execute_turn, CreatureTurnState};
 use instinct_core::program::{Line, Program};
-use instinct_core::value::Value;
 use instinct_core::world::CreatureState;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -93,10 +92,7 @@ fn test_goto_out_of_range_errors() {
                 line: 2,
             },
         ],
-        labels: BTreeMap::from([
-            ("start".to_string(), 0),
-            ("loop".to_string(), 5),
-        ]),
+        labels: BTreeMap::from([("start".to_string(), 0), ("loop".to_string(), 5)]),
     };
     let vars = Rc::new(RefCell::new(HashMap::new()));
     let ctx = FakeCtx {
@@ -109,10 +105,7 @@ fn test_goto_out_of_range_errors() {
     };
 
     let result = execute_turn(&program, &ctx, &mut state);
-    assert!(
-        result.is_err(),
-        "out-of-range goto must be a runtime error"
-    );
+    assert!(result.is_err(), "out-of-range goto must be a runtime error");
     let (d, line) = result.unwrap_err();
     assert_eq!(line, 2);
     assert!(
@@ -138,10 +131,7 @@ fn test_if_goto_out_of_range_errors() {
                 line: 2,
             },
         ],
-        labels: BTreeMap::from([
-            ("start".to_string(), 0),
-            ("far".to_string(), 9),
-        ]),
+        labels: BTreeMap::from([("start".to_string(), 0), ("far".to_string(), 9)]),
     };
     let vars = Rc::new(RefCell::new(HashMap::new()));
     let ctx = FakeCtx {

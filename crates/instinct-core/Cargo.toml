@@ -67,4 +67,8 @@ path = "tests/species/mod.rs"
 name = "diagnostic"
 path = "tests/diagnostic/mod.rs"
 
+[[test]]
+name = "interp"
+path = "tests/interp/mod.rs"
+
 [dependencies]

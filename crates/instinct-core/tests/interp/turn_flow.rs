@@ -5,6 +5,10 @@
 
 use super::common::*;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use instinct_core::interp::CreatureTurnState;
 use instinct_core::value::Value;
 use instinct_core::world::CreatureState;

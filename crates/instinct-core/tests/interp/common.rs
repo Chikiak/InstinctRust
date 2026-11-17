@@ -18,7 +18,7 @@ use std::rc::Rc;
 /// Shares an event Vec between the output port and the test via `Rc<RefCell>`,
 /// so the test can verify the port received the event.
 pub struct SharedOutput {
-    events: Rc<RefCell<Vec<Event>>>,
+    pub events: Rc<RefCell<Vec<Event>>>,
 }
 
 impl WorldOutput for SharedOutput {
@@ -46,7 +46,7 @@ pub fn compile_body(body: &str) -> (Program, Catalog) {
 /// A fake evaluation context backed by a shared variable map. Assignments made
 /// during a turn are visible to later reads in the same turn.
 pub struct FakeCtx {
-    vars: Rc<RefCell<HashMap<String, Value>>>,
+    pub vars: Rc<RefCell<HashMap<String, Value>>>,
 }
 
 impl instinct_core::expr::EvalContext for FakeCtx {
