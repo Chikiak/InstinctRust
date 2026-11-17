@@ -5,6 +5,7 @@
 //! validating arity; there are no `if name == ...` chains by name.
 
 pub mod action_catalog;
+pub mod action_trait;
 pub mod attack;
 pub mod catalog;
 pub mod combat;
@@ -19,7 +20,6 @@ pub mod reproduce;
 pub mod roar;
 pub mod say;
 pub mod shared;
-pub mod action_trait;
 pub mod wait;
 
 pub use action_catalog::ActionCatalog;

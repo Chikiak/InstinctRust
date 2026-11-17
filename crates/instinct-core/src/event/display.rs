@@ -13,7 +13,7 @@ impl std::fmt::Display for Event {
             } => {
                 write!(
                     f,
-                    "[tick {tick}] {species}@{x},{y} dice: {text}",
+                    "[tick {tick}] {species}@{x},{y} says: {text}",
                     x = pos.x,
                     y = pos.y
                 )
@@ -40,7 +40,7 @@ impl std::fmt::Display for Event {
             } => {
                 write!(
                     f,
-                    "[tick {tick}] {species}@{x},{y} error en línea {line}: {message}",
+                    "[tick {tick}] {species}@{x},{y} error at line {line}: {message}",
                     x = pos.x,
                     y = pos.y
                 )
@@ -54,7 +54,7 @@ impl std::fmt::Display for Event {
             } => {
                 write!(
                     f,
-                    "[tick {tick}] {species}@{x},{y} daña {tx},{ty} por {amount}",
+                    "[tick {tick}] {species}@{x},{y} damages {tx},{ty} by {amount}",
                     x = pos.x,
                     y = pos.y,
                     tx = target.x,
@@ -69,7 +69,7 @@ impl std::fmt::Display for Event {
             } => {
                 write!(
                     f,
-                    "[tick {tick}] {species}@{x},{y} ruge: {text}",
+                    "[tick {tick}] {species}@{x},{y} roars: {text}",
                     x = pos.x,
                     y = pos.y
                 )
