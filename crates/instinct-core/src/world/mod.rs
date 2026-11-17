@@ -14,6 +14,7 @@ pub mod laws;
 pub mod life;
 pub mod roars;
 pub mod snapshot;
+pub mod snapshot_view;
 pub mod ticks;
 #[allow(clippy::module_inception)]
 pub mod world;
@@ -21,4 +22,5 @@ pub mod world;
 pub use context::CreatureContext;
 pub use creature::{CellContent, Creature, CreatureId, CreatureMemento, CreatureState};
 pub use roars::Roar;
+pub use snapshot_view::{CellSnapshot, LiveCreature, ObjectInfo, TerrainInfo, WorldSnapshot};
 pub use world::World;

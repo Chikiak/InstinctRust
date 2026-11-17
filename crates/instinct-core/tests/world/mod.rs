@@ -12,6 +12,7 @@ mod place;
 mod render;
 mod reserve;
 mod robustness;
+mod snapshot;
 mod species;
 mod vision;
 

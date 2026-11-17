@@ -7,7 +7,10 @@ pub use instinct_core::resources::{Map, Object, Terrain};
 pub use instinct_core::sim::Simulation;
 pub use instinct_core::species::Species;
 pub use instinct_core::value::Value;
-pub use instinct_core::world::{CellContent, CreatureId, CreatureMemento, CreatureState, World};
+pub use instinct_core::world::{
+    CellContent, CellSnapshot, CreatureId, CreatureMemento, CreatureState, LiveCreature,
+    ObjectInfo, TerrainInfo, World, WorldSnapshot,
+};
 pub use std::collections::HashMap;
 pub use std::rc::Rc;
 
