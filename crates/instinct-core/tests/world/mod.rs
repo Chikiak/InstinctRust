@@ -6,6 +6,7 @@
 
 mod common;
 mod draw_errors;
+mod logic_errors_audit;
 mod map;
 mod memento;
 mod place;
