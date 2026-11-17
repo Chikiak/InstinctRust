@@ -77,7 +77,7 @@ use sin tocar el núcleo.
 | ID | Título | Problema / patrón que cubre | Depende de | Tamaño | Estado | Archivo de issue |
 |----|--------|----------------------------|------------|--------|--------|------------------|
 | R2-01 | Strings de eventos al inglés | `dice:`/`daña`/`ruge`/`error en línea` → inglés | — | S | done | r2-01-event-strings-english.md |
-| R2-02 | Snapshot estructurado de solo-lectura para renderizado | API pre-UI: estado del mundo sin mutar | R2-01 | M | todo | r2-02-world-snapshot-readonly.md |
+| R2-02 | Snapshot estructurado de solo-lectura para renderizado | API pre-UI: estado del mundo sin mutar | R2-01 | M | done | r2-02-world-snapshot-readonly.md |
 | R2-03 | Auditar errores lógicos remanentes | `unwrap_or(0)`, rango de `pc`, casts signo→`usize`, `checked_*` | R2-01 | M | todo | r2-03-logic-errors-audit.md |
 | R2-04 | DRY residual y cohesión en `actions/` | Revisar attack/consume/combat/shared/parse | R2-01 | M | todo | r2-04-dry-actions.md |
 | R2-05 | CLI: separación de streams y validaciones | Revisar stdout/stderr, `--ticks`, `--every`, `--root` | R2-01 | S | todo | r2-05-cli-streams-validation.md |
@@ -135,7 +135,7 @@ repórtalo en lugar de improvisar.
 | Issue | Patrón / enfoque | Motivación | Coste asumido | Estado | Medición |
 |-------|------------------|------------|---------------|--------|----------|
 | R2-01 | Rename de strings | Salida de eventos en español | Tests de Display afectados | done | 4 strings renombradas / 8 asserts actualizados / puertas verdes |
-| R2-02 | Snapshot / DTO de solo-lectura | F5 necesita consumir el mundo sin mutar | Nuevo módulo o archivo | todo | — |
+| R2-02 | Snapshot / DTO de solo-lectura | F5 necesita consumir el mundo sin mutar | Nuevo módulo o archivo | done | `cargo test --workspace` exit 0 / clippy `-D warnings` exit 0 / `fmt --check` exit 0 / determinismo `--seed 7` dos corridas idénticas (SHA256 1401F3F902C2AD9E0F09247E7D5E21A534C968C52A8B9589AB2FB611BCBC172C) |
 | R2-03 | Corrección de implementación | `unwrap_or(0)` silencioso, casts inseguros | Ninguno: solo pruebas + código | todo | — |
 | R2-04 | DRY / extracción de helpers | Duplicación residual en `actions/` | Ninguno: solo movimiento de código | todo | — |
 | R2-05 | Revisión de Contracts CLI | Streams mezclados, validaciones | Ninguno | todo | — |
