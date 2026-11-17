@@ -1,5 +1,5 @@
-//! Regresión (auditoría R2-03): cada hallazgo A-E bloquea el comportamiento verificado.
-//! No cambia código fuente: el núcleo ya es correcto; los tests impiden regresiones.
+//! Regression (audit R2-03): each finding A-E blocks verified behavior.
+//! Does not change source code: the core is already correct; tests prevent regressions.
 
 use super::common::*;
 

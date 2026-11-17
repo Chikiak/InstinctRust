@@ -82,7 +82,7 @@ use sin tocar el núcleo.
 | R2-04 | DRY residual y cohesión en `actions/` | Revisar attack/consume/combat/shared/parse | R2-01 | M | done | r2-04-dry-actions.md |
 | R2-05 | CLI: separación de streams y validaciones | Revisar stdout/stderr, `--ticks`, `--every`, `--root` | R2-01 | S | done | r2-05-cli-streams-validation.md |
 | R2-06 | Testing coverage gaps | `program_tests.rs`, `Display` de eventos, edge cases | R2-02, R2-03 | M | done | r2-06-testing-coverage.md |
-| R2-07 | Higiene final y verificación de salida | Archivos >300 L, comentarios ES, puertas verdes | R2-02…R2-06 | S | todo | r2-07-higiene-final.md |
+| R2-07 | Higiene final y verificación de salida | Archivos >300 L, comentarios ES, puertas verdes | R2-02…R2-06 | S | done | r2-07-higiene-final.md |
 
 ### Orden y dependencias
 

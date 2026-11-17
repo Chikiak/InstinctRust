@@ -29,9 +29,9 @@ impl crate::actions::Action for Wait {
     ) -> Result<ActionResult, Diagnostic> {
         check_arity(ACTION_WAIT, self.arity(), args.len())?;
         let n = parse_int_arg(&args[0], ACTION_WAIT, ARG_N)?;
-        // `n - 1` no puede overflow: `n == i64::MIN` satura a `i64::MIN` y
-        // `.max(0)` lo lleva a 0. Se satura también a `u32::MAX` para evitar
-        // un cast truncante silencioso cuando `n` excede el rango de `u32`.
+        // `n - 1` cannot overflow: `n == i64::MIN` saturates to `i64::MIN` and
+        // `.max(0)` brings it to 0. It also saturates to `u32::MAX` to avoid
+        // a silent truncating cast when `n` exceeds the range of `u32`.
         let sleep_turns = n.saturating_sub(1).max(0).min(i64::from(u32::MAX)) as u32;
         Ok(action_result(sleep_turns, Vec::new()))
     }
