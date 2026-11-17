@@ -5,7 +5,6 @@
 use super::common::*;
 
 use instinct_core::interp::{execute_turn, CreatureTurnState};
-use instinct_core::value::Value;
 use instinct_core::world::CreatureState;
 use std::cell::RefCell;
 use std::collections::HashMap;
