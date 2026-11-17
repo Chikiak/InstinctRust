@@ -1,7 +1,7 @@
 ---
 id: R2-05
 title: CLI: separación de streams y validaciones
-status: todo
+status: done
 phase: R2
 depends_on: [R2-01]
 size: S
@@ -54,4 +54,19 @@ que los mensajes de la CLI estén en inglés (tras R2-01).
 
 ## Notas de implementación
 
-<!-- Rellenar al completar: qué se cambió en cada archivo de la CLI. -->
+### Cambios por archivo
+- `crates/instinct-cli/src/run.rs` (L30): `eprint!("mapas disponibles: ");` → `eprint!("available maps: ");`. Único cambio de código del issue. Rutas de stdout (L101-108, L120-131) y diagnósticos stderr sin tocar.
+- `crates/instinct-cli/tests/cli_run/basic.rs` (`test_cli_unknown_map_exits_1`): se añadió assert de que stderr contiene "available maps" (inglés) tras el assert de "Plain with rocks". TDD: RED antes del cambio, GREEN tras él.
+- `plan/R2-refactor-pre-ui/PHASE.md`: fila R2-05 Estado todo→done (tabla Issues) y fila R2-05 rellena en Registro de ejecución.
+
+### Evidencia por AC
+- AC1 (simulación→stdout, diagnósticos→stderr): ya OK, sin tocar. `execute_run` imprime mapa y eventos a stdout vía `CliOutput` (run.rs L100-132) y diagnósticos de carga a stderr vía `eprintln!` (run.rs L14-41, L73-88). Cubierto por `test_cli_prints_map` (stderr vacío, mapa en stdout, salida 0).
+- AC2 (flags desconocidos →stderr, exit≠0): ya OK, sin tocar. `build_command` en `command.rs` rechaza subcomandos/flags desconocidos con código != 0; cubierto por tests de `validation.rs`.
+- AC3 (`--ticks>=0`, `--every>=1`, `--root` existe): ya OK, sin tocar. `parse_run` en `args.rs` valida antes de construir; cubierto por tests de `validation.rs` y `core.rs`.
+- AC4 (mensajes en inglés): run.rs:30 traducido + assert en basic.rs. `cargo test -p instinct-cli --test cli_run test_cli_unknown_map_exits_1` → PASS (stderr contiene "available maps").
+
+### Puertas verdes
+- `cargo test --workspace` → exit 0.
+- `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
+- `cargo fmt --all --check` → exit 0.
+- Determinismo `--seed 7`: dos corridas idénticas (SHA256 D6F0D1380CBD856580123B85240855CA0FB547EFCEDA8560BD599EFF7041D6B8 x2), igual al baseline R2-04.

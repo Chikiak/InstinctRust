@@ -27,7 +27,7 @@ pub(crate) fn execute_run(args: &RunArgs) -> i32 {
         None => {
             eprintln!("map not found: '{}'", args.map_name);
             if !resources.maps.is_empty() {
-                eprint!("mapas disponibles: ");
+                eprint!("available maps: ");
                 for (i, m) in resources.maps.iter().enumerate() {
                     if i > 0 {
                         eprint!(", ");
