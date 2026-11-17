@@ -1,7 +1,7 @@
 ---
 id: R2-03
 title: Auditar errores lógicos remanentes
-status: todo
+status: done
 phase: R2
 depends_on: [R2-01]
 size: M
@@ -64,4 +64,14 @@ interna.
 
 ## Notas de implementación
 
-<!-- Rellenar al completar: qué se cambió en cada hallazgo A–E, tests añadidos. -->
+A. unwrap_or(0) en CreatureSnapshot: sin cambio de código. Mantener i64/&str; 0/"" = "creatura no existe" documentado. firmas intactas (snapshot.rs:17-65, view.rs:12-59, builtins/core.rs:15-111 reenvían i64 a Value::Int, no existe Value::Null/Option). TEST AÑADIDO: test_a_creature_snapshot_returns_real_values_not_zero en tests/world/logic_errors_audit.rs (pasa: snapshot refleja health=12, age=0, lifespan=100, x=2, y=1, species_name="Dwarf").
+
+B. pc rango: ya cubierto por tests/interp/errors.rs (test_goto_out_of_range_errors, test_if_goto_out_of_range_errors: goto/if-goto out-of-range -> error, pc no se corrompe). Sin test nuevo (lines.rs:14-36 jump_target valida; turn.rs:54 guarda pc < len).
+
+C. casts as usize tras bounds check: sin cambio (move_.rs:53->56/63; combat.rs:126->129-130; reproduce.rs:65; snapshot.rs:150-151/190-191; parse.rs sin as usize). TEST AÑADIDO: test_c_move_creature_to_out_of_bounds_no_panic en tests/world/logic_errors_audit.rs (pasa: x=3 == columnas devuelve error "outside", criatura no se movió).
+
+D. end_of_tick_creatures usa checked_sub/checked_add; muerte por overflow causa "error" sin pánico (laws.rs:60-116); ya cubre health i64::MIN (robustness.rs:10-35). TEST AÑADIDO: test_d_end_of_tick_age_overflow_no_panic en tests/world/logic_errors_audit.rs (pasa: edad i64::MAX -> checked_add overflow -> Event::Died cause="error", criatura eliminada).
+
+E. diagnostics pub en World (world.rs:48) leído por instinct-cli run.rs:19,76 -> se mantiene pub. WorldSnapshot (snapshot_view.rs) es API GUI separada, sin diagnostics. Sin cambio. TEST AÑADIDO: test_e_diagnostics_public_and_snapshot_separate en tests/world/logic_errors_audit.rs (pasa: diagnostics vacío tras carga limpia, snapshot ticks=0, creatures vacío).
+
+Ningún cambio de código fuente en crates/instinct-core/src/ (cero cambios de comportamiento observable). Tests de integración añadidos en crates/instinct-core/tests/world/logic_errors_audit.rs; módulo registrado en tests/world/mod.rs tras mod robustness.
