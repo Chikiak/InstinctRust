@@ -1,0 +1,17 @@
+[package]
+name = "instinct-gui"
+description = "GUI spike of the Instinct simulator (egui/eframe adapter)"
+edition = "2021"
+
+[[bin]]
+name = "instinct-gui"
+path = "src/main.rs"
+
+[[test]]
+name = "render"
+path = "tests/render/mod.rs"
+
+[dependencies]
+eframe = "0.33.3"
+egui = "0.33.3"
+instinct-core = { path = "../instinct-core" }

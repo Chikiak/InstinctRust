@@ -161,6 +161,6 @@ o te bloquea, para y repórtalo en lugar de improvisar.
 
 | Issue | Patrón / enfoque | Motivación | Coste asumido | Estado | Medición |
 |-------|------------------|------------|---------------|--------|----------|
-| — | — | — | — | — | — |
+| F5-01 | egui+eframe 0.33.3 + crate `instinct-gui`; geometría render pura y clic en panel mínimo | Elegir biblioteca gráfica, compilar sin red, alta del crate GUI en el workspace | M (spike) | done | `cargo build --offline -p instinct-gui` → exit 0; `cargo test --workspace` → exit 0; clippy/fmt → exit 0 |
 
 <!-- Se rellena al avanzar: enfoque, motivación, coste, mediciones. -->

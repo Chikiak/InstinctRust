@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/instinct-core",
     "crates/instinct-cli",
+    "crates/instinct-gui",
 ]
 
 [workspace.package]

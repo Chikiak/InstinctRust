@@ -1,7 +1,7 @@
 ---
 id: F5-01
 title: Spike egui/eframe offline + crate instinct-gui en el workspace
-status: todo
+status: done
 phase: F5-ventana
 depends_on: []
 size: M
@@ -69,4 +69,10 @@ cargo run -p instinct-gui               # ver la ventana spike (manual, cerrar)
 
 ## Notas de implementación
 
-<!-- Rellena el implementador: versión de eframe/egui, deps clave, evidencia offline. -->
+- Versión elegida: `eframe = "0.33.3"` + `egui = "0.33.3"` (una sola copia de `egui`; `cargo add eframe` resolvió 0.33.3 porque la 0.37.0 requiere rustc 1.95 y el toolchain es 1.90.0).
+- Árbol de dependencias (`cargo tree -p instinct-gui -e normal --depth 1`): `instinct-gui` → `eframe v0.33.3`, `egui v0.33.3`, `instinct-core v0.0.0` (path).
+- Evidencia offline: `cargo build --offline -p instinct-gui` → exit 0 (crates en caché tras `cargo fetch` con red).
+- `--smoke`: imprime a stderr y termina con exit 0 (flujo headless real en F5-08). Flag desconocido: usage a stderr + exit 2 (estilo `instinct-cli`).
+- Tamaño de ventana: `GRID_WIDTH_PX + 2*MARGIN_PX` × `GRID_HEIGHT_PX + 2*MARGIN_PX` = 512×400 px (rejas de 16×12 celdas de 32 px con margen 8 px).
+- Módulos nuevos: `src/render/mod.rs` (~70 L), `src/app/mod.rs` (~35 L), `src/ui/mod.rs` (~100 L), `src/main.rs` (~45 L), `src/lib.rs` (~15 L), `tests/render/geometry.rs` (~100 L), `tests/render/mod.rs` (~10 L). Ninguno supera las ~300 L.
+- `crates/instinct-core`: sin cambios (0 dependencias, 0 E/S).
