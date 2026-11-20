@@ -1,7 +1,7 @@
 ---
 id: F5-02
 title: Adaptador WorldOutput para GUI + panel de registro
-status: todo
+status: done
 phase: F5-ventana
 depends_on: [F5-01]
 size: M
@@ -63,4 +63,23 @@ cargo fmt --all --check
 
 ## Notas de implementación
 
-<!-- Rellena el implementador. -->
+Branch: `feat/f5-02-adaptador-eventos-registro` (no se cambió ni se creó rama; commit sobre la rama actual).
+
+AC-by-AC evidence:
+- AC1 (PASS): `impl WorldOutput for LogBuffer` en `crates/instinct-gui/src/app/log.rs`, conectado con `sim.world.set_output(...)` en `tests/log/simulation.rs` y `src/main.rs`; `git diff develop -- crates/instinct-core/` vacío (0 cambios en el núcleo).
+- AC2 (PASS): `cargo test -p instinct-gui --test log` → 8/8 ok: las cinco variantes de `Event` (`Said`, `Died`, `RuntimeError`, `Damaged`, `Roared`) con `match` exhaustivo; `Diagnostic` como `load file:line: message`; límite descarta las antiguas (FIFO); `clear` vacía.
+- AC3 (PASS): `simulation::step_tick_events_accumulate_in_buffer_via_port`: `Simulation::step_tick` sobre `examples` con `set_output(ProbeBuffer)` (`Rc<RefCell<LogBuffer>>` + `WorldOutput` delegado); retorno de `step_tick` ignorado (`let _ =`); entradas inspeccionadas por el puerto, no por el valor de retorno.
+- AC4 (PASS): `cargo test --workspace` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0.
+- AC5 (PASS): `src/app/log.rs` sin eframe/egui; ningún archivo > ~300 líneas; `git status --short` limpio tras el commit.
+
+Signature changes: ninguna en `instinct-core`. API nueva pública: `instinct_gui::{LogBuffer, LogEntry}` y `LogBuffer::{with_capacity, capacity, set_capacity, push_event, push_diagnostic, entries, clear}` + `impl WorldOutput for LogBuffer`.
+
+Modified files:
+- `crates/instinct-gui/Cargo.toml` (nuevo `[[test]] name = "log"`)
+- `crates/instinct-gui/src/app/mod.rs` (`pub mod log;`)
+- `crates/instinct-gui/src/lib.rs` (`pub use app::log::{LogBuffer, LogEntry};`)
+- `crates/instinct-gui/src/main.rs` (modo `--smoke` real: mundo mínimo de `examples`, `LogBuffer` vía `set_output`, `step_tick` N veces sin ventana)
+- `crates/instinct-gui/src/app/log.rs` (nuevo: `LogBuffer`, `LogEntry`, `LogEntryKind`, formateo por `match` exhaustivo, descarte FIFO)
+- `crates/instinct-gui/tests/log/mod.rs`, `tests/log/buffer.rs`, `tests/log/simulation.rs` (nuevos)
+
+Deviations: ninguna.

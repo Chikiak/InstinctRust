@@ -11,6 +11,10 @@ path = "src/main.rs"
 name = "render"
 path = "tests/render/mod.rs"
 
+[[test]]
+name = "log"
+path = "tests/log/mod.rs"
+
 [dependencies]
 eframe = "0.33.3"
 egui = "0.33.3"
