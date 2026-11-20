@@ -29,6 +29,7 @@ fn t5_selection_updates_via_messages() {
         time: Default::default(),
         sim: None,
         log_buffer: None,
+        last_events: Vec::new(),
     };
 
     // Initial selection: first map and first species.

@@ -1,7 +1,11 @@
 //! Pure grid geometry: cell <-> pixel conversions.
 //! No knowledge of eframe/egui; fully testable headless.
 
+pub mod roars;
+
 use instinct_core::world::{CreatureId, WorldSnapshot};
+
+pub use roars::roar_markers;
 
 /// Size of one square cell in pixels.
 pub const CELL_SIZE_PX: f32 = 32.0;

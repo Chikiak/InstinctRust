@@ -4,11 +4,12 @@
 use crate::app::time::Speed;
 use crate::app::{AppState, Msg};
 use crate::render::{
-    cell_to_pixel, grid_from_snapshot, pixel_to_cell, Cell, CELL_SIZE_PX, GRID_COLS,
+    cell_to_pixel, grid_from_snapshot, pixel_to_cell, roar_markers, Cell, CELL_SIZE_PX, GRID_COLS,
     GRID_HEIGHT_PX, GRID_ROWS, GRID_WIDTH_PX, MARGIN_PX,
 };
-use egui::{Align2, CentralPanel, Color32, FontId, Rect, Sense, Stroke, Vec2};
-use instinct_core::world::WorldSnapshot;
+use egui::{Align2, CentralPanel, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Vec2};
+use instinct_core::event::Event;
+use instinct_core::world::{Roar, WorldSnapshot};
 
 #[derive(Default)]
 pub struct SpikeApp {
@@ -300,6 +301,75 @@ impl eframe::App for SpikeApp {
                             text_color,
                         );
                     }
+                }
+
+                // --- Overlay de rugidos (este tick + tick anterior) ---
+                // "Este tick": Event::Roared de last_events con tick == snapshot.ticks - 1
+                // (el rugido se emitió durante el turno que acabamos de renderizar).
+                // "Tick anterior": previous_roars() del mundo (rotados al final
+                // del tick anterior; vacío antes de start_simulation).
+                let mut all_roars: Vec<Roar> = Vec::new();
+                for ev in &self.state.last_events {
+                    if let Event::Roared {
+                        tick,
+                        species,
+                        pos,
+                        text,
+                    } = ev
+                    {
+                        if *tick == snapshot.ticks.saturating_sub(1) {
+                            all_roars.push(Roar {
+                                tick: *tick,
+                                creature_id: instinct_core::world::CreatureId(0),
+                                species: species.clone(),
+                                pos: *pos,
+                                text: text.clone(),
+                            });
+                        }
+                    }
+                }
+                if let Some(sim) = self.state.sim.as_ref() {
+                    for roar in sim.world().previous_roars() {
+                        all_roars.push(roar.clone());
+                    }
+                }
+                let markers = roar_markers(&all_roars, snapshot.rows, snapshot.columns);
+                for (mx, my, mtext) in &markers {
+                    let (px, py) = cell_to_pixel(Cell { x: *mx, y: *my });
+                    let marker_rect = Rect::from_min_size(
+                        response.rect.min + egui::Vec2::new(MARGIN_PX + px, MARGIN_PX + py),
+                        egui::Vec2::splat(CELL_SIZE_PX),
+                    );
+                    // Relleno ámbar translúcido.
+                    painter.rect_filled(
+                        marker_rect,
+                        0.0,
+                        Color32::from_rgba_unmultiplied(210, 160, 40, 120),
+                    );
+                    // Borde de 2 px.
+                    painter.rect_stroke(
+                        marker_rect,
+                        2.0,
+                        Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
+                        StrokeKind::Inside,
+                    );
+                    // Glifo "!" centrado.
+                    painter.text(
+                        marker_rect.center(),
+                        Align2::CENTER_CENTER,
+                        "!",
+                        FontId::monospace(CELL_SIZE_PX * 0.9),
+                        Color32::WHITE,
+                    );
+                    // Texto del rugido bajo el glifo, dentro del marcado
+                    // (opción "junto a la celda" anotada en la issue F5-07).
+                    painter.text(
+                        marker_rect.center() + Vec2::new(0.0, CELL_SIZE_PX * 0.35),
+                        Align2::CENTER_TOP,
+                        mtext,
+                        FontId::monospace(CELL_SIZE_PX * 0.45),
+                        Color32::from_rgb(255, 200, 90),
+                    );
                 }
             }
 

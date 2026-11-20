@@ -35,6 +35,10 @@ pub struct AppState {
     pub time: TimeControl,
     pub sim: Option<Simulation>,
     pub log_buffer: Option<Rc<RefCell<LogBuffer>>>,
+    /// Eventos del último `step_tick` (se vacían en el núcleo tras cada tick;
+    /// se conservan aquí para que la UI pueda leer `Event::Roared` sin
+    /// depender de `snapshot.events`, que está vacío tras `drain_events`).
+    pub last_events: Vec<instinct_core::event::Event>,
 }
 
 impl AppState {
@@ -116,7 +120,7 @@ impl AppState {
             Msg::TickStep => {
                 self.time.step_once();
                 if let Some(sim) = self.sim.as_mut() {
-                    let _ = sim.step_tick();
+                    self.last_events = sim.step_tick();
                 }
             }
             Msg::TickSetSpeed(speed) => {
@@ -126,7 +130,7 @@ impl AppState {
                 let n = self.time.advance(elapsed_ms);
                 if let Some(sim) = self.sim.as_mut() {
                     for _ in 0..n {
-                        let _ = sim.step_tick();
+                        self.last_events = sim.step_tick();
                     }
                 }
             }
