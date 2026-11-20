@@ -20,6 +20,76 @@ impl eframe::App for SpikeApp {
             None => "Clicked cell: none".to_string(),
         };
 
+        let (catalog, load_lines, can_prepare) = if let Some(session) = &self.state.session {
+            (
+                Some((
+                    session
+                        .map_names()
+                        .iter()
+                        .map(|n| n.to_string())
+                        .collect::<Vec<_>>(),
+                    session
+                        .species_names()
+                        .iter()
+                        .map(|n| n.to_string())
+                        .collect::<Vec<_>>(),
+                    session.selected_map().map(|m| m.name.clone()),
+                    session.selected_species().map(|s| s.name.clone()),
+                )),
+                session
+                    .log_entries()
+                    .iter()
+                    .filter(|e| e.kind == crate::app::log::LogEntryKind::Load)
+                    .map(|e| e.line.clone())
+                    .collect::<Vec<_>>(),
+                session.can_prepare(),
+            )
+        } else {
+            (None, Vec::new(), false)
+        };
+
+        egui::SidePanel::right("catalog_panel")
+            .default_width(260.0)
+            .show(ctx, |ui| {
+                ui.heading("Catálogos");
+
+                if let Some((map_names, species_names, sel_map, sel_species)) = catalog {
+                    ui.label("Mapas:");
+                    for (i, name) in map_names.iter().enumerate() {
+                        let selected = sel_map.as_deref() == Some(name.as_str());
+                        if ui.selectable_label(selected, name.as_str()).clicked() {
+                            self.state.update(Msg::MapSelected(i));
+                        }
+                    }
+
+                    ui.separator();
+                    ui.label("Especies:");
+                    for (i, name) in species_names.iter().enumerate() {
+                        let selected = sel_species.as_deref() == Some(name.as_str());
+                        if ui.selectable_label(selected, name.as_str()).clicked() {
+                            self.state.update(Msg::SpeciesSelected(i));
+                        }
+                    }
+
+                    ui.separator();
+                    ui.label("Registro de carga:");
+                    egui::ScrollArea::vertical()
+                        .max_height(200.0)
+                        .show(ui, |ui| {
+                            for line in &load_lines {
+                                ui.label(line);
+                            }
+                        });
+
+                    if !can_prepare {
+                        ui.separator();
+                        ui.label("No se puede preparar: sin mapas o sin especies.");
+                    }
+                } else {
+                    ui.label("Sin sesión cargada.");
+                }
+            });
+
         CentralPanel::default().show(ctx, |ui| {
             ui.label(&selected);
 

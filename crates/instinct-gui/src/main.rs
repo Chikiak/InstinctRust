@@ -2,7 +2,7 @@ use instinct_core::event::WorldOutput;
 use instinct_core::resources;
 use instinct_core::sim::Simulation;
 use instinct_core::world;
-use instinct_gui::{app::AppState, render, ui::SpikeApp};
+use instinct_gui::{app::session::LoadedSession, app::AppState, render, ui::SpikeApp};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ fn examples_root() -> PathBuf {
 }
 
 /// Usage text printed to stderr (exit code 2) for unknown arguments.
-const USAGE: &str = "Usage: instinct-gui [--smoke]\n\nOptions:\n  --smoke    headless flow without opening a window (F5-02/registry + F5-08 full flow).";
+const USAGE: &str = "Usage: instinct-gui [--smoke] [--root <dir>]\n\nOptions:\n  --smoke    headless flow without opening a window (F5-02/registry + F5-08 full flow).\n  --root <dir>  resources root directory (default: examples).";
 
 /// Mirrors the log buffer behind the port so `main` can inspect it after the
 /// simulation without reading the return value of `step_tick`.
@@ -79,18 +79,34 @@ fn run_smoke() -> Result<(), String> {
 fn main() -> eframe::Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    if args.len() == 2 && args[1] == "--smoke" {
+    let mut root = examples_root();
+    let mut smoke = false;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--smoke" => smoke = true,
+            "--root" => {
+                i += 1;
+                if i >= args.len() {
+                    eprintln!("{USAGE}");
+                    exit(2);
+                }
+                root = PathBuf::from(&args[i]);
+            }
+            _ => {
+                eprintln!("{USAGE}");
+                exit(2);
+            }
+        }
+        i += 1;
+    }
+
+    if smoke {
         if let Err(message) = run_smoke() {
             eprintln!("instinct-gui: --smoke failed: {message}");
             exit(1);
         }
         return Ok(());
-    }
-
-    // Unknown arguments: usage to stderr and exit code 2 (instinct-cli style).
-    if args.len() > 1 {
-        eprintln!("{USAGE}");
-        exit(2);
     }
 
     let options = eframe::NativeOptions {
@@ -103,9 +119,12 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "instinct-gui",
         options,
-        Box::new(|_cc| {
+        Box::new(move |_cc| {
             Ok(Box::new(SpikeApp {
-                state: AppState::default(),
+                state: AppState {
+                    selected: None,
+                    session: Some(LoadedSession::new(&root)),
+                },
             }))
         }),
     )

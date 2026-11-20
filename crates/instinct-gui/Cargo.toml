@@ -15,6 +15,10 @@ path = "tests/render/mod.rs"
 name = "log"
 path = "tests/log/mod.rs"
 
+[[test]]
+name = "session"
+path = "tests/session/mod.rs"
+
 [dependencies]
 eframe = "0.33.3"
 egui = "0.33.3"
