@@ -97,7 +97,7 @@ abrir gráfico (ver "Principio rector" más abajo).
 
 | ID | Título | Problema / patrón que cubre | Depende de | Tamaño | Estado | Archivo de issue |
 |----|--------|----------------------------|------------|--------|--------|------------------|
-| F5-01 | Spike egui/eframe offline + crate `instinct-gui` en el workspace | Elegir biblioteca (4.1 depende de ella), compilar sin red con deps descargadas; rejilla + clic; alta del crate | — | M | todo | f5-01-spike-gui-crate.md |
+| F5-01 | Spike egui/eframe offline + crate `instinct-gui` en el workspace | Elegir biblioteca (4.1 depende de ella), compilar sin red con deps descargadas; rejilla + clic; alta del crate | — | M | done | f5-01-spike-gui-crate.md |
 | F5-02 | Adaptador `WorldOutput` para GUI + panel de registro | Conectar el puerto de eventos a un buffer observable; registro con carga, ejecución y eventos | F5-01 | M | todo | f5-02-adaptador-eventos-registro.md |
 | F5-03 | Pantalla de carga y catálogos | Cargar recursos y listar mapas/especies con diagnósticos y línea sin abortar (4.1 paso 1) | F5-01, F5-02 | M | todo | f5-03-carga-catalogos.md |
 | F5-04 | Preparación: elegir mapa, colocar y quitar criaturas | 4.1 paso 2: colocaciones válidas y removibles sobre la máquina de estados | F5-03 | M | todo | f5-04-preparacion-colocaciones.md |
