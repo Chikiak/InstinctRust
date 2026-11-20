@@ -3,3 +3,4 @@
 //! Pattern repo: `tests/<area>/mod.rs` with `mod` declarations and re-exports.
 
 mod geometry;
+mod snapshot;

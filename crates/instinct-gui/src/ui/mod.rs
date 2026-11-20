@@ -4,9 +4,11 @@
 use crate::app::time::Speed;
 use crate::app::{AppState, Msg};
 use crate::render::{
-    pixel_to_cell, CELL_SIZE_PX, GRID_COLS, GRID_HEIGHT_PX, GRID_ROWS, GRID_WIDTH_PX,
+    cell_to_pixel, grid_from_snapshot, pixel_to_cell, Cell, CELL_SIZE_PX, GRID_COLS,
+    GRID_HEIGHT_PX, GRID_ROWS, GRID_WIDTH_PX, MARGIN_PX,
 };
-use egui::{CentralPanel, Color32, Sense, Stroke, Vec2};
+use egui::{Align2, CentralPanel, Color32, FontId, Rect, Sense, Stroke, Vec2};
+use instinct_core::world::WorldSnapshot;
 
 #[derive(Default)]
 pub struct SpikeApp {
@@ -248,6 +250,58 @@ impl eframe::App for SpikeApp {
 
             let (response, painter) =
                 ui.allocate_painter(Vec2::new(GRID_WIDTH_PX, GRID_HEIGHT_PX), Sense::click());
+
+            // --- Rejilla del mundo desde el snapshot vigente (sim o preparación) ---
+            // Se pinta solo cuando hay snapshot disponible; las líneas de rejilla
+            // se dibujan siempre (después, por encima de las celdas).
+            let snapshot: Option<WorldSnapshot> = self
+                .state
+                .sim
+                .as_ref()
+                .map(|sim| sim.world().snapshot())
+                .or_else(|| {
+                    self.state
+                        .prep_state
+                        .as_ref()
+                        .map(|prep| prep.world.snapshot())
+                });
+            if let Some(snapshot) = snapshot {
+                let grid = grid_from_snapshot(&snapshot);
+                for row in &grid.cells {
+                    for cell_view in row {
+                        let (px, py) = cell_to_pixel(Cell {
+                            x: cell_view.x,
+                            y: cell_view.y,
+                        });
+                        let cell_rect = Rect::from_min_size(
+                            response.rect.min + egui::Vec2::new(MARGIN_PX + px, MARGIN_PX + py),
+                            egui::Vec2::splat(CELL_SIZE_PX),
+                        );
+                        let fill = Color32::from_rgb(
+                            cell_view.color.r,
+                            cell_view.color.g,
+                            cell_view.color.b,
+                        );
+                        let luminance = (cell_view.color.r as f32 * 0.299
+                            + cell_view.color.g as f32 * 0.587
+                            + cell_view.color.b as f32 * 0.114)
+                            / 255.0;
+                        let text_color = if luminance > 0.5 {
+                            Color32::BLACK
+                        } else {
+                            Color32::WHITE
+                        };
+                        painter.rect_filled(cell_rect, 0.0, fill);
+                        painter.text(
+                            cell_rect.center(),
+                            Align2::CENTER_CENTER,
+                            cell_view.symbol.to_string(),
+                            FontId::monospace(CELL_SIZE_PX * 0.8),
+                            text_color,
+                        );
+                    }
+                }
+            }
 
             let stroke = Stroke::new(1.0, Color32::from_gray(120));
             for col in 0..=GRID_COLS {
