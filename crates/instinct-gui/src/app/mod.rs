@@ -4,10 +4,26 @@
 pub mod log;
 pub mod prep;
 pub mod session;
+pub mod time;
 
+use crate::app::log::LogBuffer;
 use crate::app::prep::PlacementId;
 use crate::app::session::LoadedSession;
+use crate::app::time::{RunState, Speed, TimeControl};
 use crate::render::Cell;
+use instinct_core::event::WorldOutput;
+use instinct_core::sim::Simulation;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+/// Port that forwards world events to a shared `LogBuffer`.
+struct LogPort(Rc<RefCell<LogBuffer>>);
+
+impl WorldOutput for LogPort {
+    fn emit(&mut self, event: &instinct_core::event::Event) {
+        self.0.borrow_mut().push_event(event);
+    }
+}
 
 /// State of the GUI application.
 #[derive(Default)]
@@ -16,22 +32,9 @@ pub struct AppState {
     pub session: Option<LoadedSession>,
     pub prep_state: Option<prep::PrepState>,
     pub prep_selected_species: usize,
-}
-
-/// Messages produced by the UI layer and handled by the state machine.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Msg {
-    CellClicked(Cell),
-    MapSelected(usize),
-    SpeciesSelected(usize),
-    /// Enter preparation for the map at the given index in the session catalog.
-    PrepEnter(usize),
-    /// Place the selected species at grid cell (x, y).
-    PrepPlace(usize, usize, usize),
-    /// Remove the placement with the given id.
-    PrepRemove(PlacementId),
-    /// Select the species at the given index for placement.
-    PrepSelectSpecies(usize),
+    pub time: TimeControl,
+    pub sim: Option<Simulation>,
+    pub log_buffer: Option<Rc<RefCell<LogBuffer>>>,
 }
 
 impl AppState {
@@ -70,6 +73,10 @@ impl AppState {
                 }
             }
             Msg::PrepPlace(species_idx, x, y) => {
+                // Rechazar colocación si la simulación está corriendo o en pausa.
+                if matches!(self.time.state, RunState::Running(_) | RunState::Paused(_)) {
+                    return;
+                }
                 let Some(prep_state) = self.prep_state.as_mut() else {
                     return;
                 };
@@ -82,6 +89,10 @@ impl AppState {
                 let _ = prep_state.place(session, &species.name, x, y);
             }
             Msg::PrepRemove(placement_id) => {
+                // Rechazar remoción si la simulación está corriendo o en pausa.
+                if matches!(self.time.state, RunState::Running(_) | RunState::Paused(_)) {
+                    return;
+                }
                 if let Some(prep_state) = self.prep_state.as_mut() {
                     let _ = prep_state.remove(placement_id);
                 }
@@ -89,6 +100,107 @@ impl AppState {
             Msg::PrepSelectSpecies(idx) => {
                 self.prep_selected_species = idx;
             }
+            Msg::TickPlay => {
+                self.time.play();
+                // Arrancar la simulación si estamos en Idle y hay preparación.
+                if matches!(self.time.state, RunState::Running(_))
+                    && self.sim.is_none()
+                    && self.prep_state.is_some()
+                {
+                    self.start_simulation();
+                }
+            }
+            Msg::TickPause => {
+                self.time.pause();
+            }
+            Msg::TickStep => {
+                self.time.step_once();
+                if let Some(sim) = self.sim.as_mut() {
+                    let _ = sim.step_tick();
+                }
+            }
+            Msg::TickSetSpeed(speed) => {
+                self.time.set_speed(speed);
+            }
+            Msg::TickAdvance(elapsed_ms) => {
+                let n = self.time.advance(elapsed_ms);
+                if let Some(sim) = self.sim.as_mut() {
+                    for _ in 0..n {
+                        let _ = sim.step_tick();
+                    }
+                }
+            }
         }
     }
+
+    /// Construye la `Simulation` a partir del `prep_state` (receta: mapa +
+    /// colocaciones + semilla), conecta el puerto de salida al `log_buffer` y
+    /// siembra el RNG. Invariante: `time.tick == sim.world().tick()`.
+    fn start_simulation(&mut self) {
+        let Some(prep) = self.prep_state.as_ref() else {
+            return;
+        };
+        let Some(session) = self.session.as_ref() else {
+            return;
+        };
+
+        // Reconstruir el mundo desde la receta: from_map + place_creature +
+        // set_rng_seed(seed). Nunca World::clone.
+        let map = session
+            .maps()
+            .iter()
+            .find(|m| m.name == prep.recipe.map_name)
+            .expect("mapa de la receta debe existir en la sesión");
+
+        let mut world = instinct_core::world::World::from_map(
+            map,
+            &session.resources().terrains,
+            &session.resources().objects,
+        );
+
+        for (species_name, x, y) in &prep.recipe.placements {
+            let species = session
+                .species()
+                .iter()
+                .find(|s| s.name == *species_name)
+                .expect("especie de la receta debe existir en la sesión");
+            let species = Rc::new(species.clone());
+            let _ = world.place_creature(&species, *x, *y);
+        }
+
+        let mut sim = Simulation::new(world);
+        sim.set_rng_seed(prep.recipe.seed);
+
+        // Conectar el puerto de salida al log_buffer compartido.
+        let buffer = Rc::new(RefCell::new(LogBuffer::with_capacity(4096)));
+        sim.world.set_output(Box::new(LogPort(Rc::clone(&buffer))));
+        self.log_buffer = Some(buffer);
+        self.sim = Some(sim);
+    }
+}
+
+/// Messages produced by the UI layer and handled by the state machine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Msg {
+    CellClicked(Cell),
+    MapSelected(usize),
+    SpeciesSelected(usize),
+    /// Enter preparation for the map at the given index in the session catalog.
+    PrepEnter(usize),
+    /// Place the selected species at grid cell (x, y).
+    PrepPlace(usize, usize, usize),
+    /// Remove the placement with the given id.
+    PrepRemove(PlacementId),
+    /// Select the species at the given index for placement.
+    PrepSelectSpecies(usize),
+    /// Play the simulation.
+    TickPlay,
+    /// Pause the simulation.
+    TickPause,
+    /// Step exactly one tick.
+    TickStep,
+    /// Set the simulation speed.
+    TickSetSpeed(Speed),
+    /// Advance the simulation by `elapsed_ms` (accumulator-based ticks).
+    TickAdvance(u64),
 }

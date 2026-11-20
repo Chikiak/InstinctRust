@@ -26,6 +26,9 @@ fn t5_selection_updates_via_messages() {
         session: Some(session),
         prep_state: None,
         prep_selected_species: 0,
+        time: Default::default(),
+        sim: None,
+        log_buffer: None,
     };
 
     // Initial selection: first map and first species.

@@ -23,6 +23,10 @@ path = "tests/session/mod.rs"
 name = "prep"
 path = "tests/prep/mod.rs"
 
+[[test]]
+name = "time"
+path = "tests/time/mod.rs"
+
 [dependencies]
 eframe = "0.33.3"
 egui = "0.33.3"

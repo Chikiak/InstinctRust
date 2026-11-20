@@ -1,19 +1,36 @@
 //! eframe/egui translation layer: app state -> widgets, clicks -> messages.
 //! No simulation logic lives here: no World, no step_tick, no seeds.
 
+use crate::app::time::Speed;
 use crate::app::{AppState, Msg};
 use crate::render::{
     pixel_to_cell, CELL_SIZE_PX, GRID_COLS, GRID_HEIGHT_PX, GRID_ROWS, GRID_WIDTH_PX,
 };
 use egui::{CentralPanel, Color32, Sense, Stroke, Vec2};
 
+#[derive(Default)]
 pub struct SpikeApp {
     pub state: AppState,
+    /// Tiempo absoluto del frame anterior (segundos), para calcular el delta.
+    pub last_time: Option<f64>,
 }
 
 impl eframe::App for SpikeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title("instinct-gui".to_owned()));
+
+        // Delta de tiempo entre frames (ms) para alimentar el acumulador de `TimeControl`.
+        let now = ctx.input(|i| i.time);
+        let dt_ms = if let Some(last) = self.last_time {
+            ((now - last) * 1000.0) as u64
+        } else {
+            0
+        };
+        self.last_time = Some(now);
+
+        if dt_ms > 0 {
+            self.state.update(Msg::TickAdvance(dt_ms));
+        }
 
         let selected = match self.state.selected {
             Some(cell) => format!("Clicked cell: ({}, {})", cell.x, cell.y),
@@ -179,6 +196,51 @@ impl eframe::App for SpikeApp {
                 ui.label("Sin sesión cargada.");
                 ui.separator();
             }
+
+            // --- Controles de tiempo (play / pausa / paso / velocidad / tick) ---
+            ui.separator();
+            ui.heading("Tiempo de simulación");
+            let tick_label = match self.state.time.state {
+                crate::app::time::RunState::Idle => "Idle".to_string(),
+                crate::app::time::RunState::Running(s) => format!("Running {} tps", s.tps()),
+                crate::app::time::RunState::Paused(s) => format!("Paused {} tps", s.tps()),
+            };
+            ui.label(format!(
+                "Estado: {tick_label}  Tick: {}",
+                self.state.time.tick_count()
+            ));
+
+            let play_label = match self.state.time.state {
+                crate::app::time::RunState::Idle => "Play",
+                crate::app::time::RunState::Running(_) => "Playing...",
+                crate::app::time::RunState::Paused(_) => "Resume",
+            };
+            if ui.button(play_label).clicked() {
+                self.state.update(Msg::TickPlay);
+            }
+            if ui.button("Pausa").clicked() {
+                self.state.update(Msg::TickPause);
+            }
+            if ui.button("Paso").clicked() {
+                self.state.update(Msg::TickStep);
+            }
+
+            ui.label("Velocidad:");
+            egui::ComboBox::new("time_speed", "")
+                .selected_text(format!("{} tps", self.state.time.speed.tps()))
+                .show_ui(ui, |ui| {
+                    for speed in [Speed::T2, Speed::T10, Speed::T30] {
+                        if ui
+                            .selectable_label(
+                                self.state.time.speed == speed,
+                                format!("{} tps", speed.tps()),
+                            )
+                            .clicked()
+                        {
+                            self.state.update(Msg::TickSetSpeed(speed));
+                        }
+                    }
+                });
 
             ui.label(&selected);
 
