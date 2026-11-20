@@ -227,6 +227,9 @@ impl eframe::App for SpikeApp {
             if ui.button("Paso").clicked() {
                 self.state.update(Msg::TickStep);
             }
+            if ui.button("Reiniciar").clicked() {
+                self.state.update(Msg::Restart);
+            }
 
             ui.label("Velocidad:");
             egui::ComboBox::new("time_speed", "")
