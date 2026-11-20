@@ -27,6 +27,14 @@ path = "tests/prep/mod.rs"
 name = "time"
 path = "tests/time/mod.rs"
 
+[[test]]
+name = "reinicio"
+path = "tests/reinicio/mod.rs"
+
+[[test]]
+name = "determinismo"
+path = "tests/determinismo/mod.rs"
+
 [dependencies]
 eframe = "0.33.3"
 egui = "0.33.3"

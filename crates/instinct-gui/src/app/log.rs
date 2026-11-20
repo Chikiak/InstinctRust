@@ -156,7 +156,7 @@ impl LogBuffer {
         self.entries.clear();
     }
 
-    fn push(&mut self, entry: LogEntry) {
+    pub fn push(&mut self, entry: LogEntry) {
         if self.capacity == 0 {
             return;
         }

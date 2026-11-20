@@ -6,7 +6,7 @@ pub mod prep;
 pub mod session;
 pub mod time;
 
-use crate::app::log::LogBuffer;
+use crate::app::log::{LogBuffer, LogEntry, LogEntryKind};
 use crate::app::prep::PlacementId;
 use crate::app::session::LoadedSession;
 use crate::app::time::{RunState, Speed, TimeControl};
@@ -134,6 +134,67 @@ impl AppState {
                     }
                 }
             }
+            Msg::Restart => {
+                self.restart();
+            }
+        }
+    }
+
+    /// Reinicia la simulación al estado de preparación: recrea el mundo desde la
+    /// receta guardada en `prep_state` (mismo mapa, mismas colocaciones, misma
+    /// semilla vía `set_rng_seed`), nunca `World::clone`. Queda en preparación
+    /// con `sim = None` y empuja una entrada de registro indicando el reinicio.
+    pub fn restart(&mut self) {
+        let prep = match self.prep_state.as_ref() {
+            Some(prep) => prep,
+            None => return,
+        };
+        let seed = prep.recipe.seed;
+        let map_name = prep.recipe.map_name.clone();
+        let placements = prep.recipe.placements.clone();
+
+        // Recrear la preparación desde la receta: from_map + place por cada
+        // placement + set_rng_seed(seed). Nunca World::clone.
+        match prep::PrepState::enter_prep(
+            self.session
+                .as_ref()
+                .expect("sesión cargada para reiniciar"),
+            &map_name,
+            seed,
+        ) {
+            Ok(mut new_prep) => {
+                // Re-aplicar las colocaciones de la receta (mismo orden).
+                let session = self
+                    .session
+                    .as_ref()
+                    .expect("sesión cargada para reiniciar");
+                for (species_name, x, y) in placements {
+                    let _ = new_prep.place(session, &species_name, x, y);
+                }
+                self.prep_state = Some(new_prep);
+            }
+            Err(_diagnostic) => {
+                // Mantener la prep_state actual si falla la recreación.
+                return;
+            }
+        }
+
+        // Limpiar simulación y eventos del último tick.
+        self.sim = None;
+        self.last_events.clear();
+
+        // Pausar el tiempo y resetear su contador de ticks (estado de preparación).
+        self.time.state = crate::app::time::RunState::Idle;
+        self.time.tick = 0;
+        self.time.accumulator_ms = 0;
+
+        // Entrada de registro indicando el reinicio.
+        if let Some(buffer) = self.log_buffer.as_ref() {
+            buffer.borrow_mut().push(LogEntry {
+                tick: 0,
+                kind: LogEntryKind::Event,
+                line: "[reinicio] mundo recreado desde la receta; queda en preparación".to_string(),
+            });
         }
     }
 
@@ -207,4 +268,6 @@ pub enum Msg {
     TickSetSpeed(Speed),
     /// Advance the simulation by `elapsed_ms` (accumulator-based ticks).
     TickAdvance(u64),
+    /// Reinicia la simulación al estado de preparación (desde la receta).
+    Restart,
 }
