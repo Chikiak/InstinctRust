@@ -126,7 +126,11 @@ fn main() -> eframe::Result<()> {
                     session: Some(LoadedSession::new(&root)),
                     prep_state: None,
                     prep_selected_species: 0,
+                    time: Default::default(),
+                    sim: None,
+                    log_buffer: None,
                 },
+                last_time: None,
             }))
         }),
     )
