@@ -1,6 +1,8 @@
 //! Application state machine without knowledge of eframe/egui.
 //! Pure and headless: testable without opening a window.
 
+pub mod log;
+
 use crate::render::Cell;
 
 /// State of the GUI application.
