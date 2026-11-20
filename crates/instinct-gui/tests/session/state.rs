@@ -24,6 +24,8 @@ fn t5_selection_updates_via_messages() {
     let mut state = AppState {
         selected: None,
         session: Some(session),
+        prep_state: None,
+        prep_selected_species: 0,
     };
 
     // Initial selection: first map and first species.

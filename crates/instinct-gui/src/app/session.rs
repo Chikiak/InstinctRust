@@ -53,6 +53,11 @@ impl LoadedSession {
         }
     }
 
+    /// All loaded resources (terrains, objects, maps, creatures).
+    pub fn resources(&self) -> &LoadedResources {
+        &self.resources
+    }
+
     /// All loaded maps, in load order.
     pub fn maps(&self) -> &[Map] {
         &self.resources.maps
@@ -85,6 +90,11 @@ impl LoadedSession {
             .collect();
         names.sort();
         names
+    }
+
+    /// The currently selected map index (into `maps()`).
+    pub fn selected_map_index(&self) -> usize {
+        self.selected_map_idx
     }
 
     /// The currently selected map, if any.

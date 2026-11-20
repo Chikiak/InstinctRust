@@ -124,6 +124,8 @@ fn main() -> eframe::Result<()> {
                 state: AppState {
                     selected: None,
                     session: Some(LoadedSession::new(&root)),
+                    prep_state: None,
+                    prep_selected_species: 0,
                 },
             }))
         }),
