@@ -129,6 +129,7 @@ fn main() -> eframe::Result<()> {
                     time: Default::default(),
                     sim: None,
                     log_buffer: None,
+                    last_events: Vec::new(),
                 },
                 last_time: None,
             }))
