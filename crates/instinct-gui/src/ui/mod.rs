@@ -91,7 +91,98 @@ impl eframe::App for SpikeApp {
             });
 
         CentralPanel::default().show(ctx, |ui| {
+            // --- Collect prep data up front (avoids borrow conflicts) ---
+            let prep_info = if let Some(prep) = &self.state.prep_state {
+                let species_names: Vec<String> = self
+                    .state
+                    .session
+                    .as_ref()
+                    .map(|s| {
+                        s.species_names()
+                            .iter()
+                            .map(|n| n.to_string())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let creatures = prep.creatures_in_prep();
+                Some((
+                    prep.recipe.map_name.clone(),
+                    prep.recipe.seed,
+                    prep.placed_count(),
+                    species_names,
+                    creatures,
+                ))
+            } else {
+                None
+            };
+
+            // --- Preparation controls ---
+            if let Some((map_name, seed, count, species_names, creatures)) = prep_info {
+                ui.heading("Preparación");
+                ui.label(format!(
+                    "Mapa: {map_name}  Semilla: {seed}  Colocadas: {count}"
+                ));
+
+                ui.label("Especies para colocar:");
+                let mut new_species_idx = None;
+                egui::ComboBox::new("prep_species", "")
+                    .selected_text(
+                        species_names
+                            .get(self.state.prep_selected_species)
+                            .map(|s| s.as_str())
+                            .unwrap_or(""),
+                    )
+                    .show_ui(ui, |ui| {
+                        for (i, name) in species_names.iter().enumerate() {
+                            if ui
+                                .selectable_label(
+                                    self.state.prep_selected_species == i,
+                                    name.as_str(),
+                                )
+                                .clicked()
+                            {
+                                new_species_idx = Some(i);
+                            }
+                        }
+                    });
+                if let Some(i) = new_species_idx {
+                    self.state.update(Msg::PrepSelectSpecies(i));
+                }
+
+                ui.separator();
+                ui.label("Criaturas colocadas:");
+                let mut remove_id: Option<crate::app::prep::PlacementId> = None;
+                for (pid, name, x, y) in &creatures {
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{name} @ {x},{y}"));
+                        if ui.button("Quitar").clicked() {
+                            remove_id = Some(*pid);
+                        }
+                    });
+                }
+                if let Some(pid) = remove_id {
+                    self.state.update(Msg::PrepRemove(pid));
+                }
+
+                ui.separator();
+            } else if let Some(session) = &self.state.session {
+                if session.can_prepare() {
+                    if ui.button("Entrar en preparación").clicked() {
+                        self.state
+                            .update(Msg::PrepEnter(session.selected_map_index()));
+                    }
+                } else {
+                    ui.label("Carga mapas y especies para preparar.");
+                }
+                ui.separator();
+            } else {
+                ui.label("Sin sesión cargada.");
+                ui.separator();
+            }
+
             ui.label(&selected);
+
+            let in_prep = self.state.prep_state.is_some();
 
             let (response, painter) =
                 ui.allocate_painter(Vec2::new(GRID_WIDTH_PX, GRID_HEIGHT_PX), Sense::click());
@@ -122,7 +213,34 @@ impl eframe::App for SpikeApp {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let local = pos - response.rect.min;
                     if let Some(cell) = pixel_to_cell(local.x, local.y) {
-                        self.state.update(Msg::CellClicked(cell));
+                        if in_prep {
+                            if let Some(session) = &self.state.session {
+                                let species_idx = self.state.prep_selected_species;
+                                let species_name = session
+                                    .species_names()
+                                    .get(species_idx)
+                                    .cloned()
+                                    .unwrap_or_default();
+                                // Determine action before mutating state.
+                                let mut place_action: Option<(usize, usize, usize)> = None;
+                                let mut remove_action: Option<crate::app::prep::PlacementId> = None;
+                                if let Some(prep) = &self.state.prep_state {
+                                    if prep.world.creature_at(cell.x, cell.y).is_some() {
+                                        remove_action = prep.placement_id_at(cell.x, cell.y);
+                                    } else if !species_name.is_empty() {
+                                        place_action = Some((species_idx, cell.x, cell.y));
+                                    }
+                                }
+                                if let Some((si, x, y)) = place_action {
+                                    self.state.update(Msg::PrepPlace(si, x, y));
+                                }
+                                if let Some(pid) = remove_action {
+                                    self.state.update(Msg::PrepRemove(pid));
+                                }
+                            }
+                        } else {
+                            self.state.update(Msg::CellClicked(cell));
+                        }
                     }
                 }
             }

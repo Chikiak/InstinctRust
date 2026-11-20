@@ -1,7 +1,7 @@
 ---
 id: F5-04
 title: Preparación - elegir mapa, colocar y quitar criaturas
-status: todo
+status: done
 phase: F5-ventana
 depends_on: [F5-03]
 size: M
@@ -68,4 +68,8 @@ cargo run -p instinct-gui   # manual: colocar y quitar criaturas
 
 ## Notas de implementación
 
-<!-- Rellena el implementador. -->
+- Rama: feat/f5-04-preparacion-colocaciones (base develop).
+- Archivos creados: crates/instinct-gui/src/app/prep.rs (~130 líneas, headless, sin eframe); crates/instinct-gui/tests/prep/common.rs; crates/instinct-gui/tests/prep/mod.rs (11 tests t-prep-01..t-prep-11).
+- Archivos modificados: crates/instinct-gui/Cargo.toml ([[test]] prep); crates/instinct-gui/src/app/mod.rs (pub mod prep; prep_state/prep_selected_species en AppState; 4 Msg variantes PrepEnter/PrepPlace/PrepRemove/PrepSelectSpecies + brazos en update); crates/instinct-gui/src/app/session.rs (accesores resources(), selected_map_index()); crates/instinct-gui/src/main.rs (inicializa nuevos campos AppState); crates/instinct-gui/src/ui/mod.rs (panel de preparación: selector especie, botón entrar, rejilla clicable place/remove, lista colocadas con Quitar); crates/instinct-gui/tests/session/state.rs (campos nuevos en struct literal AppState).
+- Decisiones: cero cambios en crates/instinct-core/ (verificado con git diff develop -- crates/instinct-core/ vacío). Receta = {map_name, seed, placements} (decisión 4 de PHASE.md); la GUI guarda la receta, no el mundo. place delega bounds/celda-libre en World::place_creature; remove delega en World::remove_creature.
+- Evidencia AC: AC1 tests headless 11/11 OK (colocación válida; objeto/criatura/bounds → Diagnostic sin pánico; quitar deja celda libre; N misma especie; mundo consistente). AC2 receta suficiente (estructura Recipe, F5-08 prueba recreación oficial). AC3 cargo test -p instinct-gui --test prep → 11/11; cargo test --workspace → exit 0; cargo clippy --workspace --all-targets -- -D warnings → exit 0; cargo fmt --all --check → exit 0. AC4 git diff develop -- crates/instinct-core/ vacío; archivos <300 líneas; git status limpio tras commit.
