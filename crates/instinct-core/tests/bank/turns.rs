@@ -60,6 +60,33 @@ fn birth_transfers_health() {
     );
 }
 
+// AC8 (núcleo): las variables persisten de un turno a otro y el pc se
+// reanuda en start al llegar al final del archivo.
+#[test]
+fn variables_persist_across_turns() {
+    let mut bw = BankWorld::from_examples("Arena", &[("Counter", 2, 2)]);
+    // Tick 0: marked = tick (0), say(0), goto start, ... hasta el límite de líneas.
+    bw.step_tick();
+    let m0 = bw.memento("Counter").expect("Counter vivo tras tick 0");
+    assert_eq!(
+        m0.health, 19,
+        "Counter: 20 - 1 fin de tick = 19"
+    );
+    assert_eq!(
+        m0.variables.get("marked"),
+        Some(&instinct_core::value::Value::Int(0)),
+        "marcada = 0 (tick durante el turno de tick 0)"
+    );
+    // Tick 1: continúa desde el pc donde se quedó, marcada se reasigna a 1.
+    bw.step_tick();
+    let m1 = bw.memento("Counter").expect("Counter vivo tras tick 1");
+    assert_eq!(
+        m1.variables.get("marked"),
+        Some(&instinct_core::value::Value::Int(1)),
+        "marcada = 1 (tick durante el turno de tick 1, variable persistió)"
+    );
+}
+
 // AC5 (núcleo): reproduce aborta por salud insuficiente, no nace nadie,
 // la madre sigue viva (solo paga el fin de tick).
 #[test]
