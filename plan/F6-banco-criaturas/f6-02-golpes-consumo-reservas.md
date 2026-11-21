@@ -2,7 +2,7 @@
 id: F6-02
 title: Golpes, consumo y reservas
 phase: F6
-status: todo
+status: done
 depends_on: [F6-01]
 size: M
 file: f6-02-golpes-consumo-reservas.md

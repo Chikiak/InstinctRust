@@ -1,3 +1,4 @@
+mod combat;
 mod helpers;
 mod movement;
 
