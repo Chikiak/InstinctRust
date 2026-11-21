@@ -1,3 +1,4 @@
+mod combat;
 mod common;
 mod movement;
 
