@@ -36,13 +36,20 @@ fn diagonal_position_after_tick() {
     assert_eq!(m.y, 3, "Diagonal y after 1 tick");
 }
 
-// AC8 (núcleo): Pacer position after move tick; said appears on a later tick.
+// AC8 (núcleo): Pacer moves on tick 0 and says "paso" on the next tick.
 // Una acción por turno aunque el movimiento sea de varias casillas.
 #[test]
-fn pacer_position_and_said_same_tick() {
+fn pacer_moves_then_says_next_tick() {
     let mut bw = BankWorld::from_examples("Arena", &[("Pacer", 2, 2)]);
     // Tick 0 → 1: move(1,0,2) consumes the turn. Pacer at (4,2).
-    let _events1 = bw.step_tick();
+    let events1 = bw.step_tick();
+    // El dicho no debe emitirse en el mismo tick del move (una acción por turno).
+    assert!(
+        !events1
+            .iter()
+            .any(|e| matches!(e, instinct_core::event::Event::Said { .. })),
+        "tick 0: Pacer must not say anything on the move tick"
+    );
     let m1 = bw.memento("Pacer").expect("Pacer alive");
     assert_eq!(m1.x, 4, "Pacer x after move tick");
     assert_eq!(m1.y, 2, "Pacer y after move tick");

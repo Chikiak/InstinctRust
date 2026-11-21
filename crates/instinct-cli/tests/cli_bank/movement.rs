@@ -194,7 +194,7 @@ fn wait_sleeps_two_turns() {
     let row1 = rows1.get(2).expect("tick 1 row 2");
     assert_eq!(&row1[2..3], "N", "tick 1: Napper sigue en (2,2)");
     assert!(
-        !stdout.contains("[tick 1] Napper says: despierto"),
+        !stdout.contains("[tick 1] Napper@2,2 says: despierto"),
         "tick 1: Napper no habla"
     );
 
@@ -202,7 +202,7 @@ fn wait_sleeps_two_turns() {
     let row2 = rows2.get(2).expect("tick 2 row 2");
     assert_eq!(&row2[2..3], "N", "tick 2: Napper sigue en (2,2)");
     assert!(
-        !stdout.contains("[tick 2] Napper says: despierto"),
+        !stdout.contains("[tick 2] Napper@2,2 says: despierto"),
         "tick 2: Napper no habla"
     );
 
@@ -256,9 +256,14 @@ fn pacer_one_action_per_turn() {
     let rows1 = rows_after_tick(&stdout, 1);
     let row1 = rows1.get(2).expect("tick 1 row 2");
     assert_eq!(&row1[4..5], "P", "tick 1: Pacer en (4,2), row2='{row1}'");
-    // El dicho "paso" aparece (en tick 1 o posterior, no junto al move de tick 0).
+    // El dicho "paso" NO debe salir en tick 0 (junto al move): una acción por turno.
     assert!(
-        stdout.contains("says: paso"),
-        "Pacer dice 'paso', stdout={stdout}"
+        !stdout.contains("[tick 0] Pacer@2,2 says: paso"),
+        "tick 0: Pacer no dice 'paso' junto al move, stdout={stdout}"
+    );
+    // El dicho "paso" aparece en tick 1, turno después del move.
+    assert!(
+        stdout.contains("[tick 1] Pacer@4,2 says: paso"),
+        "tick 1: Pacer dice 'paso' tras el move, stdout={stdout}"
     );
 }

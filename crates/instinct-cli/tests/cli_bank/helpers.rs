@@ -40,7 +40,7 @@ pub fn rows_after_tick(stdout: &str, tick: u64) -> Vec<String> {
             continue;
         }
         if found {
-            if line.starts_with("== tick ") {
+            if line.starts_with("== tick ") || line.starts_with("[tick ") {
                 break;
             }
             rows.push(line.to_string());

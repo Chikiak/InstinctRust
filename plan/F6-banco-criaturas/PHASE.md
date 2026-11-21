@@ -89,8 +89,8 @@ Los issues los referencian; no los reexplican.
 1. **Banco sobre `examples/` existente, no `bank/` nuevo** — se reusa `examples/`
    como raíz (cambiando nombre/dir respecto al planteamiento original con `bank/`).
    `load_resources` no recursa subcarpetas y `examples/` tiene catálogos afirmados
-   por pruebas de CLI y ventana. Una raíz propia es lo que un estudiante puede
-   copiar entero.
+   por pruebas de CLI y ventana. Reusar `examples/` evita duplicar los catálogos
+   de recursos y es la raíz que un estudiante puede copiar entero tal cual.
 2. **Trampas en `examples/traps/`** — mantiene los scenarios válidos con stderr
    vacío y convierte la carga tolerante en un scenario observable.
 3. **Dos hogares de pruebas** — resultados como reservas de terreno, variables de
