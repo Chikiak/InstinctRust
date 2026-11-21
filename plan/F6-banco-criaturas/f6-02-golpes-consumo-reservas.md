@@ -25,7 +25,7 @@ pierde un punto de vida y suma uno de edad.
 - Criaturas del banco para este issue: quien golpea a una criatura, quien golpea
   sin matarla, quien golpea y consume rocas, quien consume la hierba bajo sí
   misma, y las víctimas quietas (frágil y resistente).
-- Scenarios en `bank/README.md` con el comando exacto y el resultado observado,
+- Scenarios en `examples/README.md` con el comando exacto y el resultado observado,
   más las aserciones de estado interno (reservas, vidas, edades) que la terminal
   no muestra.
 - Pruebas en `crates/instinct-cli/tests/cli_bank/combat.rs` (eventos, rejilla,
@@ -35,21 +35,21 @@ pierde un punto de vida y suma uno de edad.
 **No hagas**
 - No pruebes `reproduce` ni el ciclo de turnos (F6-03) ni `see`/`name` (F6-04).
 - No crees los terrenos Sand ni Crystal: este issue solo usa hierba y roca.
-- No toques `crates/*/src/` ni `examples/`; el banco se basta con `arena.map`.
+- No toques `crates/*/src/`; el banco se basa en `examples/` y su `arena.map`.
 
 ### Archivos previstos
-- `bank/creatures/brawler.ins` — nuevo — golpea a la criatura de la casilla contigua con daño suficiente para matarla.
-- `bank/creatures/bruiser.ins` — nuevo — golpea con daño insuficiente para matar.
-- `bank/creatures/miner.ins` — nuevo — golpea la roca contigua.
-- `bank/creatures/grazer.ins` — nuevo — consume el terreno de su propia casilla.
-- `bank/creatures/forager.ins` — nuevo — consume la roca contigua curándose.
-- `bank/creatures/victim.ins` — nuevo — criatura quieta y frágil, para morir de un golpe.
-- `bank/creatures/tough.ins` — nuevo — criatura quieta y resistente, para sobrevivir al golpe.
+- `examples/creatures/brawler.ins` — nuevo — golpea a la criatura de la casilla contigua con daño suficiente para matarla.
+- `examples/creatures/bruiser.ins` — nuevo — golpea con daño insuficiente para matar.
+- `examples/creatures/miner.ins` — nuevo — golpea la roca contigua.
+- `examples/creatures/grazer.ins` — nuevo — consume el terreno de su propia casilla.
+- `examples/creatures/forager.ins` — nuevo — consume la roca contigua curándose.
+- `examples/creatures/victim.ins` — nuevo — criatura quieta y frágil, para morir de un golpe.
+- `examples/creatures/tough.ins` — nuevo — criatura quieta y resistente, para sobrevivir al golpe.
 - `crates/instinct-cli/tests/cli_bank/combat.rs` — nuevo — scenarios observables desde la terminal.
 - `crates/instinct-cli/tests/cli_bank/mod.rs` — modificar — declarar el módulo nuevo.
 - `crates/instinct-core/tests/bank/combat.rs` — nuevo — estado interno tras los ticks.
 - `crates/instinct-core/tests/bank/mod.rs` — modificar — declarar el módulo nuevo.
-- `bank/README.md` — modificar — escenarios S08 a S16.
+- `examples/README.md` — modificar — escenarios S08 a S16.
 
 ## Criterios de aceptación
 
@@ -65,7 +65,7 @@ pierde un punto de vida y suma uno de edad.
 
 ## Contexto
 
-**Ya existe** (F6-01): la raíz `bank/` con hierba y roca y el mapa Arena, los
+**Ya existe** (F6-01): la raíz `examples/` con hierba y roca y el mapa Arena, los
 objetivos de prueba `cli_bank` y `bank`, y la convención de scenario del README.
 **Contratos que debes respetar**: los de `PHASE.md`. **Ojo**: las reservas de
 terreno y objeto son estado interno; desde la terminal solo se ve el daño como
@@ -113,14 +113,14 @@ víctima desaparece y su casilla queda con terreno, el evento de daño nombra la
 casilla correcta, el golpe fuera del mapa no produce ningún evento. En
 `bank/combat.rs`, estado interno: reservas de terreno y objeto antes y después,
 vida y edad de las criaturas, casilla liberada al desaparecer el objeto. No se
-mockea nada: `Simulation` y `World` reales cargados desde `bank/`, y el binario
+mockea nada: `Simulation` y `World` reales cargados desde `examples/`, y el binario
 real de la CLI. Ningún scenario lee `random`.
 
 ## Verificación
 
 - `cargo test -p instinct-cli --test cli_bank combat` → escenarios de combate observables pasan.
 - `cargo test -p instinct-core --test bank combat` → reservas, vidas y edades correctas.
-- `cargo run -p instinct-cli -- run --root bank --map Arena --seed 1 --ticks 2 --place Brawler@2,2 --place Victim@3,2` → exit 0, víctima muerta en el tick 0 y casilla libre en el tick 1.
+- `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --place Brawler@2,2 --place Victim@3,2` → exit 0, víctima muerta en el tick 0 y casilla libre en el tick 1.
 - `cargo test --workspace` → sin regresiones.
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
 - `cargo fmt --all --check` → exit 0.
@@ -130,7 +130,7 @@ real de la CLI. Ningún scenario lee `random`.
 
 Si algún resultado del enunciado no se cumple en la referencia, no lo parches:
 documéntalo en Desviaciones del README, repórtalo en las notas y déjalo para
-F7. Decisiones que NO son tuyas: cambiar `attack`/`consume`, tocar `examples/`,
+F7. Decisiones que NO son tuyas: cambiar `attack`/`consume`, tocar `crates/*/src/`,
 añadir movimientos o percepciones.
 
 ## Cierre
