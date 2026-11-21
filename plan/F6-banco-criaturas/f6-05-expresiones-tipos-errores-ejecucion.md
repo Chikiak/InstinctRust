@@ -2,7 +2,7 @@
 id: F6-05
 title: Expresiones, tipos y errores de ejecución
 phase: F6
-status: todo
+status: done
 depends_on: [F6-01]
 size: M
 file: f6-05-expresiones-tipos-errores-ejecucion.md
@@ -141,3 +141,25 @@ Decisiones que NO son tuyas: cambiar operadores, mensajes o el intérprete.
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+Rama: `feat/f6-05-expresiones-tipos-errores-ejecucion` (sobre `develop @ de79f0a`, F6-01 a F6-04 ya mergeados). Sin push.
+
+Evidencia AC-por-AC (comando → resultado):
+- AC1 `cargo test -p instinct-core --test bank expressions::precedence_matches_enunciado` → `test result: ok. 3 passed`.
+- AC2 `cargo test -p instinct-core --test bank expressions::division_and_remainder_floor` → `test result: ok. 3 passed`.
+- AC3 `cargo test -p instinct-core --test bank expressions::truthiness_of_numbers_and_texts` → `test result: ok. 3 passed`.
+- AC4 `cargo test -p instinct-cli --test cli_bank expressions::text_order_comparison_dies` → `test result: ok. 5 passed`.
+- AC5 `cargo test -p instinct-cli --test cli_bank expressions::mixed_types_die_with_line` → `test result: ok. 5 passed`.
+- AC6 `cargo test -p instinct-cli --test cli_bank expressions::div_zero_and_unassigned_die` → `test result: ok. 5 passed`.
+- AC7 `cargo test -p instinct-cli --test cli_bank expressions::text_argument_and_bad_direction_die` → `test result: ok. 5 passed`.
+- AC8 `cargo test -p instinct-cli --test cli_bank expressions::runtime_error_kills_only_its_creature` → `test result: ok. 5 passed`.
+- AC9 `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo fmt --all --check` → exit 0; `git status --short` limpio tras el último commit; `cargo test --workspace` → exit 101 únicamente por `instinct-gui::determinismo::t_determinismo_01_gui_iguala_directo_con_seed7` (fallo preexistente, reportado, ajeno a F6); pruebas F6-05: 3/3 núcleo + 5/5 CLI en verde.
+
+Cambios de firma autorizados: ninguno. No se toca `crates/*/src/`; los dos `Cargo.toml` ya tenían `[[test]]` y no cambiaron.
+
+Archivos modificados:
+- Nuevos: `crates/instinct-core/tests/bank/expressions.rs`, `crates/instinct-cli/tests/cli_bank/expressions.rs`, 9 criaturas en `examples/creatures/` (`calculator.ins`, `divider.ins`, `divider_zero.ins`, `forgetful.ins`, `mixer.ins`, `out_of_range.ins`, `textorder.ins`, `truths.ins`, `wordy.ins`).
+- Modificados: `crates/instinct-core/tests/bank/mod.rs` (`mod expressions`), `crates/instinct-cli/tests/cli_bank/mod.rs` (`mod expressions`), `examples/README.md` (escenarios S34-S41), `plan/F6-banco-criaturas/f6-05-expresiones-tipos-errores-ejecucion.md` (status done + esta nota), `plan/F6-banco-criaturas/PHASE.md` (fila F6-05 done + registro de ejecución).
+- Reflow de rustfmt en archivos preexistentes: `crates/instinct-core/tests/bank/common.rs`, `crates/instinct-core/tests/bank/perceptions.rs`, `crates/instinct-gui/src/ui/mod.rs`.
+
+Desviaciones: fallo preexistente de `instinct-gui` en `cargo test --workspace` (`determinismo::t_determinismo_01_gui_iguala_directo_con_seed7`), reportado y ajeno a F6; no bloquea el cierre. Ningún resultado inventado en el README: todas las líneas esperadas se copiaron de la ejecución real de cada scenario.

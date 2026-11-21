@@ -108,7 +108,7 @@ Los issues los referencian; no los reexplican.
 | F6-02 | Golpes, consumo y reservas | 2.4 attack/consume, 3.1, 3.4 | F6-01 | M | done |
 | F6-03 | Reproducción, aborto natural y ciclo de turnos | 2.4 reproduce, 2.7 | F6-01 | M | done |
 | F6-04 | Percepciones, `see` y `name` | 2.6 | F6-01 | M | done |
-| F6-05 | Expresiones, tipos y errores de ejecución | 2.5, 2.8 ejecución | F6-01 | M | todo |
+| F6-05 | Expresiones, tipos y errores de ejecución | 2.5, 2.8 ejecución | F6-01 | M | done |
 | F6-06 | Rugidos y `say`, trampas de compilación, mapas y cierre | 2.4 roar/say, 2.6 social, 2.8 compilación, 3.3 | F6-01 | M | todo |
 
 ### Orden y dependencias
@@ -165,4 +165,5 @@ repórtalo en lugar de improvisar.
 
 | Issue | Enfoque | Coste asumido | Estado | Medición |
 |-------|---------|---------------|--------|----------|
-|  |  |  |  |  |
+| F6-04 | Percepciones, see y name sobre examples/ | M | done | CLI + núcleo AC1-AC8 en verde; gui determinismo pre-existente fallando (reportado) |
+| F6-05 | Expresiones, tipos y errores de ejecución sobre examples/ | M | done | Núcleo 3/3 + CLI 5/5 en verde (AC1-AC8); clippy y fmt exit 0; `cargo test --workspace` rojo solo por instinct-gui determinismo pre-existente (reportado, ajeno a F6); ejemplos/README con S34-S41 y 9 criaturas nuevas |
