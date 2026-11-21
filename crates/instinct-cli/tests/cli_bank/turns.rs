@@ -79,7 +79,11 @@ fn offspring_inherits_no_variables() {
     // Tick 1: la madre ('H') sigue en (2,2) y la cría ('H') juega en (2,3).
     let rows1 = rows_after_tick(&stdout, 1);
     let row2 = rows1.get(2).expect("tick 1 row 2");
-    assert_eq!(&row2[2..3], "H", "tick 1: Heir madre en (2,2), row2='{row2}'");
+    assert_eq!(
+        &row2[2..3],
+        "H",
+        "tick 1: Heir madre en (2,2), row2='{row2}'"
+    );
     let row3 = rows1.get(3).expect("tick 1 row 3");
     assert_eq!(&row3[2..3], "H", "tick 1: cría en (2,3), row3='{row3}'");
 }
