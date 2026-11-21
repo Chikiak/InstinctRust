@@ -87,6 +87,25 @@ fn variables_persist_across_turns() {
     );
 }
 
+// AC7 (núcleo): ciclo sin acción se corta en el límite de líneas por turno;
+// la simulación sigue y la criatura sobrevive.
+#[test]
+fn line_limit_caps_counter_per_turn() {
+    let mut bw = BankWorld::from_examples("Arena", &[("Spinner", 2, 2)]);
+    bw.step_tick();
+    let m = bw.memento("Spinner").expect("Spinner vivo tras el tick");
+    // Ciclo de 3 líneas contando la etiqueta `start:` (n = 1, goto start);
+    // 33 ciclos = 99 líneas y la línea 100 (la etiqueta) alcanza el límite:
+    // pc apunta a la primera no ejecutada, la línea 1.
+    assert_eq!(m.pc, 1, "Spinner: pc=1 tras 100 líneas del ciclo");
+    assert_eq!(m.health, 19, "Spinner: 20 - 1 fin de tick = 19");
+    assert_eq!(m.age, 1, "Spinner: edad 1 tras fin de tick");
+    // La simulación sigue: Spinner sigue viva y puede seguir ejecutando.
+    bw.step_tick();
+    let m2 = bw.memento("Spinner").expect("Spinner sigue viva en tick 2");
+    assert_eq!(m2.health, 18, "Spinner: 19 - 1 fin de tick = 18");
+}
+
 // AC5 (núcleo): reproduce aborta por salud insuficiente, no nace nadie,
 // la madre sigue viva (solo paga el fin de tick).
 #[test]
