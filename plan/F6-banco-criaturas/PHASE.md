@@ -104,7 +104,7 @@ Los issues los referencian; no los reexplican.
 
 | ID | Título | Cubre | Depende de | Tamaño | Estado |
 |----|--------|-------|------------|--------|--------|
-| F6-01 | Esqueleto del banco: movimiento, bloqueos y sueño de `wait` | 2.4 move/wait, 2.7 turno | — | M | todo |
+| F6-01 | Esqueleto del banco: movimiento, bloqueos y sueño de `wait` | 2.4 move/wait, 2.7 turno | — | M | done |
 | F6-02 | Golpes, consumo y reservas | 2.4 attack/consume, 3.1, 3.4 | F6-01 | M | todo |
 | F6-03 | Reproducción, aborto natural y ciclo de turnos | 2.4 reproduce, 2.7 | F6-01 | M | todo |
 | F6-04 | Percepciones, `see` y `name` | 2.6 | F6-01 | M | todo |

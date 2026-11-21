@@ -2,7 +2,7 @@
 id: F6-01
 title: Esqueleto del banco — movimiento, bloqueos y sueño de wait
 phase: F6
-status: todo
+status: done
 depends_on: []
 size: M
 file: f6-01-esqueleto-banco.md
@@ -165,3 +165,22 @@ crear la raíz de trampas o corregir el núcleo.
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+**Qué se creó**
+- Datos de `examples/` (raíz del banco, sin carpeta `bank/` nueva): `maps/arena.map` y las criaturas `sprinter.ins`, `statue.ins` (usada como `Guardian`), `diagonal.ins`, `pacer.ins`, `napper.ins`, `impatient.ins`; se reusan sin modificar `terrains/grass.te` y `objects/rock.ob`.
+- `examples/README.md`: cómo ejecutar el banco, convención de scenario y entradas S01–S07 con resultado esperado copiado de la ejecución real, más sección de Desviaciones.
+- Pruebas: `crates/instinct-cli/tests/cli_bank/` (`mod.rs`, `helpers.rs`, `movement.rs`, 8 tests: AC1–AC8) y `crates/instinct-core/tests/bank/` (`mod.rs`, `common.rs`, `movement.rs`, 4 tests: estado interno posición/edad).
+- `[[test]]` en ambos `Cargo.toml`: `cli_bank` (instinct-cli) y `bank` (instinct-core).
+- Sin cambios en `crates/*/src/` salvo los dos bloques `[[test]]`.
+
+**Desviaciones documentadas (README, sección Desviaciones)**
+- AC7 / S07: el enunciado dice que `wait(3)` "actúa en el 3"; en esta referencia el `say("despierto")` de Napper se emite con etiqueta `[tick 3]` durante la transición a tick 4 (el turno de ejecución ocurre en el paso que produce tick 4). El evento aparece tras la rejilla de tick 3. La semántica de `wait` (duerme n-1 turnos, actúa en el n-ésimo) se respeta.
+- AC8: `move` consume el turno y el `say("paso")` de Pacer se ejecuta en el turno siguiente, no junto al movimiento de varias casillas. Documentado como desviación; el kernel no se modifica en esta fase.
+
+**Resultado de las puertas**
+- `cargo test -p instinct-cli --test cli_bank`: 8/8 PASS (exit 0).
+- `cargo test -p instinct-core --test bank`: 4/4 PASS (exit 0).
+- `cargo test --workspace`: exit 101; única falla `instinct-gui::tests::determinismo::t_determinismo_01_gui_iguala_directo_con_seed7` (left: 2, right: 4), pre-existing y ajena a este issue. Todos los tests de CLI y núcleo pasan.
+- `cargo clippy --workspace --all-targets -- -D warnings`: exit 0.
+- `cargo fmt --all --check`: exit 1; únicos diffs en `crates/instinct-gui/src/ui/mod.rs`, pre-existing y ajenos a este issue. Ningún archivo nuevo/modificado de este issue tiene diff de formato.
+- Árbol limpio tras commit: `git status --short` vacío.
