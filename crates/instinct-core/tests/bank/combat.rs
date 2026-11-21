@@ -1,11 +1,11 @@
 // Pruebas de escenario F6-02 (núcleo): golpes, consumo y reservas sobre el
 // estado interno del mundo tras los ticks.
 //
-// Nota sobre las coordenadas: el mapa `Arena` real tiene 9 columnas (x en 0..9)
-// y 10 filas (y en 0..9). Las pruebas de "fuera del mapa" colocan a la
-// criatura en la ultima columna valida (8) y hacen que su acción apunte a x = 9
-// (fuera del mapa), ya que colocar una criatura en x = 9 fallaria el propio
-// `place_creature`.
+// Nota sobre las coordenadas: el mapa `Arena` es 9x9 (x en 0..9, y en 0..9,
+// indices 0..=8 en ambos ejes). Las pruebas de "fuera del mapa" colocan a la
+// criatura en la ultima columna valida (8) y hacen que su acción apunte a
+// x = 9 (fuera del mapa), ya que colocar una criatura en x = 9 fallaria el
+// propio `place_creature`.
 
 use super::BankWorld;
 use instinct_core::world::CellContent;
@@ -63,13 +63,14 @@ fn attack_reduces_terrain_reserve() {
         "hierba en (3,2): dañada y regenerada a 92"
     );
     // La celda sigue siendo hierba: contenido vacio y terreno caracter '.'.
+    // Indices en [y][x] (coherente con object_reserve_at / terrain_reserve_at).
     assert_eq!(
-        world.content[3][2],
+        world.content[2][3],
         CellContent::Empty,
         "(3,2) sigue siendo terreno"
     );
     assert_eq!(
-        world.terrains[world.terrain[3][2]].character, '.',
+        world.terrains[world.terrain[2][3]].character, '.',
         "(3,2) sigue siendo hierba"
     );
 }
@@ -109,12 +110,21 @@ fn consume_heals_above_header_health() {
 #[test]
 fn consume_out_of_map_changes_nothing() {
     let mut bw = BankWorld::from_examples("Arena", &[("Forager", 8, 8)]);
-    bw.step_tick();
+    let events = bw.step_tick();
     let world = &bw.sim.world;
+    assert!(
+        events.is_empty(),
+        "consume fuera del mapa no debe emitir eventos, got: {events:?}"
+    );
     assert_eq!(
         object_reserve_at(world, 4, 4),
         Some(100),
         "roca en (4,4) intacta (consume fuera del mapa no golpea)"
+    );
+    assert_eq!(
+        terrain_reserve_at(world, 8, 8),
+        100,
+        "hierba en (8,8) intacta"
     );
     let forager = bw.memento("Forager").expect("Forager viva");
     assert_eq!(

@@ -3,12 +3,12 @@
 //
 // Convencion de ejecucion: `run_cli(&["run","--root",&bank_dir(),"--map","Arena","--seed","1","--ticks","N","--every","1","--place",...])`.
 //
-// Nota sobre las coordenadas: el mapa `Arena` real tiene 9 columnas (x en 0..9)
-// y 10 filas (y en 0..9), aunque el enunciado F6-02 lo describa como 10x10.
-// Por eso las pruebas de "fuera del mapa" colocan a la criatura en la ultima
-// columna valida (8) y hacen que su acción apunte a una celda fuera del mapa
-// (x = 9), en lugar de colocar a la criatura fuera del mapa (lo cual fallaria
-// el propio --place).
+// Nota sobre las coordenadas: el mapa `Arena` es 9x9 (x en 0..9, y en 0..9,
+// indices 0..=8 en ambos ejes), aunque el enunciado F6-02 lo describa como
+// 10x10. Por eso las pruebas de "fuera del mapa" colocan a la criatura en la
+// ultima columna valida (8) y hacen que su acción apunte a una celda fuera del
+// mapa (x = 9), en lugar de colocar a la criatura fuera del mapa (lo cual
+// fallaria el propio --place).
 
 use super::{bank_dir, rows_after_tick, run_cli};
 

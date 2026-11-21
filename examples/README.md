@@ -713,8 +713,12 @@ Test: puertas AC9 (ejecución de gates).
 
 - `crates/instinct-cli/tests/cli_bank/movement.rs` — scenarios observables
   desde la terminal (rejilla y eventos).
+- `crates/instinct-cli/tests/cli_bank/combat.rs` — golpes, consumo y reservas
+  observables desde la terminal (AC1, AC3, AC6, AC9).
 - `crates/instinct-core/tests/bank/movement.rs` — estado interno (posición y
   edad) tras los ticks.
+- `crates/instinct-core/tests/bank/combat.rs` — golpes, consumo y reservas
+  sobre el estado interno del mundo (AC2-AC8, AC9).
 
 Ejecutar todos:
 ```sh
