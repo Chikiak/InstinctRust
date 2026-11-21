@@ -105,8 +105,11 @@ impl AppState {
                 self.prep_selected_species = idx;
             }
             Msg::TickPlay => {
+                // Sin preparación no hay mundo que simular.
+                if self.prep_state.is_none() {
+                    return;
+                }
                 self.time.play();
-                // Arrancar la simulación si estamos en Idle y hay preparación.
                 if matches!(self.time.state, RunState::Running(_))
                     && self.sim.is_none()
                     && self.prep_state.is_some()
@@ -118,8 +121,11 @@ impl AppState {
                 self.time.pause();
             }
             Msg::TickStep => {
-                self.time.step_once();
+                if self.sim.is_none() {
+                    self.start_simulation();
+                }
                 if let Some(sim) = self.sim.as_mut() {
+                    self.time.step_once();
                     self.last_events = sim.step_tick();
                 }
             }

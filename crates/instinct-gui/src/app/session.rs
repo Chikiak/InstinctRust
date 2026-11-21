@@ -20,7 +20,10 @@ impl LoadedSession {
     /// log, and selects the first map and the first species (index 0) when the
     /// corresponding catalog is non-empty.
     pub fn new(root: &Path) -> Self {
-        let resources = load_resources(root);
+        let mut resources = load_resources(root);
+        // Orden único: el índice que ve la UI es el índice del catálogo.
+        resources.maps.sort_by(|a, b| a.name.cmp(&b.name));
+        resources.creatures.sort_by(|a, b| a.name.cmp(&b.name));
 
         let mut log = LogBuffer::default();
         for diagnostic in &resources.diagnostics {

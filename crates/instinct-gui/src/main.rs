@@ -1,7 +1,7 @@
 use instinct_core::event::WorldOutput;
 use instinct_core::resources;
 use instinct_core::sim::Simulation;
-use instinct_gui::{app::session::LoadedSession, app::AppState, app::Msg, render, ui::SpikeApp};
+use instinct_gui::{app::session::LoadedSession, app::AppState, app::Msg, ui::SpikeApp};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::rc::Rc;
@@ -332,10 +332,7 @@ fn main() -> eframe::Result<()> {
     }
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([
-            render::GRID_WIDTH_PX + 2.0 * render::MARGIN_PX,
-            render::GRID_HEIGHT_PX + 2.0 * render::MARGIN_PX,
-        ]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 760.0]),
         ..Default::default()
     };
     eframe::run_native(
