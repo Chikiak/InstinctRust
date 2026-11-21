@@ -68,10 +68,7 @@ fn variables_persist_across_turns() {
     // Tick 0: marked = tick (0), say(0), goto start, ... hasta el límite de líneas.
     bw.step_tick();
     let m0 = bw.memento("Counter").expect("Counter vivo tras tick 0");
-    assert_eq!(
-        m0.health, 19,
-        "Counter: 20 - 1 fin de tick = 19"
-    );
+    assert_eq!(m0.health, 19, "Counter: 20 - 1 fin de tick = 19");
     assert_eq!(
         m0.variables.get("marked"),
         Some(&instinct_core::value::Value::Int(0)),
@@ -124,7 +121,7 @@ fn reproduce_aborts_cell_occupied_by_creature() {
     let victim_id = bw
         .creature_ids
         .iter()
-        .find(|(name, _)| name == &"Victim")
+        .find(|(name, _)| name == "Victim")
         .map(|(_, id)| *id)
         .expect("Victim colocada");
     assert_eq!(
@@ -182,7 +179,9 @@ fn reproduce_aborts_insufficient_health() {
     // PoorMother: health 3, reproduce(0, 1, 5). 3 <= 5 → aborto natural.
     let mut bw = BankWorld::from_examples("Arena", &[("PoorMother", 2, 2)]);
     bw.step_tick();
-    let mother = bw.memento("PoorMother").expect("PoorMother viva tras el aborto");
+    let mother = bw
+        .memento("PoorMother")
+        .expect("PoorMother viva tras el aborto");
     assert_eq!(
         mother.health, 2,
         "PoorMother: 3 - 1 (fin de tick) = 2, no gastó vida en reproduce"
@@ -203,7 +202,7 @@ fn creature_dead_before_turn_does_not_play() {
     let mother_id = bw
         .creature_ids
         .iter()
-        .find(|(name, _)| name == &"PoorMother")
+        .find(|(name, _)| name == "PoorMother")
         .map(|(_, id)| *id)
         .expect("PoorMother colocada");
     // hp 3: tick 0 -> 2, tick 1 -> 1, tick 2 -> 0 (muere al fin de tick).
