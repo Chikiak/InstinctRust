@@ -105,6 +105,7 @@ abrir gráfico (ver "Principio rector" más abajo).
 | F5-06 | Render del snapshot en la ventana | DTO `WorldSnapshot` → rejilla, terrenos, objetos, criaturas | F5-01, F5-02 | M | done | f5-06-render-snapshot.md |
 | F5-07 | Visualización de rugidos | 2.4: "la interfaz visual debe mostrarlo de alguna manera" | F5-06 | S | done | f5-07-rugidos-visibles.md |
 | F5-08 | Reinicio a preparación + verificación de flujo headless | 4.1 paso 4: receta (mapa, colocaciones, semilla) + `--smoke` del flujo completo | F5-04, F5-05 | M | done | f5-08-reinicio-verificacion-flujo.md |
+| F5-09 | Correcciones de UI reportadas por el usuario (post-entrega) | Rejilla movida, selector de especie ignora elección (siempre Attacker), play sin refresco/muertes, estética | F5-08 | M | todo | f5-09-ui-fixes.md |
 
 ### Orden y dependencias
 

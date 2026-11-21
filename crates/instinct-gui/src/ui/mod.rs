@@ -1,15 +1,24 @@
-//! eframe/egui translation layer: app state -> widgets, clicks -> messages.
-//! No simulation logic lives here: no World, no step_tick, no seeds.
+//! Capa egui: dibuja el estado y traduce interacciones en `Msg`.
+//! Los paneles no modifican el estado: acumulan mensajes y `update` los
+//! aplica al final del frame. Sin lógica de simulación.
 
-use crate::app::time::Speed;
+use crate::app::log::LogEntryKind;
+use crate::app::time::{RunState, Speed};
 use crate::app::{AppState, Msg};
 use crate::render::{
-    cell_to_pixel, grid_from_snapshot, pixel_to_cell, roar_markers, Cell, CELL_SIZE_PX, GRID_COLS,
-    GRID_HEIGHT_PX, GRID_ROWS, GRID_WIDTH_PX, MARGIN_PX,
+    cell_to_pixel, grid_from_snapshot, roar_markers, Cell, Rgb, CELL_SIZE_PX, MARGIN_PX,
 };
-use egui::{Align2, CentralPanel, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Vec2};
+use egui::{
+    Align2, CentralPanel, Color32, FontId, Painter, Pos2, Rect, Sense, SidePanel, Stroke,
+    StrokeKind, Vec2,
+};
 use instinct_core::event::Event;
-use instinct_core::world::{Roar, WorldSnapshot};
+use instinct_core::world::{CreatureId, Roar, WorldSnapshot};
+
+/// Eventos mostrados en el panel (el buffer completo sigue en memoria).
+const EVENTS_SHOWN: usize = 300;
+/// Tope del delta por frame: evita ráfagas de ticks tras una pausa larga.
+const MAX_FRAME_DT_MS: f64 = 250.0;
 
 #[derive(Default)]
 pub struct SpikeApp {
@@ -22,417 +31,413 @@ impl eframe::App for SpikeApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title("instinct-gui".to_owned()));
 
-        // Delta de tiempo entre frames (ms) para alimentar el acumulador de `TimeControl`.
+        let mut msgs: Vec<Msg> = Vec::new();
+
+        // Reloj: el delta alimenta el acumulador de TimeControl.
         let now = ctx.input(|i| i.time);
-        let dt_ms = if let Some(last) = self.last_time {
-            ((now - last) * 1000.0) as u64
-        } else {
-            0
-        };
+        if let Some(last) = self.last_time {
+            let dt_ms = ((now - last) * 1000.0).clamp(0.0, MAX_FRAME_DT_MS) as u64;
+            if dt_ms > 0 {
+                msgs.push(Msg::TickAdvance(dt_ms));
+            }
+        }
         self.last_time = Some(now);
 
-        if dt_ms > 0 {
-            self.state.update(Msg::TickAdvance(dt_ms));
-        }
+        let state = &self.state;
 
-        let selected = match self.state.selected {
-            Some(cell) => format!("Clicked cell: ({}, {})", cell.x, cell.y),
-            None => "Clicked cell: none".to_string(),
-        };
-
-        let (catalog, load_lines, can_prepare) = if let Some(session) = &self.state.session {
-            (
-                Some((
-                    session
-                        .map_names()
-                        .iter()
-                        .map(|n| n.to_string())
-                        .collect::<Vec<_>>(),
-                    session
-                        .species_names()
-                        .iter()
-                        .map(|n| n.to_string())
-                        .collect::<Vec<_>>(),
-                    session.selected_map().map(|m| m.name.clone()),
-                    session.selected_species().map(|s| s.name.clone()),
-                )),
-                session
-                    .log_entries()
-                    .iter()
-                    .filter(|e| e.kind == crate::app::log::LogEntryKind::Load)
-                    .map(|e| e.line.clone())
-                    .collect::<Vec<_>>(),
-                session.can_prepare(),
-            )
-        } else {
-            (None, Vec::new(), false)
-        };
-
-        egui::SidePanel::right("catalog_panel")
-            .default_width(260.0)
+        SidePanel::left("left_panel")
+            .default_width(290.0)
             .show(ctx, |ui| {
-                ui.heading("Catálogos");
-
-                if let Some((map_names, species_names, sel_map, sel_species)) = catalog {
-                    ui.label("Mapas:");
-                    for (i, name) in map_names.iter().enumerate() {
-                        let selected = sel_map.as_deref() == Some(name.as_str());
-                        if ui.selectable_label(selected, name.as_str()).clicked() {
-                            self.state.update(Msg::MapSelected(i));
-                        }
-                    }
-
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    preparation_section(ui, state, &mut msgs);
                     ui.separator();
-                    ui.label("Especies:");
-                    for (i, name) in species_names.iter().enumerate() {
-                        let selected = sel_species.as_deref() == Some(name.as_str());
-                        if ui.selectable_label(selected, name.as_str()).clicked() {
-                            self.state.update(Msg::SpeciesSelected(i));
-                        }
-                    }
+                    time_section(ui, state, &mut msgs);
+                });
+            });
 
-                    ui.separator();
-                    ui.label("Registro de carga:");
-                    egui::ScrollArea::vertical()
-                        .max_height(200.0)
-                        .show(ui, |ui| {
-                            for line in &load_lines {
-                                ui.label(line);
-                            }
-                        });
-
-                    if !can_prepare {
-                        ui.separator();
-                        ui.label("No se puede preparar: sin mapas o sin especies.");
-                    }
-                } else {
-                    ui.label("Sin sesión cargada.");
-                }
+        SidePanel::right("right_panel")
+            .default_width(300.0)
+            .show(ctx, |ui| {
+                catalog_section(ui, state, &mut msgs);
+                ui.separator();
+                events_section(ui, state);
             });
 
         CentralPanel::default().show(ctx, |ui| {
-            // --- Collect prep data up front (avoids borrow conflicts) ---
-            let prep_info = if let Some(prep) = &self.state.prep_state {
-                let species_names: Vec<String> = self
-                    .state
-                    .session
-                    .as_ref()
-                    .map(|s| {
-                        s.species_names()
-                            .iter()
-                            .map(|n| n.to_string())
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default();
-                let creatures = prep.creatures_in_prep();
-                Some((
-                    prep.recipe.map_name.clone(),
-                    prep.recipe.seed,
-                    prep.placed_count(),
-                    species_names,
-                    creatures,
-                ))
-            } else {
-                None
-            };
+            egui::ScrollArea::both().show(ui, |ui| {
+                grid_section(ui, state, &mut msgs);
+            });
+        });
 
-            // --- Preparation controls ---
-            if let Some((map_name, seed, count, species_names, creatures)) = prep_info {
-                ui.heading("Preparación");
-                ui.label(format!(
-                    "Mapa: {map_name}  Semilla: {seed}  Colocadas: {count}"
-                ));
+        for msg in msgs {
+            self.state.update(msg);
+        }
 
-                ui.label("Especies para colocar:");
-                let mut new_species_idx = None;
-                egui::ComboBox::new("prep_species", "")
-                    .selected_text(
-                        species_names
-                            .get(self.state.prep_selected_species)
-                            .map(|s| s.as_str())
-                            .unwrap_or(""),
-                    )
-                    .show_ui(ui, |ui| {
-                        for (i, name) in species_names.iter().enumerate() {
-                            if ui
-                                .selectable_label(
-                                    self.state.prep_selected_species == i,
-                                    name.as_str(),
-                                )
-                                .clicked()
-                            {
-                                new_species_idx = Some(i);
-                            }
-                        }
-                    });
-                if let Some(i) = new_species_idx {
-                    self.state.update(Msg::PrepSelectSpecies(i));
-                }
+        // egui solo repinta ante eventos: mientras corre, pedimos el siguiente frame.
+        if matches!(self.state.time.state, RunState::Running(_)) {
+            ctx.request_repaint();
+        }
+    }
+}
 
-                ui.separator();
-                ui.label("Criaturas colocadas:");
-                let mut remove_id: Option<crate::app::prep::PlacementId> = None;
-                for (pid, name, x, y) in &creatures {
-                    ui.horizontal(|ui| {
-                        ui.label(format!("{name} @ {x},{y}"));
-                        if ui.button("Quitar").clicked() {
-                            remove_id = Some(*pid);
-                        }
-                    });
-                }
-                if let Some(pid) = remove_id {
-                    self.state.update(Msg::PrepRemove(pid));
-                }
+// --- Paneles -----------------------------------------------------------------
 
-                ui.separator();
-            } else if let Some(session) = &self.state.session {
-                if session.can_prepare() {
-                    if ui.button("Entrar en preparación").clicked() {
-                        self.state
-                            .update(Msg::PrepEnter(session.selected_map_index()));
-                    }
-                } else {
-                    ui.label("Carga mapas y especies para preparar.");
-                }
-                ui.separator();
-            } else {
-                ui.label("Sin sesión cargada.");
-                ui.separator();
+fn preparation_section(ui: &mut egui::Ui, state: &AppState, msgs: &mut Vec<Msg>) {
+    ui.heading("Preparación");
+
+    let Some(session) = state.session.as_ref() else {
+        ui.label("Sin sesión cargada.");
+        return;
+    };
+
+    let Some(prep) = state.prep_state.as_ref() else {
+        if session.can_prepare() {
+            if ui.button("Entrar en preparación").clicked() {
+                msgs.push(Msg::PrepEnter(session.selected_map_index()));
             }
+        } else {
+            ui.label("Carga mapas y especies para preparar.");
+        }
+        return;
+    };
 
-            // --- Controles de tiempo (play / pausa / paso / velocidad / tick) ---
-            ui.separator();
-            ui.heading("Tiempo de simulación");
-            let tick_label = match self.state.time.state {
-                crate::app::time::RunState::Idle => "Idle".to_string(),
-                crate::app::time::RunState::Running(s) => format!("Running {} tps", s.tps()),
-                crate::app::time::RunState::Paused(s) => format!("Paused {} tps", s.tps()),
-            };
-            ui.label(format!(
-                "Estado: {tick_label}  Tick: {}",
-                self.state.time.tick_count()
-            ));
+    let locked = matches!(
+        state.time.state,
+        RunState::Running(_) | RunState::Paused(_)
+    );
 
-            let play_label = match self.state.time.state {
-                crate::app::time::RunState::Idle => "Play",
-                crate::app::time::RunState::Running(_) => "Playing...",
-                crate::app::time::RunState::Paused(_) => "Resume",
-            };
-            if ui.button(play_label).clicked() {
-                self.state.update(Msg::TickPlay);
-            }
-            if ui.button("Pausa").clicked() {
-                self.state.update(Msg::TickPause);
-            }
-            if ui.button("Paso").clicked() {
-                self.state.update(Msg::TickStep);
-            }
-            if ui.button("Reiniciar").clicked() {
-                self.state.update(Msg::Restart);
-            }
+    ui.label(format!("Mapa: {}", prep.recipe.map_name));
+    ui.label(format!(
+        "Semilla: {}  ·  Colocadas: {}",
+        prep.recipe.seed,
+        prep.placed_count()
+    ));
+    if locked {
+        ui.colored_label(
+            Color32::from_rgb(230, 170, 60),
+            "Simulación en curso: reinicia para editar la colocación.",
+        );
+    }
 
-            ui.label("Velocidad:");
-            egui::ComboBox::new("time_speed", "")
-                .selected_text(format!("{} tps", self.state.time.speed.tps()))
-                .show_ui(ui, |ui| {
-                    for speed in [Speed::T2, Speed::T10, Speed::T30] {
-                        if ui
-                            .selectable_label(
-                                self.state.time.speed == speed,
-                                format!("{} tps", speed.tps()),
-                            )
-                            .clicked()
-                        {
-                            self.state.update(Msg::TickSetSpeed(speed));
-                        }
-                    }
-                });
-
-            ui.label(&selected);
-
-            let in_prep = self.state.prep_state.is_some();
-
-            let (response, painter) =
-                ui.allocate_painter(Vec2::new(GRID_WIDTH_PX, GRID_HEIGHT_PX), Sense::click());
-
-            // --- Rejilla del mundo desde el snapshot vigente (sim o preparación) ---
-            // Se pinta solo cuando hay snapshot disponible; las líneas de rejilla
-            // se dibujan siempre (después, por encima de las celdas).
-            let snapshot: Option<WorldSnapshot> = self
-                .state
-                .sim
-                .as_ref()
-                .map(|sim| sim.world().snapshot())
-                .or_else(|| {
-                    self.state
-                        .prep_state
-                        .as_ref()
-                        .map(|prep| prep.world.snapshot())
-                });
-            if let Some(snapshot) = snapshot {
-                let grid = grid_from_snapshot(&snapshot);
-                for row in &grid.cells {
-                    for cell_view in row {
-                        let (px, py) = cell_to_pixel(Cell {
-                            x: cell_view.x,
-                            y: cell_view.y,
-                        });
-                        let cell_rect = Rect::from_min_size(
-                            response.rect.min + egui::Vec2::new(MARGIN_PX + px, MARGIN_PX + py),
-                            egui::Vec2::splat(CELL_SIZE_PX),
-                        );
-                        let fill = Color32::from_rgb(
-                            cell_view.color.r,
-                            cell_view.color.g,
-                            cell_view.color.b,
-                        );
-                        let luminance = (cell_view.color.r as f32 * 0.299
-                            + cell_view.color.g as f32 * 0.587
-                            + cell_view.color.b as f32 * 0.114)
-                            / 255.0;
-                        let text_color = if luminance > 0.5 {
-                            Color32::BLACK
-                        } else {
-                            Color32::WHITE
-                        };
-                        painter.rect_filled(cell_rect, 0.0, fill);
-                        painter.text(
-                            cell_rect.center(),
-                            Align2::CENTER_CENTER,
-                            cell_view.symbol.to_string(),
-                            FontId::monospace(CELL_SIZE_PX * 0.8),
-                            text_color,
-                        );
-                    }
-                }
-
-                // --- Overlay de rugidos (este tick + tick anterior) ---
-                // "Este tick": Event::Roared de last_events con tick == snapshot.ticks - 1
-                // (el rugido se emitió durante el turno que acabamos de renderizar).
-                // "Tick anterior": previous_roars() del mundo (rotados al final
-                // del tick anterior; vacío antes de start_simulation).
-                let mut all_roars: Vec<Roar> = Vec::new();
-                for ev in &self.state.last_events {
-                    if let Event::Roared {
-                        tick,
-                        species,
-                        pos,
-                        text,
-                    } = ev
-                    {
-                        if *tick == snapshot.ticks.saturating_sub(1) {
-                            all_roars.push(Roar {
-                                tick: *tick,
-                                creature_id: instinct_core::world::CreatureId(0),
-                                species: species.clone(),
-                                pos: *pos,
-                                text: text.clone(),
-                            });
-                        }
-                    }
-                }
-                if let Some(sim) = self.state.sim.as_ref() {
-                    for roar in sim.world().previous_roars() {
-                        all_roars.push(roar.clone());
-                    }
-                }
-                let markers = roar_markers(&all_roars, snapshot.rows, snapshot.columns);
-                for (mx, my, mtext) in &markers {
-                    let (px, py) = cell_to_pixel(Cell { x: *mx, y: *my });
-                    let marker_rect = Rect::from_min_size(
-                        response.rect.min + egui::Vec2::new(MARGIN_PX + px, MARGIN_PX + py),
-                        egui::Vec2::splat(CELL_SIZE_PX),
-                    );
-                    // Relleno ámbar translúcido.
-                    painter.rect_filled(
-                        marker_rect,
-                        0.0,
-                        Color32::from_rgba_unmultiplied(210, 160, 40, 120),
-                    );
-                    // Borde de 2 px.
-                    painter.rect_stroke(
-                        marker_rect,
-                        2.0,
-                        Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
-                        StrokeKind::Inside,
-                    );
-                    // Glifo "!" centrado.
-                    painter.text(
-                        marker_rect.center(),
-                        Align2::CENTER_CENTER,
-                        "!",
-                        FontId::monospace(CELL_SIZE_PX * 0.9),
-                        Color32::WHITE,
-                    );
-                    // Texto del rugido bajo el glifo, dentro del marcado
-                    // (opción "junto a la celda" anotada en la issue F5-07).
-                    painter.text(
-                        marker_rect.center() + Vec2::new(0.0, CELL_SIZE_PX * 0.35),
-                        Align2::CENTER_TOP,
-                        mtext,
-                        FontId::monospace(CELL_SIZE_PX * 0.45),
-                        Color32::from_rgb(255, 200, 90),
-                    );
-                }
-            }
-
-            let stroke = Stroke::new(1.0, Color32::from_gray(120));
-            for col in 0..=GRID_COLS {
-                let x = col as f32 * CELL_SIZE_PX;
-                painter.line_segment(
-                    [
-                        response.rect.min + egui::Vec2::new(x, 0.0),
-                        response.rect.min + egui::Vec2::new(x, GRID_HEIGHT_PX),
-                    ],
-                    stroke,
-                );
-            }
-            for row in 0..=GRID_ROWS {
-                let y = row as f32 * CELL_SIZE_PX;
-                painter.line_segment(
-                    [
-                        response.rect.min + egui::Vec2::new(0.0, y),
-                        response.rect.min + egui::Vec2::new(GRID_WIDTH_PX, y),
-                    ],
-                    stroke,
-                );
-            }
-
-            if response.clicked() {
-                if let Some(pos) = response.interact_pointer_pos() {
-                    let local = pos - response.rect.min;
-                    if let Some(cell) = pixel_to_cell(local.x, local.y) {
-                        if in_prep {
-                            if let Some(session) = &self.state.session {
-                                let species_idx = self.state.prep_selected_species;
-                                let species_name = session
-                                    .species_names()
-                                    .get(species_idx)
-                                    .cloned()
-                                    .unwrap_or_default();
-                                // Determine action before mutating state.
-                                let mut place_action: Option<(usize, usize, usize)> = None;
-                                let mut remove_action: Option<crate::app::prep::PlacementId> = None;
-                                if let Some(prep) = &self.state.prep_state {
-                                    if prep.world.creature_at(cell.x, cell.y).is_some() {
-                                        remove_action = prep.placement_id_at(cell.x, cell.y);
-                                    } else if !species_name.is_empty() {
-                                        place_action = Some((species_idx, cell.x, cell.y));
-                                    }
-                                }
-                                if let Some((si, x, y)) = place_action {
-                                    self.state.update(Msg::PrepPlace(si, x, y));
-                                }
-                                if let Some(pid) = remove_action {
-                                    self.state.update(Msg::PrepRemove(pid));
-                                }
-                            }
-                        } else {
-                            self.state.update(Msg::CellClicked(cell));
-                        }
-                    }
+    ui.add_space(4.0);
+    ui.label("Especie a colocar:");
+    let species = session.species_names();
+    let current = species
+        .get(state.prep_selected_species)
+        .copied()
+        .unwrap_or("—");
+    egui::ComboBox::new("prep_species", "")
+        .selected_text(current)
+        .show_ui(ui, |ui| {
+            for (i, name) in species.iter().enumerate() {
+                if ui
+                    .selectable_label(state.prep_selected_species == i, *name)
+                    .clicked()
+                {
+                    msgs.push(Msg::PrepSelectSpecies(i));
                 }
             }
         });
+
+    ui.separator();
+    ui.label("Colocadas:");
+    for (pid, name, x, y) in prep.creatures_in_prep() {
+        ui.horizontal(|ui| {
+            ui.label(format!("{name} @ {x},{y}"));
+            if !locked && ui.small_button("Quitar").clicked() {
+                msgs.push(Msg::PrepRemove(pid));
+            }
+        });
+    }
+}
+
+fn time_section(ui: &mut egui::Ui, state: &AppState, msgs: &mut Vec<Msg>) {
+    ui.heading("Tiempo");
+
+    let status = match state.time.state {
+        RunState::Idle => "Idle".to_string(),
+        RunState::Running(s) => format!("Corriendo a {} tps", s.tps()),
+        RunState::Paused(s) => format!("Pausado ({} tps)", s.tps()),
+    };
+    ui.label(format!("{status}  ·  tick {}", state.time.tick_count()));
+
+    ui.horizontal_wrapped(|ui| {
+        let play_label = match state.time.state {
+            RunState::Idle => "Play",
+            RunState::Running(_) => "Corriendo",
+            RunState::Paused(_) => "Reanudar",
+        };
+        if ui.button(play_label).clicked() {
+            msgs.push(Msg::TickPlay);
+        }
+        if ui.button("Pausa").clicked() {
+            msgs.push(Msg::TickPause);
+        }
+        if ui.button("Paso").clicked() {
+            msgs.push(Msg::TickStep);
+        }
+        if ui.button("Reiniciar").clicked() {
+            msgs.push(Msg::Restart);
+        }
+    });
+
+    ui.horizontal(|ui| {
+        ui.label("Velocidad:");
+        for speed in [Speed::T2, Speed::T10, Speed::T30] {
+            if ui
+                .selectable_label(state.time.speed == speed, format!("{} tps", speed.tps()))
+                .clicked()
+            {
+                msgs.push(Msg::TickSetSpeed(speed));
+            }
+        }
+    });
+}
+
+fn catalog_section(ui: &mut egui::Ui, state: &AppState, msgs: &mut Vec<Msg>) {
+    let Some(session) = state.session.as_ref() else {
+        return;
+    };
+
+    ui.heading("Catálogos");
+
+    ui.label("Mapas:");
+    let current_map = session.selected_map_index();
+    for (i, name) in session.map_names().iter().enumerate() {
+        if ui.selectable_label(i == current_map, *name).clicked() {
+            msgs.push(Msg::MapSelected(i));
+        }
+    }
+
+    ui.separator();
+    ui.label("Especies:");
+    for (i, name) in session.species_names().iter().enumerate() {
+        if ui
+            .selectable_label(state.prep_selected_species == i, *name)
+            .clicked()
+        {
+            msgs.push(Msg::PrepSelectSpecies(i));
+        }
+    }
+
+    let load_lines: Vec<&str> = session
+        .log_entries()
+        .iter()
+        .filter(|e| e.kind == LogEntryKind::Load)
+        .map(|e| e.line.as_str())
+        .collect();
+    if !load_lines.is_empty() {
+        ui.collapsing("Registro de carga", |ui| {
+            for line in load_lines {
+                ui.label(line);
+            }
+        });
+    }
+}
+
+fn events_section(ui: &mut egui::Ui, state: &AppState) {
+    ui.heading("Eventos");
+
+    let Some(buffer) = state.log_buffer.as_ref() else {
+        ui.label("Aún no hay simulación.");
+        return;
+    };
+    let buffer = buffer.borrow();
+    let events: Vec<&str> = buffer
+        .entries()
+        .iter()
+        .filter(|e| e.kind == LogEntryKind::Event)
+        .map(|e| e.line.as_str())
+        .collect();
+    let start = events.len().saturating_sub(EVENTS_SHOWN);
+
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .stick_to_bottom(true)
+        .show(ui, |ui| {
+            if events.is_empty() {
+                ui.label("Sin eventos todavía.");
+            }
+            for line in &events[start..] {
+                ui.monospace(*line);
+            }
+        });
+}
+
+fn grid_section(ui: &mut egui::Ui, state: &AppState, msgs: &mut Vec<Msg>) {
+    let snapshot = state
+        .sim
+        .as_ref()
+        .map(|sim| sim.world().snapshot())
+        .or_else(|| state.prep_state.as_ref().map(|prep| prep.world.snapshot()));
+    let Some(snapshot) = snapshot else {
+        ui.label("Carga un mapa y entra en preparación.");
+        return;
+    };
+
+    ui.label(format!("{}  ·  tick {}", snapshot.map_name, snapshot.ticks));
+    ui.add_space(6.0);
+
+    // Tamaño según el mundo real, no según constantes fijas.
+    let cols = snapshot.columns;
+    let rows = snapshot.rows;
+    let size = Vec2::new(
+        cols as f32 * CELL_SIZE_PX + 2.0 * MARGIN_PX,
+        rows as f32 * CELL_SIZE_PX + 2.0 * MARGIN_PX,
+    );
+    let (response, painter) = ui.allocate_painter(size, Sense::click());
+    let origin = response.rect.min + Vec2::splat(MARGIN_PX);
+
+    draw_cells(&painter, origin, &snapshot);
+    draw_roars(&painter, origin, state, &snapshot);
+    draw_lines(&painter, origin, cols, rows);
+
+    if response.clicked() {
+        if let Some(pos) = response.interact_pointer_pos() {
+            let local = pos - origin;
+            if let Some(cell) = hit_cell(local, cols, rows) {
+                handle_grid_click(state, cell, msgs);
+            }
+        }
+    }
+}
+
+/// Celda bajo un punto relativo al origen de la rejilla (sin margen).
+fn hit_cell(local: Vec2, cols: usize, rows: usize) -> Option<Cell> {
+    let x = (local.x / CELL_SIZE_PX).floor();
+    let y = (local.y / CELL_SIZE_PX).floor();
+    if x < 0.0 || y < 0.0 || x as usize >= cols || y as usize >= rows {
+        return None;
+    }
+    Some(Cell {
+        x: x as usize,
+        y: y as usize,
+    })
+}
+
+// --- Interacción -------------------------------------------------------------
+
+/// Solo la preparación modifica el mundo: quita si hay criatura, coloca si no.
+fn handle_grid_click(state: &AppState, cell: Cell, msgs: &mut Vec<Msg>) {
+    let Some(prep) = state.prep_state.as_ref() else {
+        return;
+    };
+    if matches!(
+        state.time.state,
+        RunState::Running(_) | RunState::Paused(_)
+    ) {
+        return;
+    }
+    if prep.world.creature_at(cell.x, cell.y).is_some() {
+        if let Some(pid) = prep.placement_id_at(cell.x, cell.y) {
+            msgs.push(Msg::PrepRemove(pid));
+        }
+    } else {
+        msgs.push(Msg::PrepPlace(state.prep_selected_species, cell.x, cell.y));
+    }
+}
+
+// --- Dibujo de la rejilla ----------------------------------------------------
+
+fn cell_rect(origin: Pos2, cell: Cell) -> Rect {
+    let (px, py) = cell_to_pixel(cell);
+    Rect::from_min_size(origin + Vec2::new(px, py), Vec2::splat(CELL_SIZE_PX))
+}
+
+fn contrast_text(c: Rgb) -> Color32 {
+    let luminance = (c.r as f32 * 0.299 + c.g as f32 * 0.587 + c.b as f32 * 0.114) / 255.0;
+    if luminance > 0.5 {
+        Color32::BLACK
+    } else {
+        Color32::WHITE
+    }
+}
+
+fn draw_cells(painter: &Painter, origin: Pos2, snapshot: &WorldSnapshot) {
+    for row in grid_from_snapshot(snapshot).cells {
+        for view in row {
+            let rect = cell_rect(origin, Cell { x: view.x, y: view.y });
+            let Rgb { r, g, b } = view.color;
+            painter.rect_filled(rect, 0.0, Color32::from_rgb(r, g, b));
+            painter.text(
+                rect.center(),
+                Align2::CENTER_CENTER,
+                view.symbol.to_string(),
+                FontId::monospace(CELL_SIZE_PX * 0.8),
+                contrast_text(view.color),
+            );
+        }
+    }
+}
+
+fn draw_roars(painter: &Painter, origin: Pos2, state: &AppState, snapshot: &WorldSnapshot) {
+    // Rugidos del último tick (desde los eventos) y del tick anterior (desde el mundo).
+    let mut roars: Vec<Roar> = Vec::new();
+    for ev in &state.last_events {
+        if let Event::Roared {
+            tick,
+            species,
+            pos,
+            text,
+        } = ev
+        {
+            if *tick == snapshot.ticks.saturating_sub(1) {
+                roars.push(Roar {
+                    tick: *tick,
+                    creature_id: CreatureId(0), // el marcador solo usa posición y texto
+                    species: species.clone(),
+                    pos: *pos,
+                    text: text.clone(),
+                });
+            }
+        }
+    }
+    if let Some(sim) = state.sim.as_ref() {
+        roars.extend(sim.world().previous_roars().iter().cloned());
+    }
+
+    for (x, y, text) in roar_markers(&roars, snapshot.rows, snapshot.columns) {
+        let rect = cell_rect(origin, Cell { x, y });
+        painter.rect_filled(rect, 0.0, Color32::from_rgba_unmultiplied(210, 160, 40, 120));
+        painter.rect_stroke(
+            rect,
+            2.0,
+            Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
+            StrokeKind::Inside,
+        );
+        painter.text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            "!",
+            FontId::monospace(CELL_SIZE_PX * 0.9),
+            Color32::WHITE,
+        );
+        painter.text(
+            rect.center() + Vec2::new(0.0, CELL_SIZE_PX * 0.35),
+            Align2::CENTER_TOP,
+            text,
+            FontId::monospace(CELL_SIZE_PX * 0.45),
+            Color32::from_rgb(255, 200, 90),
+        );
+    }
+}
+
+fn draw_lines(painter: &Painter, origin: Pos2, cols: usize, rows: usize) {
+    let width = cols as f32 * CELL_SIZE_PX;
+    let height = rows as f32 * CELL_SIZE_PX;
+    let stroke = Stroke::new(1.0, Color32::from_gray(120));
+    for col in 0..=cols {
+        let x = col as f32 * CELL_SIZE_PX;
+        painter.line_segment(
+            [origin + Vec2::new(x, 0.0), origin + Vec2::new(x, height)],
+            stroke,
+        );
+    }
+    for row in 0..=rows {
+        let y = row as f32 * CELL_SIZE_PX;
+        painter.line_segment(
+            [origin + Vec2::new(0.0, y), origin + Vec2::new(width, y)],
+            stroke,
+        );
     }
 }
