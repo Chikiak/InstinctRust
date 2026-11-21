@@ -23,5 +23,9 @@ path = "tests/cli_check/mod.rs"
 name = "cli_usage"
 path = "tests/cli_usage/mod.rs"
 
+[[test]]
+name = "cli_bank"
+path = "tests/cli_bank/mod.rs"
+
 [dependencies]
 instinct-core = { path = "../instinct-core" }

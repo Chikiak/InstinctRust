@@ -26,7 +26,7 @@ cambiar el núcleo, las criaturas del banco dicen por el registro lo que percibe
   para que `name` y `terrain_here` distingan materiales.
 - Criaturas que dicen lo que ven y perciben: un explorador con visión amplia y
   uno con visión mínima, más compañeros aliados y enemigos quietos.
-- Scenarios en `bank/README.md`: una percepción o grupo cohesionado por entrada,
+- Scenarios en `examples/README.md`: una percepción o grupo cohesionado por entrada,
   con el comando exacto y la línea de registro esperada.
 - Pruebas en `crates/instinct-cli/tests/cli_bank/perceptions.rs` (líneas de
   registro y rejilla) y en `crates/instinct-core/tests/bank/perceptions.rs`
@@ -36,21 +36,22 @@ cambiar el núcleo, las criaturas del banco dicen por el registro lo que percibe
 - No pruebes `random` con valores exactos: su scenario es estadístico y se marca
   como tal (rango 0 a 99 y dos lecturas distintas).
 - No pruebes `roars_near` ni `last_roar` (F6-06).
-- No toques `crates/*/src/` ni `examples/`; el banco se basta con sus propios archivos.
+- No toques `crates/*/src/`; el banco se basa en `examples/` y añade sus propios
+  archivos bajo `examples/terrains/`, `examples/objects/` y `examples/maps/`.
 
 ### Archivos previstos
-- `bank/terrains/sand.te` — nuevo — segundo terreno con `resource_max` y `regen` propios, char `s`.
-- `bank/objects/crystal.ob` — nuevo — segundo objeto con `resource_max` propio, char `*`.
-- `bank/maps/mixed.map` — nuevo — franjas de hierba y arena con alguna roca y algún cristal.
-- `bank/creatures/scout.ins` — nuevo — visión amplia; dice lo que percibe de sí, del mundo y de alrededor.
-- `bank/creatures/myope.ins` — nuevo — visión mínima; dice lo que ve fuera de su radio.
-- `bank/creatures/companion.ins` — nuevo — aliado quieto, para contar y buscar aliados.
-- `bank/creatures/stranger.ins` — nuevo — criatura de otra facción, para contar y buscar enemigos.
+- `examples/terrains/sand.te` — nuevo — segundo terreno con `resource_max` y `regen` propios, char `s`.
+- `examples/objects/crystal.ob` — nuevo — segundo objeto con `resource_max` propio, char `*`.
+- `examples/maps/mixed.map` — nuevo — franjas de hierba y arena con alguna roca y algún cristal.
+- `examples/creatures/scout.ins` — nuevo — visión amplia; dice lo que percibe de sí, del mundo y de alrededor.
+- `examples/creatures/myope.ins` — nuevo — visión mínima; dice lo que ve fuera de su radio.
+- `examples/creatures/companion.ins` — nuevo — aliado quieto, para contar y buscar aliados.
+- `examples/creatures/stranger.ins` — nuevo — criatura de otra facción, para contar y buscar enemigos.
 - `crates/instinct-cli/tests/cli_bank/perceptions.rs` — nuevo — scenarios observables desde la terminal.
 - `crates/instinct-cli/tests/cli_bank/mod.rs` — modificar — declarar el módulo nuevo.
 - `crates/instinct-core/tests/bank/perceptions.rs` — nuevo — valores exactos de percepciones, `see` y `name`.
 - `crates/instinct-core/tests/bank/mod.rs` — modificar — declarar el módulo nuevo.
-- `bank/README.md` — modificar — escenarios S25 a S33.
+- `examples/README.md` — modificar — escenarios S25 a S33.
 
 ## Criterios de aceptación
 
@@ -66,7 +67,7 @@ cambiar el núcleo, las criaturas del banco dicen por el registro lo que percibe
 
 ## Contexto
 
-**Ya existe** (F6-01 y F6-02): la raíz `bank/` con hierba y roca, los objetivos de
+**Ya existe** (F6-01 y F6-02): la raíz `examples/` con hierba y roca, los objetivos de
 prueba y la convención de scenario. **Contratos que debes respetar**: los de
 `PHASE.md`, incluido el catálogo de chars del banco (Sand con `s`, Crystal con
 `*`, sin colisiones). **Ojo**: las percepciones se rellenan al empezar el turno,
@@ -115,7 +116,7 @@ El mapa mixto se construye con franjas de hierba y arena para que `name` y
 ## Tests
 
 Nivel: integración. En `bank/perceptions.rs` del núcleo, los valores exactos de
-cada percepción y de `see`/`name` contra el mundo construido desde `bank/`, y el
+cada percepción y de `see`/`name` contra el mundo construido desde `examples/`, y el
 rango de `random`. En `cli_bank/perceptions.rs`, las líneas de registro que la
 criatura emite con esos valores, más la rejilla final. No se mockea nada: mundo y
 simulación reales, binario real de la CLI. Semilla fija salvo el scenario
@@ -125,7 +126,7 @@ estadístico.
 
 - `cargo test -p instinct-core --test bank perceptions` → valores de percepciones, `see` y `name` correctos.
 - `cargo test -p instinct-cli --test cli_bank perceptions` → líneas de registro esperadas.
-- `cargo run -p instinct-cli -- run --root bank --map Mixed --seed 1 --ticks 2 --place Scout@4,3 --place Companion@5,3 --place Stranger@6,3` → exit 0 con las líneas de registro documentadas.
+- `cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 2 --place Scout@4,3 --place Companion@5,3 --place Stranger@6,3` → exit 0 con las líneas de registro documentadas.
 - `cargo test --workspace` → sin regresiones.
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
 - `cargo fmt --all --check` → exit 0.
@@ -137,8 +138,8 @@ Si una percepción no tiene forma de observarse desde la terminal, el resultado
 del README se limita a lo observable y la prueba del núcleo fija el valor exacto.
 Si el empate de «más cercano» no sale estable, documéntalo como desviación
 posible frente a A15 y repórtalo; no cambies el recorrido. Decisiones que NO son
-tuyas: cambiar percepciones o funciones, tocar `examples/`, añadir terrenos con
-comportamiento.
+tuyas: cambiar percepciones o funciones, tocar `crates/*/src/`,
+añadir terrenos con comportamiento.
 
 ## Cierre
 

@@ -9,22 +9,23 @@ fuentes:
 issues: 6 desglosados en archivos propios (F6-01 a F6-06)
 ---
 
-# F6 · Banco de criaturas de prueba
+# F6 · Banco de criaturas de prueba (reuso de examples/)
 
 ## Objetivo y entregable
 
-Un paquete autocontenido — carpeta `bank/` con `terrains/`, `objects/`, `maps/`,
-`creatures/` y `bank/traps/` con los recursos que deben fallar de forma
-controlada — que se puede copiar tal cual a cualquier proyecto de estudiante y
-correr desde la terminal, y un documento (`bank/README.md`) que por cada
-scenario dice qué regla del enunciado prueba, el comando exacto y qué debe verse.
-Cada resultado esperado queda fijado por una prueba automática de esta
-implementación de referencia: si la referencia se desvía del enunciado, el
+Un paquete autocontenido — carpeta `examples/` con `terrains/`, `objects/`,
+`maps/` y `creatures/` (reusando lo que ya existe en `examples/`, sin crear una
+raíz `bank/` nueva) y `examples/traps/` con los recursos que deben fallar de
+forma controlada — que se puede copiar tal cual a cualquier proyecto de
+estudiante y correr desde la terminal, y un documento (`examples/README.md`)
+que por cada scenario dice qué regla del enunciado prueba, el comando exacto y
+qué debe verse. Cada resultado esperado queda fijado por una prueba automática de
+esta implementación de referencia: si la referencia se desvía del enunciado, el
 scenario lo documenta en lugar de esconderlo.
 
-Entregable observable: `cargo run -p instinct-cli -- run --root bank --map Arena
---seed 1 --ticks 5 --place Sprinter@2,2` corre un scenario del banco con exit 0
-y la salida documentada; `cargo test -p instinct-cli --test cli_bank` y
+Entregable observable: `cargo run -p instinct-cli -- run --root examples --map
+Arena --seed 1 --ticks 5 --place Sprinter@2,2` corre un scenario del banco con
+exit 0 y la salida documentada; `cargo test -p instinct-cli --test cli_bank` y
 `cargo test -p instinct-core --test bank` verifican cada scenario del README.
 
 ## Estado de partida
@@ -43,24 +44,27 @@ mergeados).
 - El núcleo ya implementa las siete acciones, las 31 percepciones, `see` y
   `name`, fin de tick, errores de ejecución con línea y sin pánicos, y
   determinismo con semilla.
-- Huecos confirmados (no existen hoy): `bank/`, `crates/instinct-cli/tests/cli_bank/`,
-  `crates/instinct-core/tests/bank/`.
+- Huecos confirmados (no existen hoy): `examples/traps/`,
+  `crates/instinct-cli/tests/cli_bank/`, `crates/instinct-core/tests/bank/`.
+  (`examples/` ya existe con sus recursos base.)
 
 ## Contratos compartidos
 
 Los issues los referencian; no los reexplican.
 
-- **Raíz del banco**: `bank/` con `terrains/`, `objects/`, `maps/`, `creatures/`,
-  autocontenida (incluye su propio `grass.te` y `rock.ob` con los valores del
-  anexo), de modo que cargue con **cero diagnósticos**.
-- **Raíz de trampas**: `bank/traps/` con la misma forma, autocontenida; contiene
-  recursos inválidos más al menos una criatura y un mapa válidos, para demostrar
-  2.8 («sigue funcionando con las demás criaturas»). Los scenarios válidos nunca
-  la cargan.
-- **Scenario**: unidad del banco. En `bank/README.md`, una entrada por scenario
-  agrupada por sección del enunciado, con: regla que prueba, archivos que
-  utiliza, comando exacto de terminal y resultado esperado. Toda entrada cita por
-  nombre el test que la verifica; ningún scenario sin test.
+- **Raíz del banco**: `examples/` con `terrains/`, `objects/`, `maps/` y
+  `creatures/`, autocontenida (incluye su propio `grass.te` y `rock.ob` con los
+  valores del anexo), de modo que cargue con **cero diagnósticos**. No se crea
+  `bank/` nuevo: se reusa `examples/` cambiando únicamente la raíz de `--root`
+  y las referencias de nombre/directorio.
+- **Raíz de trampas**: `examples/traps/` con la misma forma, autocontenida;
+  contiene recursos inválidos más al menos una criatura y un mapa válidos, para
+  demostrar 2.8 («sigue funcionando con las demás criaturas»). Los scenarios
+  válidos nunca la cargan.
+- **Scenario**: unidad del banco. En `examples/README.md`, una entrada por
+  scenario agrupada por sección del enunciado, con: regla que prueba, archivos
+  que utiliza, comando exacto de terminal y resultado esperado. Toda entrada
+  cita por nombre el test que la verifica; ningún scenario sin test.
 - **Determinismo**: todo scenario usa semilla fija, por defecto `--seed 1`.
   Los scenarios cuyo resultado depende de `random` se marcan como estadísticos.
 - **Resultado esperado = comportamiento de esta referencia**, obtenido ejecutando
@@ -82,11 +86,13 @@ Los issues los referencian; no los reexplican.
 
 ## Decisiones de la fase
 
-1. **Banco como raíz propia `bank/`, no dentro de `examples/`** — `load_resources`
-   no recursa subcarpetas y `examples/` tiene catálogos afirmados por pruebas de
-   CLI y ventana. Una raíz propia es lo que un estudiante puede copiar entero.
-2. **Trampas en `bank/traps/`** — mantiene los scenarios válidos con stderr vacío
-   y convierte la carga tolerante en un scenario observable.
+1. **Banco sobre `examples/` existente, no `bank/` nuevo** — se reusa `examples/`
+   como raíz (cambiando nombre/dir respecto al planteamiento original con `bank/`).
+   `load_resources` no recursa subcarpetas y `examples/` tiene catálogos afirmados
+   por pruebas de CLI y ventana. Reusar `examples/` evita duplicar los catálogos
+   de recursos y es la raíz que un estudiante puede copiar entero tal cual.
+2. **Trampas en `examples/traps/`** — mantiene los scenarios válidos con stderr
+   vacío y convierte la carga tolerante en un scenario observable.
 3. **Dos hogares de pruebas** — resultados como reservas de terreno, variables de
    la cría o edades no se ven desde la terminal; el README documenta lo observable
    y la prueba del núcleo fija el estado interno.
@@ -98,7 +104,7 @@ Los issues los referencian; no los reexplican.
 
 | ID | Título | Cubre | Depende de | Tamaño | Estado |
 |----|--------|-------|------------|--------|--------|
-| F6-01 | Esqueleto del banco: movimiento, bloqueos y sueño de `wait` | 2.4 move/wait, 2.7 turno | — | M | todo |
+| F6-01 | Esqueleto del banco: movimiento, bloqueos y sueño de `wait` | 2.4 move/wait, 2.7 turno | — | M | done |
 | F6-02 | Golpes, consumo y reservas | 2.4 attack/consume, 3.1, 3.4 | F6-01 | M | todo |
 | F6-03 | Reproducción, aborto natural y ciclo de turnos | 2.4 reproduce, 2.7 | F6-01 | M | todo |
 | F6-04 | Percepciones, `see` y `name` | 2.6 | F6-01 | M | todo |
@@ -108,7 +114,7 @@ Los issues los referencian; no los reexplican.
 ### Orden y dependencias
 
 F6-01 va primero porque fija todo lo que los demás reutilizan: la forma de
-`bank/`, la convención de scenario del README, los helpers de `cli_bank`/`bank`
+`examples/`, la convención de scenario del README, los helpers de `cli_bank`/`bank`
 y las puertas verdes. Los F6-02 a F6-06 tocan archivos casi disjuntos y su orden
 es libre.
 
@@ -116,7 +122,7 @@ es libre.
 
 | Entregable / criterio de salida | Issues que lo cubren |
 |---------------------------------|----------------------|
-| Estructura de `bank/` y convención de scenario | F6-01 |
+| Estructura de `examples/` y convención de scenario | F6-01 |
 | `move` y `wait` con bloqueos | F6-01 |
 | `attack`/`consume` contra criatura, objeto, terreno, casilla propia y fuera del mapa | F6-02 |
 | Leyes de fin de tick: -1 vida, +1 edad, muerte, regeneración, objetos agotados | F6-02 |
@@ -134,9 +140,9 @@ es libre.
 - `cargo test --workspace` → exit 0 (incluye `cli_bank` y `bank`).
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
 - `cargo fmt --all --check` → exit 0.
-- `cargo run -p instinct-cli -- run --root bank --map Arena --seed 1 --ticks 5 --place Sprinter@2,2` → exit 0 y salida idéntica a la documentada en el scenario del README.
-- `cargo test -p instinct-cli --test cli_bank` y `cargo test -p instinct-core --test bank` → exit 0; cada scenario de `bank/README.md` aparece citado en al menos un test que pasa.
-- `cargo run -p instinct-cli -- check bank/traps/creatures/<trampa>.ins` → exit 1 con `archivo:línea: mensaje` en stderr, una por trampa.
+- `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 5 --place Sprinter@2,2` → exit 0 y salida idéntica a la documentada en el scenario del README.
+- `cargo test -p instinct-cli --test cli_bank` y `cargo test -p instinct-core --test bank` → exit 0; cada scenario de `examples/README.md` aparece citado en al menos un test que pasa.
+- `cargo run -p instinct-cli -- check examples/traps/creatures/<trampa>.ins` → exit 1 con `archivo:línea: mensaje` en stderr, una por trampa.
 - Dos corridas del mismo scenario con la misma semilla dan salida byte a byte idéntica.
 - `git diff develop -- crates/` → vacío salvo los dos `[[test]]` en los `Cargo.toml`.
 - [ ] Sesión de verificación independiente al cierre (recomendada).

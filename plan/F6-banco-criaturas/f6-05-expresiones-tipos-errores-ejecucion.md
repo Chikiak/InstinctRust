@@ -26,7 +26,7 @@ mensaje y línea, y las demás criaturas de la simulación siguen su camino.
   que sea observable en el registro.
 - Una criatura trampa por clase de error de ejecución: todas compilan bien y
   fallan al correr.
-- Scenarios en `bank/README.md` con la línea de registro o de error esperada.
+- Scenarios en `examples/README.md` con la línea de registro o de error esperada.
 - Pruebas en `crates/instinct-cli/tests/cli_bank/expressions.rs` (líneas de
   registro y de error, exit 0 siempre) y en
   `crates/instinct-core/tests/bank/expressions.rs` (valores exactos y la muerte
@@ -35,22 +35,22 @@ mensaje y línea, y las demás criaturas de la simulación siguen su camino.
 **No hagas**
 - No pruebes los errores de compilación: esos van en F6-06 con sus propios archivos trampa.
 - No corrijas el núcleo si un resultado no cuadra con el enunciado: documéntalo y repórtalo a F7.
-- No toques `crates/*/src/` ni `examples/`.
+- No toques `crates/*/src/`; el banco se basa en `examples/`.
 
 ### Archivos previstos
-- `bank/creatures/calculator.ins` — nuevo — dice el resultado de expresiones con paréntesis, menos unario, multiplicación, suma y comparaciones.
-- `bank/creatures/divider.ins` — nuevo — dice cociente y resto de divisiones con signos mixtos.
-- `bank/creatures/truths.ins` — nuevo — dice qué valores son verdaderos y cuáles falsos.
-- `bank/creatures/mixer.ins` — nuevo — mezcla un entero y un texto en un operando.
-- `bank/creatures/divider_zero.ins` — nuevo — divide por cero.
-- `bank/creatures/forgetful.ins` — nuevo — lee una variable antes de asignarla.
-- `bank/creatures/wordy.ins` — nuevo — pasa texto donde la acción espera un número.
-- `bank/creatures/out_of_range.ins` — nuevo — usa una dirección fuera del rango -1 a 1.
+- `examples/creatures/calculator.ins` — nuevo — dice el resultado de expresiones con paréntesis, menos unario, multiplicación, suma y comparaciones.
+- `examples/creatures/divider.ins` — nuevo — dice cociente y resto de divisiones con signos mixtos.
+- `examples/creatures/truths.ins` — nuevo — dice qué valores son verdaderos y cuáles falsos.
+- `examples/creatures/mixer.ins` — nuevo — mezcla un entero y un texto en un operando.
+- `examples/creatures/divider_zero.ins` — nuevo — divide por cero.
+- `examples/creatures/forgetful.ins` — nuevo — lee una variable antes de asignarla.
+- `examples/creatures/wordy.ins` — nuevo — pasa texto donde la acción espera un número.
+- `examples/creatures/out_of_range.ins` — nuevo — usa una dirección fuera del rango -1 a 1.
 - `crates/instinct-cli/tests/cli_bank/expressions.rs` — nuevo — scenarios observables desde la terminal.
 - `crates/instinct-cli/tests/cli_bank/mod.rs` — modificar — declarar el módulo nuevo.
 - `crates/instinct-core/tests/bank/expressions.rs` — nuevo — valores exactos y muertes por error.
 - `crates/instinct-core/tests/bank/mod.rs` — modificar — declarar el módulo nuevo.
-- `bank/README.md` — modificar — escenarios S34 a S41.
+- `examples/README.md` — modificar — escenarios S34 a S41.
 
 ## Criterios de aceptación
 
@@ -66,7 +66,7 @@ mensaje y línea, y las demás criaturas de la simulación siguen su camino.
 
 ## Contexto
 
-**Ya existe** (F6-01): la raíz `bank/`, los objetivos de prueba y la convención de
+**Ya existe** (F6-01): la raíz `examples/`, los objetivos de prueba y la convención de
 scenario; una víctima quieta reutilizable como compañera de simulación.
 **Contratos que debes respetar**: los de `PHASE.md`. **Ojo**: la muerte por error
 de ejecución emite dos eventos, el error y la muerte con causa `error`, y saca a
@@ -114,14 +114,14 @@ Nivel: integración. En `bank/expressions.rs` del núcleo: los valores exactos q
 la calculadora produce y que la criatura trampa muere con causa de error. En
 `cli_bank/expressions.rs`: las líneas de registro y de error tal cual salen por
 terminal, y que el exit sigue siendo 0 con una criatura menos. No se mockea nada:
-simulación y mundo reales desde `bank/`, binario real de la CLI.
+simulación y mundo reales desde `examples/`, binario real de la CLI.
 
 ## Verificación
 
 - `cargo test -p instinct-core --test bank expressions` → valores y muertes correctos.
 - `cargo test -p instinct-cli --test cli_bank expressions` → líneas de registro y de error esperadas.
-- `cargo run -p instinct-cli -- run --root bank --map Arena --seed 1 --ticks 2 --place Calculator@2,2` → exit 0 con las líneas de resultados.
-- `cargo run -p instinct-cli -- run --root bank --map Arena --seed 1 --ticks 2 --place Mixer@2,2 --place Victim@6,2` → exit 0, error con línea de la mezcladora y la víctima viva.
+- `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --place Calculator@2,2` → exit 0 con las líneas de resultados.
+- `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --place Mixer@2,2 --place Victim@6,2` → exit 0, error con línea de la mezcladora y la víctima viva.
 - `cargo test --workspace` → sin regresiones.
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
 - `cargo fmt --all --check` → exit 0.

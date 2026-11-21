@@ -32,8 +32,8 @@ el enunciado, y la comprobación de que cada scenario del README tiene su prueba
 - Una carpeta de criaturas trampa, una por clase de error de compilación del
   enunciado 2.8, que la carga rechaza informando qué pasó y en qué línea sin
   dejar de cargar las demás.
-- En `bank/traps/maps/`, un mapa con carácter desconocido y uno con una fila
-  dispareja; en `bank/traps/terrains/` y `bank/traps/objects/`, un archivo con
+- En `examples/traps/maps/`, un mapa con carácter desconocido y uno con una fila
+  dispareja; en `examples/traps/terrains/` y `examples/traps/objects/`, un archivo con
   una clave inválida de cada tipo.
 - Una sección Desviaciones en el README que recoja las diferencias reales entre
   la referencia y el enunciado encontradas en la fase.
@@ -50,28 +50,28 @@ el enunciado, y la comprobación de que cada scenario del README tiene su prueba
 - No cambies el cargador ni el constructor del mundo para alinearlos con el
   «se rechaza» del enunciado 3.3: es una desviación que se documenta y va a F7.
 - No reescribas scenarios de otros issues.
-- No toques `crates/*/src/` ni `examples/`.
+- No toques `crates/*/src/`; el banco se basa en `examples/` y `examples/traps/`.
 
 ### Archivos previstos
-- `bank/creatures/shouter.ins` — nuevo — ruge con un texto fijo cada turno.
-- `bank/creatures/listener.ins` — nuevo — dice el último rugido oído y cuántos oyó.
-- `bank/creatures/singer.ins` — nuevo — dice dos textos y se mueve en el mismo turno.
-- `bank/traps/terrains/grass.te` — nuevo — terreno base de la raíz de trampas.
-- `bank/traps/objects/rock.ob` — nuevo — objeto base de la raíz de trampas.
-- `bank/traps/maps/arena.map` — nuevo — mapa válido para el escenario de carga tolerante.
-- `bank/traps/creatures/valid.ins` — nuevo — criatura válida que debe cargar.
-- `bank/traps/creatures/` — nuevo — entre diez y doce archivos `.ins` trampa, uno por clase de error.
-- `bank/traps/maps/unknown_char.map` — nuevo — mapa con un carácter que ningún terreno ni objeto declara.
-- `bank/traps/maps/ragged.map` — nuevo — mapa con una fila de largo distinto.
-- `bank/traps/terrains/bad.te` — nuevo — terreno con una clave inválida.
-- `bank/traps/objects/bad.ob` — nuevo — objeto con una clave inválida.
+- `examples/creatures/shouter.ins` — nuevo — ruge con un texto fijo cada turno.
+- `examples/creatures/listener.ins` — nuevo — dice el último rugido oído y cuántos oyó.
+- `examples/creatures/singer.ins` — nuevo — dice dos textos y se mueve en el mismo turno.
+- `examples/traps/terrains/grass.te` — nuevo — terreno base de la raíz de trampas.
+- `examples/traps/objects/rock.ob` — nuevo — objeto base de la raíz de trampas.
+- `examples/traps/maps/arena.map` — nuevo — mapa válido para el escenario de carga tolerante.
+- `examples/traps/creatures/valid.ins` — nuevo — criatura válida que debe cargar.
+- `examples/traps/creatures/` — nuevo — entre diez y doce archivos `.ins` trampa, uno por clase de error.
+- `examples/traps/maps/unknown_char.map` — nuevo — mapa con un carácter que ningún terreno ni objeto declara.
+- `examples/traps/maps/ragged.map` — nuevo — mapa con una fila de largo distinto.
+- `examples/traps/terrains/bad.te` — nuevo — terreno con una clave inválida.
+- `examples/traps/objects/bad.ob` — nuevo — objeto con una clave inválida.
 - `crates/instinct-cli/tests/cli_bank/roars.rs` — nuevo — scenarios observables desde la terminal.
 - `crates/instinct-cli/tests/cli_bank/traps.rs` — nuevo — diagnósticos y carga tolerante desde la terminal.
 - `crates/instinct-cli/tests/cli_bank/mod.rs` — modificar — declarar los módulos nuevos.
 - `crates/instinct-core/tests/bank/roars.rs` — nuevo — disponibilidad y alcance de los rugidos.
 - `crates/instinct-core/tests/bank/traps.rs` — nuevo — especies y recursos disponibles tras la carga.
 - `crates/instinct-core/tests/bank/mod.rs` — modificar — declarar los módulos nuevos.
-- `bank/README.md` — modificar — escenarios S42 a S55, sección Desviaciones y comprobación de cierre.
+- `examples/README.md` — modificar — escenarios S42 a S55, sección Desviaciones y comprobación de cierre.
 
 ## Criterios de aceptación
 
@@ -82,7 +82,7 @@ el enunciado, y la comprobación de que cada scenario del README tiene su prueba
 - [ ] **AC5** La cantante dice dos textos y se mueve dentro del mismo tick: el dicho no consume turno. Verif: `cargo test -p instinct-cli --test cli_bank roars::say_does_not_consume_turn`.
 - [ ] **AC6** `check` rechaza cada trampa con exit 1 y un diagnóstico con archivo y línea en stderr. Verif: `cargo test -p instinct-cli --test cli_bank traps::check_rejects_every_trap_with_line`.
 - [ ] **AC7** `check` acepta la criatura válida con `OK` y exit 0. Verif: `cargo test -p instinct-cli --test cli_bank traps::check_accepts_valid_creature`.
-- [ ] **AC8** Cargar `bank/traps/` con `run` sigue funcionando: la criatura válida está disponible, se puede colocar y simular, y los diagnósticos de las trampas salen por stderr con exit 0. Verif: `cargo test -p instinct-cli --test cli_bank traps::load_traps_root_keeps_valid_creature`.
+- [ ] **AC8** Cargar `examples/traps/` con `run` sigue funcionando: la criatura válida está disponible, se puede colocar y simular, y los diagnósticos de las trampas salen por stderr con exit 0. Verif: `cargo test -p instinct-cli --test cli_bank traps::load_traps_root_keeps_valid_creature`.
 - [ ] **AC9** El mapa con carácter desconocido produce un diagnóstico que nombra el carácter y la línea de su fila, y el mapa se puede simular. Verif: `cargo test -p instinct-cli --test cli_bank traps_maps::unknown_char_reports_and_loads`.
 - [ ] **AC10** El mapa con una fila dispareja produce un diagnóstico con la línea de la fila que no cuadra. Verif: `cargo test -p instinct-cli --test cli_bank traps_maps::ragged_row_reports_line`.
 - [ ] **AC11** Toda desviación real entre la referencia y el enunciado encontrada en la fase está en la sección Desviaciones del README con su caso concreto. Verif: leer la sección y contrastarla con las notas de los issues F6-01 a F6-06.
@@ -90,7 +90,7 @@ el enunciado, y la comprobación de que cada scenario del README tiene su prueba
 
 ## Contexto
 
-**Ya existe** (F6-01 a F6-05): la raíz `bank/` y `bank/traps/`, los objetivos de
+**Ya existe** (F6-01 a F6-05): la raíz `examples/` y `examples/traps/`, los objetivos de
 prueba y la convención de scenario. **Contratos que debes respetar**: los de
 `PHASE.md`, incluida la decisión A14 de `docs/ambiguedades.md` sobre el rugido
 propio. **Ojo**: los rugidos rotan al final del tick, así que un rugido solo es
@@ -126,7 +126,7 @@ que hay que documentar.
 | S49 | 2.8 cabecera | una trampa por cada clave ausente, incluida `start:` | diagnóstico que nombra la clave que falta |
 | S50 | 2.8 expresiones y asignación | trampa de expresión mal formada, de asignación a percepción y de asignación a constante | un diagnóstico con la línea de la asignación |
 | S51 | 2.8 catálogo | trampa de acción desconocida, de función desconocida y de aridad incorrecta | diagnóstico que nombra el nombre desconocido o la aridad esperada |
-| S52 | 2.8 carga tolerante | `run` sobre `bank/traps/` con la criatura válida | la criatura corre, exit 0 y las trampas por stderr |
+| S52 | 2.8 carga tolerante | `run` sobre `examples/traps/` con la criatura válida | la criatura corre, exit 0 y las trampas por stderr |
 | S53 | 3.3 carácter desconocido | `run` sobre la raíz de trampas | diagnóstico con el carácter y la línea; el mapa corre y la casilla queda como primer terreno |
 | S54 | 3.3 filas de distinto largo | mapa con fila dispareja | diagnóstico con la línea de la fila que no cuadra |
 | S55 | 3.2 terreno y objeto | archivos con clave inválida | se descartan con su mensaje; el resto de recursos carga |
@@ -161,8 +161,8 @@ núcleo y binario real de la CLI.
 - `cargo test -p instinct-core --test bank roars` → disponibilidad y alcance correctos.
 - `cargo test -p instinct-cli --test cli_bank traps` → diagnósticos, exits y carga tolerante.
 - `cargo test -p instinct-core --test bank traps` → especies disponibles tras la carga.
-- `cargo run -p instinct-cli -- check bank/traps/creatures/<trampa>.ins` → exit 1 con `archivo:línea: mensaje` (repetir por cada trampa).
-- `cargo run -p instinct-cli -- run --root bank/traps --map Arena --seed 1 --ticks 2 --place Valid@4,4` → exit 0, criatura válida simulando y diagnósticos de las trampas en stderr.
+- `cargo run -p instinct-cli -- check examples/traps/creatures/<trampa>.ins` → exit 1 con `archivo:línea: mensaje` (repetir por cada trampa).
+- `cargo run -p instinct-cli -- run --root examples/traps --map Arena --seed 1 --ticks 2 --place Valid@4,4` → exit 0, criatura válida simulando y diagnósticos de las trampas en stderr.
 - `cargo test -p instinct-cli --test cli_bank` y `cargo test -p instinct-core --test bank` → exit 0 (todos los scenarios del README).
 - `cargo test --workspace` → sin regresiones.
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
@@ -178,7 +178,7 @@ la referencia, es una desviación real: documéntala en Desviaciones con el arch
 trampa que la evidencia y repórtala a F7; no la implementes aquí. Decisiones que
 NO son tuyas: cambiar el rugido, el dicho o la rotación de rugidos; cambiar el
 cargador o el constructor del mundo; alterar escenarios de otros issues ni tocar
-`examples/`.
+`crates/*/src/`.
 
 ## Cierre
 

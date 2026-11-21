@@ -25,7 +25,7 @@ variables sobreviven de un turno al siguiente.
 - Criaturas: una madre que reproduce cuando puede, una madre que falla por salud
   insuficiente, y una cría que lee una variable que la madre sí tenía (para
   demostrar que no hereda nada).
-- Scenarios en `bank/README.md`: camino feliz de la reproducción, los tres
+- Scenarios en `examples/README.md`: camino feliz de la reproducción, los tres
   abortos naturales (casilla ocupada por criatura, casilla con objeto, destino
   fuera del mapa) y el aborto por salud, más el ciclo de turnos.
 - Pruebas en `crates/instinct-cli/tests/cli_bank/turns.rs` (eventos y rejilla) y
@@ -36,19 +36,19 @@ variables sobreviven de un turno al siguiente.
 - No pruebes `attack`/`consume` (F6-02) ni los rugidos (F6-06).
 - No cambies el orden de turnos ni la semilla para forzar un resultado: si un
   scenario necesita un orden concreto, elige la semilla que lo da y documéntala.
-- No toques `crates/*/src/` ni `examples/`.
+- No toques `crates/*/src/`; el banco se basa en `examples/`.
 
 ### Archivos previstos
-- `bank/creatures/mother.ins` — nuevo — reproduce hacia una casilla libre cuando su salud lo permite.
-- `bank/creatures/poor_mother.ins` — nuevo — intenta reproducir con salud insuficiente.
-- `bank/creatures/heir.ins` — nuevo — lee una variable que solo la madre guarda.
-- `bank/creatures/counter.ins` — nuevo — cuenta turnos en una variable y la dice cuando puede, para probar memoria y reanudación.
-- `bank/creatures/spinner.ins` — nuevo — ciclo sin acción, para probar el límite de 100 líneas.
+- `examples/creatures/mother.ins` — nuevo — reproduce hacia una casilla libre cuando su salud lo permite.
+- `examples/creatures/poor_mother.ins` — nuevo — intenta reproducir con salud insuficiente.
+- `examples/creatures/heir.ins` — nuevo — lee una variable que solo la madre guarda.
+- `examples/creatures/counter.ins` — nuevo — cuenta turnos en una variable y la dice cuando puede, para probar memoria y reanudación.
+- `examples/creatures/spinner.ins` — nuevo — ciclo sin acción, para probar el límite de 100 líneas.
 - `crates/instinct-cli/tests/cli_bank/turns.rs` — nuevo — eventos y rejilla de los scenarios.
 - `crates/instinct-cli/tests/cli_bank/mod.rs` — modificar — declarar el módulo nuevo.
 - `crates/instinct-core/tests/bank/turns.rs` — nuevo — edad, variables, `pc`, orden y líneas ejecutadas.
 - `crates/instinct-core/tests/bank/mod.rs` — modificar — declarar el módulo nuevo.
-- `bank/README.md` — modificar — escenarios S18 a S24.
+- `examples/README.md` — modificar — escenarios S18 a S24.
 
 ## Criterios de aceptación
 
@@ -64,7 +64,7 @@ variables sobreviven de un turno al siguiente.
 
 ## Contexto
 
-**Ya existe** (F6-01 y F6-02): la raíz `bank/`, los objetivos de prueba
+**Ya existe** (F6-01 y F6-02): la raíz `examples/`, los objetivos de prueba
 `cli_bank` y `bank`, y víctimas quietas reutilizables como obstáculos para los
 abortos. **Contratos que debes respetar**: los de `PHASE.md`. **Ojo**: el orden
 de turnos se sortea cada tick con la semilla del mundo, así que un scenario que
@@ -110,14 +110,14 @@ Nivel: integración. En `cli_bank/turns.rs`: los eventos de nacimiento y error, 
 la rejilla que muestra u oculta a la cría. En `bank/turns.rs`: edad 0 de la cría,
 variables de la cría vacías, vida transferida, `pc` de reanudación, líneas
 ejecutadas por turno y que una criatura muerta no emite nada en su turno. No se
-mockea nada: `Simulation` y `World` reales desde `bank/`, y el binario real de la
+mockea nada: `Simulation` y `World` reales desde `examples/`, y el binario real de la
 CLI. Semilla fija y documentada por scenario.
 
 ## Verificación
 
 - `cargo test -p instinct-cli --test cli_bank turns` → nacimiento, abortos y ciclo de turnos observables.
 - `cargo test -p instinct-core --test bank turns` → edad, variables, `pc` y líneas por turno.
-- `cargo run -p instinct-cli -- run --root bank --map Arena --seed 1 --ticks 3 --place Mother@4,4` → exit 0 con la cría presente desde el tick siguiente.
+- `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 3 --place Mother@4,4` → exit 0 con la cría presente desde el tick siguiente.
 - `cargo test --workspace` → sin regresiones.
 - `cargo clippy --workspace --all-targets -- -D warnings` → exit 0.
 - `cargo fmt --all --check` → exit 0.
