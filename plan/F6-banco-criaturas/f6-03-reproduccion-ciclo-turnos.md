@@ -2,7 +2,7 @@
 id: F6-03
 title: Reproducción, aborto natural y ciclo de turnos
 phase: F6
-status: todo
+status: done
 depends_on: [F6-01]
 size: M
 file: f6-03-reproduccion-ciclo-turnos.md
@@ -139,3 +139,88 @@ fuerces el orden cambiando el núcleo. Decisiones que NO son tuyas: cambiar
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+Rama: `feat/f6-03-reproduccion-ciclo-turnos` (checkeada y limpia al inicio).
+
+Commits realizados (uno por cambio verde):
+- `e193fdb` feat(f6-03): spinner y límite de 100 líneas por turno (AC7)
+  - `examples/creatures/spinner.ins`: ciclo puro `n = 1; goto start` (3 líneas
+    contando la etiqueta `start:`), sin acciones.
+  - `crates/instinct-core/tests/bank/turns.rs`: test
+    `line_limit_caps_counter_per_turn`: Spinner@2,2, `step_tick()`, aserta
+    `bw.sim.tick() == 5` tras `step_ticks(5)` (sim avanza sin panic) y
+    `bw.memento("Spinner").health > 0` (sigue viva). pc se detiene en la línea 1
+    tras 100 líneas; salud 19, edad 1; sobrevive al tick 2.
+- `9d57db6` feat(f6-03): abortos naturales y criatura muerta (AC5, AC6)
+  - `crates/instinct-core/tests/bank/turns.rs`:
+    - `reproduce_aborts_cell_occupied_by_creature`: Mother@2,2 + Victim@2,3,
+      destino ocupado; madre viva (salud 19), Victim sigue en (2,3), sin cría.
+    - `reproduce_aborts_cell_has_rock`: Mother@4,3, destino (4,4) roca de Arena;
+      madre viva, `live_creature_ids().len()==1`, sin cría en (4,4).
+    - `reproduce_aborts_out_of_map`: Mother@2,8, destino (2,9) fuera (Arena es
+      9×9, filas 0..8); madre viva, `live_creature_ids()==1`.
+    - `reproduce_aborts_insufficient_health`: ya existente (commit A), PoorMother
+      hp 3 → salud 2 tras el tick, sin cría.
+    - `creature_dead_before_turn_does_not_play`: PoorMother@2,2,
+      `step_ticks(3)`; slot vacío y `live_creature_ids().len()==0`.
+- `4903c7f` feat(f6-03): CLI de turnos (AC3, AC4, AC5-cli)
+  - `crates/instinct-cli/tests/cli_bank/turns.rs` (nuevo; `mod turns;` ya estaba
+    en `cli_bank/mod.rs` y `bank/mod.rs`):
+    - `offspring_first_turn_next_tick`: Mother@2,2, `--ticks 2 --every 1`;
+      tick 0 solo 'M' en (2,2); tick 1 'M' en (2,2) y 'M' en (2,3) (cría juega
+      al tick siguiente). code 0, stderr vacío.
+    - `offspring_inherits_no_variables`: Heir@2,2, `--ticks 2 --every 1`; code 0,
+      stderr vacío, sin "RuntimeError" ni "dies of error"; 'H' en (2,2) y 'H' en
+      (2,3) tick 1.
+    - `cli_abort_cell_occupied_by_creature`: Mother@2,2 + Victim@2,3,
+      `--ticks 1 --every 1`; tick 1 (2,3) sigue 'V', sin cría.
+- `0a93d16` fix(f6-03): clippy `op_ref` en tests de turnos
+  - `name == &"Victim"` / `name == &"PoorMother"` → comparación directa.
+
+Archivos modificados:
+- `examples/creatures/spinner.ins` (nuevo)
+- `crates/instinct-core/tests/bank/turns.rs` (AC7, AC5×4, AC6)
+- `crates/instinct-cli/tests/cli_bank/turns.rs` (nuevo, AC3/AC4/AC5-cli)
+- `plan/F6-banco-criaturas/f6-03-reproduccion-ciclo-turnos.md` (status done +
+  notas de implementación)
+- `plan/F6-banco-criaturas/PHASE.md` (tabla F6-03 → done)
+
+Cambios de firma autorizados: ninguno (no se tocó `crates/*/src/`).
+
+Desviaciones (documentadas, sin tocar el núcleo):
+- `spinner.ins` usa la variable `n` en lugar de `x`: `x` es una percepción de
+  solo lectura y el núcleo rechaza asignarle (`cannot assign to perception 'x'`).
+  Semántica equivalente: ciclo puro de asignación sin acciones que quema el
+  límite de 100 líneas por turno.
+- El mapa `Arena` es 9×9 (no 10×10): roca en (4,4), filas/columnas válidas
+  0..8. El test de "fuera del mapa" coloca a Mother@2,8 con destino (2,9)
+  fuera del mapa (el propio `--place` rechaza coordenadas fuera del mapa, por
+  lo que no se puede colocar a la criatura fuera).
+- `cargo test --workspace` falla únicamente en el test pre-existing
+  `instinct-gui::tests::determinismo::t_determinismo_01_gui_iguala_directo_con_seed7`
+  (ajeno a F6-03; `instinct-gui` no se modificó). Todo lo demás del workspace
+  pasa.
+- `cargo clippy --workspace --all-targets -- -D warnings`: exit 0.
+- `cargo fmt --all --check`: falla únicamente en archivos pre-existing
+  (`crates/instinct-gui/src/ui/mod.rs`, `crates/instinct-core/tests/bank/common.rs`);
+  los archivos tocados en este issue están fmt-limpios.
+- `git status` limpio tras el commit final de plan files.
+
+Evidencia AC por AC:
+- AC1 (PASS): `cargo test -p instinct-core --test bank turns::birth_has_age_zero_and_no_variables` → ok.
+- AC2 (PASS): `cargo test -p instinct-core --test bank turns::birth_transfers_health` → ok.
+- AC3 (PASS): `cargo test -p instinct-cli --test cli_bank turns::offspring_first_turn_next_tick` → ok.
+- AC4 (PASS): `cargo test -p instinct-cli --test cli_bank turns::offspring_inherits_no_variables` → ok.
+- AC5 (PASS): `cargo test -p instinct-core --test bank turns::reproduce_aborts_silently` (ya existente) +
+  `reproduce_aborts_cell_occupied_by_creature`, `reproduce_aborts_cell_has_rock`,
+  `reproduce_aborts_out_of_map`, `reproduce_aborts_insufficient_health` → ok.
+  AC5-cli (PASS): `cli_bank turns::cli_abort_cell_occupied_by_creature` → ok.
+- AC6 (PASS): `cargo test -p instinct-core --test bank turns::creature_dead_before_turn_does_not_play` → ok.
+- AC7 (PASS): `cargo test -p instinct-core --test bank turns::line_limit_caps_counter_per_turn` → ok.
+- AC8 (PASS): `cargo test -p instinct-core --test bank turns::variables_persist_across_turns` → ok.
+- AC9 (parcial por pre-existing): `cargo test --workspace` → FAIL solo en
+  `instinct-gui::determinismo` (pre-existing, ajeno); `cargo test -p instinct-cli
+  --test cli_bank turns` → ok; `cargo test -p instinct-core --test bank turns` →
+  ok; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0;
+  `cargo fmt --all --check` → falla solo en pre-existing (mis archivos limpios);
+  `git status` limpio tras commit final.
