@@ -106,6 +106,75 @@ fn line_limit_caps_counter_per_turn() {
     assert_eq!(m2.health, 18, "Spinner: 19 - 1 fin de tick = 18");
 }
 
+// AC5 (núcleo): reproduce aborta con destino ocupado por criatura,
+// no nace nadie y la madre sigue viva (sin costo de salud por el aborto).
+#[test]
+fn reproduce_aborts_cell_occupied_by_creature() {
+    // Mother@2,2 con reproduce(0, 1, 5): destino (2,3) ocupado por Victim.
+    let mut bw = BankWorld::from_examples("Arena", &[("Mother", 2, 2), ("Victim", 2, 3)]);
+    bw.step_tick();
+    let mother = bw.memento("Mother").expect("Mother viva tras el aborto");
+    assert_eq!(
+        mother.health, 19,
+        "Mother: 20 - 1 fin de tick, reproduce abortó sin costo"
+    );
+    assert_eq!(mother.x, 2, "Mother sigue en (2,2)");
+    assert_eq!(mother.y, 2, "Mother sigue en (2,2)");
+    // La casilla destino sigue ocupada por la Victim y no nace cría.
+    let victim_id = bw
+        .creature_ids
+        .iter()
+        .find(|(name, _)| name == &"Victim")
+        .map(|(_, id)| *id)
+        .expect("Victim colocada");
+    assert_eq!(
+        bw.find_child_at(2, 3, &[]),
+        Some(victim_id),
+        "(2,3) sigue ocupada por la Victim, sin cría"
+    );
+}
+
+// AC5 (núcleo): reproduce aborta con destino que tiene una roca.
+#[test]
+fn reproduce_aborts_cell_has_rock() {
+    // Mother@4,3 con reproduce(0, 1, 5): destino (4,4) es la roca de Arena.
+    let mut bw = BankWorld::from_examples("Arena", &[("Mother", 4, 3)]);
+    bw.step_tick();
+    let mother = bw.memento("Mother").expect("Mother viva tras el aborto");
+    assert_eq!(
+        mother.health, 19,
+        "Mother: 20 - 1 fin de tick, reproduce abortó sin costo"
+    );
+    // No nace cría en (4,4): solo hay una criatura viva (la madre).
+    assert_eq!(
+        bw.sim.world.live_creature_ids().len(),
+        1,
+        "sigue viva solo la Mother"
+    );
+    assert!(
+        bw.find_child_at(4, 4, &[]).is_none(),
+        "(4,4) tiene la roca, no nace cría"
+    );
+}
+
+// AC5 (núcleo): reproduce aborta con destino fuera del mapa.
+#[test]
+fn reproduce_aborts_out_of_map() {
+    // Mother@2,8 con reproduce(0, 1, 5): destino (2,9) fuera (filas 0..8).
+    let mut bw = BankWorld::from_examples("Arena", &[("Mother", 2, 8)]);
+    bw.step_tick();
+    let mother = bw.memento("Mother").expect("Mother viva tras el aborto");
+    assert_eq!(
+        mother.health, 19,
+        "Mother: 20 - 1 fin de tick, reproduce abortó sin costo"
+    );
+    assert_eq!(
+        bw.sim.world.live_creature_ids().len(),
+        1,
+        "live_creature_ids == 1: solo la Mother"
+    );
+}
+
 // AC5 (núcleo): reproduce aborta por salud insuficiente, no nace nadie,
 // la madre sigue viva (solo paga el fin de tick).
 #[test]
@@ -123,5 +192,29 @@ fn reproduce_aborts_insufficient_health() {
     assert!(
         bw.find_child_at(2, 3, &[]).is_none(),
         "no nace cría por salud insuficiente"
+    );
+}
+
+// AC6 (núcleo): una criatura que muere antes de su turno no juega:
+// tras step_ticks(3) PoorMother (hp 3) ha muerto y no queda nadie.
+#[test]
+fn creature_dead_before_turn_does_not_play() {
+    let mut bw = BankWorld::from_examples("Arena", &[("PoorMother", 2, 2)]);
+    let mother_id = bw
+        .creature_ids
+        .iter()
+        .find(|(name, _)| name == &"PoorMother")
+        .map(|(_, id)| *id)
+        .expect("PoorMother colocada");
+    // hp 3: tick 0 -> 2, tick 1 -> 1, tick 2 -> 0 (muere al fin de tick).
+    bw.step_ticks(3);
+    assert!(
+        bw.sim.world.creatures[mother_id.0].is_none(),
+        "PoorMother slot vacía tras morir"
+    );
+    assert_eq!(
+        bw.sim.world.live_creature_ids().len(),
+        0,
+        "live_creature_ids vacía: nadie juega tras la muerte"
     );
 }
