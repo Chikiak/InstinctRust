@@ -107,7 +107,7 @@ Los issues los referencian; no los reexplican.
 | F6-01 | Esqueleto del banco: movimiento, bloqueos y sueño de `wait` | 2.4 move/wait, 2.7 turno | — | M | done |
 | F6-02 | Golpes, consumo y reservas | 2.4 attack/consume, 3.1, 3.4 | F6-01 | M | done |
 | F6-03 | Reproducción, aborto natural y ciclo de turnos | 2.4 reproduce, 2.7 | F6-01 | M | done |
-| F6-04 | Percepciones, `see` y `name` | 2.6 | F6-01 | M | todo |
+| F6-04 | Percepciones, `see` y `name` | 2.6 | F6-01 | M | done |
 | F6-05 | Expresiones, tipos y errores de ejecución | 2.5, 2.8 ejecución | F6-01 | M | todo |
 | F6-06 | Rugidos y `say`, trampas de compilación, mapas y cierre | 2.4 roar/say, 2.6 social, 2.8 compilación, 3.3 | F6-01 | M | todo |
 
