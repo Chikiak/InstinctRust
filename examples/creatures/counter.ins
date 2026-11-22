@@ -4,7 +4,8 @@ health 20
 vision 3
 lifespan 100
 start:
+if tick > 0 goto later
 marked = tick
-say(marked)
 wait(1)
-goto start
+later:
+say(marked)

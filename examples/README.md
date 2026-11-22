@@ -708,18 +708,18 @@ Resultado esperado: las suites `combat` de `cli_bank` y `bank` en verde;
 que se reportan por separado); clippy y fmt sin advertencias; `git status`
 limpio tras el commit.
 Test: puertas AC9 (ejecución de gates).
-## Scenarios S18ï¿½?"S24
+## Scenarios S18–S24
 
-### S18 ï¿½?" eproduce nace una crÃ­a con edad 0 y vida pedida
+### S18 — reproduce nace una cría con edad 0 y vida pedida
 
-Regla: 2.4 eproduce con casilla libre y salud suficiente.
-Archivos: examples/maps/arena.map, examples/creatures/mother.ins
+Regla: 2.4 `reproduce` con casilla libre y salud suficiente.
+Archivos: `examples/maps/arena.map`, `examples/creatures/mother.ins`
 Comando:
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Mother@2,2
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -750,35 +750,72 @@ Resultado esperado:
 .........
 .........
 .........
-`
-La madre permanece en (2,2) y al tick 1 la crÃ­a (misma especie, 'M') aparece
-en (2,3) (edad 0, vida 5 transferida por la madre). Test:
-ank::turns::birth_has_age_zero_and_no_variables y
-ank::turns::birth_transfers_health.
+```
+La madre permanece en (2,2) y al tick 1 la cría (misma especie, `M`) aparece
+en (2,3) (edad 0, vida 5 transferida por la madre).
+Test: `bank::turns::birth_has_age_zero_and_no_variables` y
+`bank::turns::birth_transfers_health`.
 
-### S19 ï¿½?" La crÃ­a juega por primera vez en el tick siguiente
+### S19 — La cría juega por primera vez en el tick siguiente
 
-Regla: 2.7 punto 8: la crÃ­a juega por primera vez en el tick siguiente al de su nacimiento.
-Archivos: examples/maps/arena.map, examples/creatures/mother.ins
+Regla: 2.7 punto 8: la cría juega por primera vez en el tick siguiente al de su nacimiento.
+Archivos: `examples/maps/arena.map`, `examples/creatures/first_turn_mother.ins`
 Comando:
-`sh
-cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Mother@2,2
-`
-Resultado esperado: igual que S18 (la crÃ­a 'M' en (2,3) visible desde el
-tick 1, juega su primer turno en el tick 2).
-Test: cli_bank::turns::offspring_first_turn_next_tick.
+```sh
+cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place FirstTurnMother@2,2
+```
+Resultado esperado:
+```
+== tick 0 ==
+.........
+.........
+..F......
+.........
+....#....
+.........
+.........
+.........
+.........
+[tick 0] FirstTurnMother@2,2 says: ready
+== tick 1 ==
+.........
+.........
+..F......
+..F......
+....#....
+.........
+.........
+.........
+.........
+[tick 1] FirstTurnMother@2,2 says: ready
+[tick 1] FirstTurnMother@2,3 says: ready
+== tick 2 ==
+.........
+.........
+..F......
+..F......
+....#....
+.........
+.........
+.........
+.........
+```
+En `[tick 0]` solo habla la madre en (2,2); la cría aún no ha nacido.
+En `[tick 1]` habla la madre en (2,2) **y** la cría en (2,3): la cría ejecuta
+su primera acción en el tick siguiente al de su nacimiento, nunca en `[tick 0]`.
+Test: `cli_bank::turns::offspring_first_turn_next_tick`.
 
-### S20 ï¿½?" La crÃ­a no hereda variables de la madre
+### S20 — La cría no hereda variables de la madre
 
-Regla: 2.4 eproduce: la crÃ­a nace sin variables; un programa que lee una
-variable de la madre no falla en su primer turno.
-Archivos: examples/maps/arena.map, examples/creatures/heir.ins
+Regla: 2.4 `reproduce`: la cría nace sin variables; un programa que lee una
+variable de la madre falla con error de ejecución en su primer turno.
+Archivos: `examples/maps/arena.map`, `examples/creatures/heir.ins`
 Comando:
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Heir@2,2
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -799,34 +836,36 @@ Resultado esperado:
 .........
 .........
 .........
-[tick 1] Heir@2,2 says: 42
+[tick 1] Heir@2,3 error at line 8: unknown variable 'legacy'
+[tick 1] Heir@2,3 dies of error
 == tick 2 ==
 .........
 .........
 ..H......
-..H......
+.........
 ....#....
 .........
 .........
 .........
 .........
-`
-La crÃ­a 'H' aparece en (2,3) en el tick 1, madre y crÃ­a siguen vivas y sin
-error de ejecuciÃ³n en stderr (la crÃ­a hereda cero variables).
-Test: cli_bank::turns::offspring_inherits_no_variables.
+```
+La cría `H` aparece en (2,3) en el tick 1, pero al intentar leer `legacy`
+sin haberlo asignado emite `error at line 8` y muere (`dies of error`).
+En el tick 2 la celda (2,3) vuelve a `.` y la madre sigue en (2,2).
+Test: `cli_bank::turns::offspring_inherits_no_variables`.
 
-### S21 ï¿½?" Abortos naturales: destino ocupado, roca o fuera del mapa
+### S21 — Abortos naturales: destino ocupado, roca o fuera del mapa
 
-Regla: 2.4 eproduce con destino con criatura, con objeto o fuera del mapa:
+Regla: 2.4 `reproduce` con destino con criatura, con objeto o fuera del mapa:
 no nace nadie y la madre sigue viva.
-Archivos: examples/maps/arena.map, examples/creatures/mother.ins,
-examples/creatures/victim.ins
-Comando (ocupado por criatura):
-`sh
+Archivos: `examples/maps/arena.map`, `examples/creatures/mother.ins`,
+`examples/creatures/victim.ins`
+Comando (destino ocupado por criatura):
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place Mother@2,2 --place Victim@2,3
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -847,33 +886,33 @@ Resultado esperado:
 .........
 .........
 .........
-`
-La Madre sigue en (2,2), la Victim sigue en (2,3) y no nace crÃ­a.
+```
+La Madre sigue en (2,2), la Victim sigue en (2,3) y no nace cría.
 Comando (destino con roca, (4,4)):
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place Mother@4,3
-`
-Resultado esperado: 'M' permanece en (4,3), (4,4) sigue siendo '#', sin crÃ­a.
+```
+Resultado esperado: `M` permanece en (4,3), (4,4) sigue siendo `#`, sin cría.
 Comando (fuera del mapa, (2,9) fuera de filas 0..8):
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place Mother@2,8
-`
-Resultado esperado: 'M' permanece en (2,8), sin crÃ­a.
-Test: ank::turns::reproduce_aborts_cell_occupied_by_creature,
-ank::turns::reproduce_aborts_cell_has_rock,
-ank::turns::reproduce_aborts_out_of_map y
-cli_bank::turns::cli_abort_cell_occupied_by_creature.
+```
+Resultado esperado: `M` permanece en (2,8), sin cría.
+Test: `bank::turns::reproduce_aborts_cell_occupied_by_creature`,
+`bank::turns::reproduce_aborts_cell_has_rock`,
+`bank::turns::reproduce_aborts_out_of_map` y
+`cli_bank::turns::cli_abort_cell_occupied_by_creature`.
 
-### S22 ï¿½?" Aborto por salud insuficiente
+### S22 — Aborto por salud insuficiente
 
-Regla: 2.4 eproduce con salud menor o igual a la pedida: no nace nadie.
-Archivos: examples/maps/arena.map, examples/creatures/poor_mother.ins
+Regla: 2.4 `reproduce` con salud menor o igual a la pedida: no nace nadie.
+Archivos: `examples/maps/arena.map`, `examples/creatures/poor_mother.ins`
 Comando:
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place PoorMother@2,2
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -894,21 +933,21 @@ Resultado esperado:
 .........
 .........
 .........
-`
-PoorMother ('P') sigue viva en (2,2) y no nace crÃ­a en (2,3).
-Test: ank::turns::reproduce_aborts_insufficient_health.
+```
+PoorMother (`P`) sigue viva en (2,2) y no nace cría en (2,3).
+Test: `bank::turns::reproduce_aborts_insufficient_health`.
 
-### S23 ï¿½?" Ciclo sin acciÃ³n: lÃ­mite de 100 lÃ­neas por turno
+### S23 — Ciclo sin acción: límite de 100 líneas por turno
 
-Regla: 2.7 punto 5: un ciclo sin acciÃ³n se corta en el lÃ­mite de lÃ­neas y
-la simulaciÃ³n continÃºa.
-Archivos: examples/maps/arena.map, examples/creatures/spinner.ins
+Regla: 2.7 punto 5: un ciclo sin acción se corta en el límite de líneas y
+la simulación continúa.
+Archivos: `examples/maps/arena.map`, `examples/creatures/spinner.ins`
 Comando:
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Spinner@2,2
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -939,23 +978,23 @@ Resultado esperado:
 .........
 .........
 .........
-`
-Spinner ('S') permanece en (2,2) los dos ticks, sin panics ni detenciÃ³n de la
-simulaciÃ³n (el ciclo 
- = 1; goto start se corta en 100 lÃ­neas/turno).
-Test: ank::turns::line_limit_caps_counter_per_turn.
+```
+Spinner (`S`) permanece en (2,2) los tres ticks, sin panics ni detención de la
+simulación (el ciclo `n = 0; loop: n = n + 1; goto loop` se corta en 100
+líneas por turno y el contador `n` llega a 33).
+Test: `bank::turns::line_limit_caps_counter_per_turn`.
 
-### S24 ï¿½?" Memoria de turnos y reanudaciÃ³n en start:
+### S24 — Memoria de turnos y reanudación en start:
 
 Regla: 2.7 puntos 3, 6 y 7: las variables persisten de un turno a otro y al
-llegar al final del archivo se reanuda en start:.
-Archivos: examples/maps/arena.map, examples/creatures/counter.ins
+llegar al final del archivo se reanuda en `start:`.
+Archivos: `examples/maps/arena.map`, `examples/creatures/counter.ins`
 Comando:
-`sh
+```sh
 cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Counter@2,2
-`
+```
 Resultado esperado:
-`
+```
 == tick 0 ==
 .........
 .........
@@ -966,7 +1005,6 @@ Resultado esperado:
 .........
 .........
 .........
-[tick 0] Counter@2,2 says: 0
 == tick 1 ==
 .........
 .........
@@ -977,7 +1015,7 @@ Resultado esperado:
 .........
 .........
 .........
-[tick 1] Counter@2,2 says: 1
+[tick 1] Counter@2,2 says: 0
 == tick 2 ==
 .........
 .........
@@ -988,21 +1026,27 @@ Resultado esperado:
 .........
 .........
 .........
-`
-Counter dice 0 en el tick 0 y 1 en el tick 1: la variable marked persiste
-de un turno a otro y goto start reanuda al comienzo cada ciclo.
-Test: ank::turns::variables_persist_across_turns.
-
+```
+En el tick 0 `Counter` asigna `marked = 0` y termina el turno con `wait(1)`
+(sin decir nada). En el tick 1 dice `0` (leye `marked` sin reasignarlo),
+probando que la variable persiste de un turno a otro. Al llegar al final del
+archivo se reanuda en `start:`.
+Test: `bank::turns::variables_persist_across_turns`.
 ## Tests del banco
 
 - `crates/instinct-cli/tests/cli_bank/movement.rs` — scenarios observables
   desde la terminal (rejilla y eventos).
 - `crates/instinct-cli/tests/cli_bank/combat.rs` — golpes, consumo y reservas
   observables desde la terminal (AC1, AC3, AC6, AC9).
+- `crates/instinct-cli/tests/cli_bank/turns.rs` — nacimiento, ciclo de turnos
+  y abortos de `reproduce` observables desde la terminal (AC3, AC4, AC5-cli).
 - `crates/instinct-core/tests/bank/movement.rs` — estado interno (posición y
   edad) tras los ticks.
 - `crates/instinct-core/tests/bank/combat.rs` — golpes, consumo y reservas
   sobre el estado interno del mundo (AC2-AC8, AC9).
+- `crates/instinct-core/tests/bank/turns.rs` — edad, variables, `pc`, líneas
+  ejecutadas por turno, abortos silenciosos y criatura muerta que no juega
+  (AC1, AC2, AC5, AC6, AC7, AC8).
 
 Ejecutar todos:
 ```sh
@@ -1022,3 +1066,10 @@ cargo test -p instinct-core --test bank
   En esta referencia, `move` consume el turno y `say` se ejecuta en el turno
   siguiente. Se documenta como desviación; el kernel no se modifica en esta
   fase.
+- **F6-03 / AC7**: `spinner.ins` usa la variable `n` en lugar de `x`: `x` es
+  una percepción de solo lectura y el núcleo rechaza asignarle
+  (`cannot assign to perception 'x'`). Semántica equivalente: ciclo puro de
+  asignación sin acciones que quema el límite de 100 líneas por turno.
+- **F6-03 / AC5**: el mapa `Arena` es 9×9 (filas/columnas válidas 0..8). El
+  test de "fuera del mapa" coloca a Mother@2,8 con destino (2,9), que está
+  fuera del mapa.

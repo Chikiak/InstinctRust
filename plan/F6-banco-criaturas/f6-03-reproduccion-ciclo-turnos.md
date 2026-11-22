@@ -141,86 +141,117 @@ fuerces el orden cambiando el núcleo. Decisiones que NO son tuyas: cambiar
 ### Notas de implementación
 
 Rama: `feat/f6-03-reproduccion-ciclo-turnos` (checkeada y limpia al inicio).
+Se trabajó en worktree `../wt-f6-03` sin tocar `crates/*/src/` ni el working
+directory principal.
 
 Commits realizados (uno por cambio verde):
-- `e193fdb` feat(f6-03): spinner y límite de 100 líneas por turno (AC7)
-  - `examples/creatures/spinner.ins`: ciclo puro `n = 1; goto start` (3 líneas
-    contando la etiqueta `start:`), sin acciones.
-  - `crates/instinct-core/tests/bank/turns.rs`: test
-    `line_limit_caps_counter_per_turn`: Spinner@2,2, `step_tick()`, aserta
-    `bw.sim.tick() == 5` tras `step_ticks(5)` (sim avanza sin panic) y
-    `bw.memento("Spinner").health > 0` (sigue viva). pc se detiene en la línea 1
-    tras 100 líneas; salud 19, edad 1; sobrevive al tick 2.
-- `9d57db6` feat(f6-03): abortos naturales y criatura muerta (AC5, AC6)
+- `feat(f6-03): heir.ins sin herencia de variables (AC4)`
+  - `examples/creatures/heir.ins`: solo la madre asigna `legacy = 42` y se
+    reproduce; la cría lee `legacy` sin asignarlo → error de ejecución con
+    línea y muerte en `[tick 1]`, madre sigue viva en (2,2), celda (2,3)
+    vuelve a `.` en tick 2.
+  - `crates/instinct-cli/tests/cli_bank/turns.rs`:
+    `offspring_inherits_no_variables` aserta el evento real de error de
+    ejecución (`error at line 8: unknown variable 'legacy'`), la muerte
+    (`dies of error`), y que en tick 2 la cría murió y la madre sigue.
+- `feat(f6-03): cría juega su primer turno en el tick siguiente (AC3)`
+  - `examples/creatures/first_turn_mother.ins` (nuevo): `say("ready")`;
+    `reproduce(0, 1, 5); goto start`. La cría nace en (2,3) al final del
+    tick 0 y dice "ready" en `[tick 1]`.
+  - `examples/creatures/talker_victim.ins` (nuevo): `say("alive"); goto start`,
+    salud 5, usada en AC6.
+  - `crates/instinct-cli/tests/cli_bank/turns.rs`:
+    `offspring_first_turn_next_tick` usa `FirstTurnMother@2,2`; verifica que
+    en `[tick 0]` no hay evento de la cría y en `[tick 1]` la cría dice
+    "ready" en (2,3) (su primera acción es en tick 1, nunca en tick 0).
+- `feat(f6-03): reproduce_aborts_silently y evento vacío en abortos (AC5)`
+  - `crates/instinct-core/tests/bank/turns.rs`: los 4 tests de aborto
+    (`cell_occupied_by_creature`, `cell_has_rock`, `out_of_map`,
+    `insufficient_health`) capturan `let events = bw.step_tick();` y aserran
+    `events.is_empty()`.
+  - Nueva prueba `reproduce_aborts_silently` que valida los 4 casos de aborto
+    natural: no nace nadie, la madre sigue viva y `events.is_empty()`.
+- `feat(f6-03): criatura muerta antes de su turno no juega (AC6)`
   - `crates/instinct-core/tests/bank/turns.rs`:
-    - `reproduce_aborts_cell_occupied_by_creature`: Mother@2,2 + Victim@2,3,
-      destino ocupado; madre viva (salud 19), Victim sigue en (2,3), sin cría.
-    - `reproduce_aborts_cell_has_rock`: Mother@4,3, destino (4,4) roca de Arena;
-      madre viva, `live_creature_ids().len()==1`, sin cría en (4,4).
-    - `reproduce_aborts_out_of_map`: Mother@2,8, destino (2,9) fuera (Arena es
-      9×9, filas 0..8); madre viva, `live_creature_ids()==1`.
-    - `reproduce_aborts_insufficient_health`: ya existente (commit A), PoorMother
-      hp 3 → salud 2 tras el tick, sin cría.
-    - `creature_dead_before_turn_does_not_play`: PoorMother@2,2,
-      `step_ticks(3)`; slot vacío y `live_creature_ids().len()==0`.
-- `4903c7f` feat(f6-03): CLI de turnos (AC3, AC4, AC5-cli)
-  - `crates/instinct-cli/tests/cli_bank/turns.rs` (nuevo; `mod turns;` ya estaba
-    en `cli_bank/mod.rs` y `bank/mod.rs`):
-    - `offspring_first_turn_next_tick`: Mother@2,2, `--ticks 2 --every 1`;
-      tick 0 solo 'M' en (2,2); tick 1 'M' en (2,2) y 'M' en (2,3) (cría juega
-      al tick siguiente). code 0, stderr vacío.
-    - `offspring_inherits_no_variables`: Heir@2,2, `--ticks 2 --every 1`; code 0,
-      stderr vacío, sin "RuntimeError" ni "dies of error"; 'H' en (2,2) y 'H' en
-      (2,3) tick 1.
-    - `cli_abort_cell_occupied_by_creature`: Mother@2,2 + Victim@2,3,
-      `--ticks 1 --every 1`; tick 1 (2,3) sigue 'V', sin cría.
-- `0a93d16` fix(f6-03): clippy `op_ref` en tests de turnos
-  - `name == &"Victim"` / `name == &"PoorMother"` → comparación directa.
+    `creature_dead_before_turn_does_not_play` coloca `Brawler@2,2` (daño 10)
+    junto a `TalkerVictim@3,2` (salud 5, dice "alive"). Con seed 1 el Brawler
+    juega antes que la víctima en tick 0 y la mata; aserta `Died` de la
+    víctima y cero eventos de acción suya (`Said`/`Damaged`/`Roared`).
+- `feat(f6-03): spinner.ins con contador real y límite de 100 líneas (AC7)`
+  - `examples/creatures/spinner.ins`: `n = 0; loop: n = n + 1; goto loop`.
+  - `crates/instinct-core/tests/bank/turns.rs`:
+    `line_limit_caps_counter_per_turn` aserta `n == 33` tras 100 líneas en
+    tick 0, `n <= 100`, `health == 19`, `age == 1`; segundo `step_tick()`
+    aserta `health == 18` y `n > 33`.
+- `feat(f6-03): counter.ins sin goto start final, variable persiste (AC8)`
+  - `examples/creatures/counter.ins`: `if tick > 0 goto later; marked = tick;
+    wait(1); later: say(marked)`. La variable `marked` se asigna en tick 0 y
+    se lee sin reasignar en tick 1.
+  - `crates/instinct-core/tests/bank/turns.rs`:
+    `variables_persist_across_turns` aserta `marked == 0` tras tick 0, evento
+    `Said "0"` en tick 1, `marked` aún 0 en tick 1, y `pc == 0` (reanudó en
+    `start:`).
+- `docs(f6-03): README S18–S24 con salidas reales y desviaciones (Fix 7)`
+  - `examples/README.md`: sección S18–S24 reescrita en UTF-8 limpio (sin
+    mojibake), con bloques de triple backtick correctos y salidas reales de
+    terminal para cada comando, incluyendo S19 y S20. Citación exacta de
+    nombres de test en Rust. Sección `## Tests del banco` actualizada con
+    `cli_bank/turns.rs` y `bank/turns.rs`. Sección `## Desviaciones frente
+    al enunciado` actualizada con las desviaciones de F6-03.
 
 Archivos modificados:
-- `examples/creatures/spinner.ins` (nuevo)
-- `crates/instinct-core/tests/bank/turns.rs` (AC7, AC5×4, AC6)
-- `crates/instinct-cli/tests/cli_bank/turns.rs` (nuevo, AC3/AC4/AC5-cli)
-- `plan/F6-banco-criaturas/f6-03-reproduccion-ciclo-turnos.md` (status done +
-  notas de implementación)
-- `plan/F6-banco-criaturas/PHASE.md` (tabla F6-03 → done)
+- `examples/creatures/heir.ins` (modificado, AC4)
+- `examples/creatures/spinner.ins` (modificado, AC7)
+- `examples/creatures/counter.ins` (modificado, AC8)
+- `examples/creatures/first_turn_mother.ins` (nuevo, AC3)
+- `examples/creatures/talker_victim.ins` (nuevo, AC6)
+- `examples/README.md` (modificado, S18–S24, Tests del banco, Desviaciones)
+- `crates/instinct-cli/tests/cli_bank/turns.rs` (modificado, AC3, AC4)
+- `crates/instinct-core/tests/bank/turns.rs` (modificado, AC5, AC6, AC7, AC8)
+- `crates/instinct-core/tests/bank/common.rs` (formato, `cargo fmt`)
+- `plan/F6-banco-criaturas/f6-03-reproduccion-ciclo-turnos.md` (solo
+  `### Notas de implementación`)
 
 Cambios de firma autorizados: ninguno (no se tocó `crates/*/src/`).
 
 Desviaciones (documentadas, sin tocar el núcleo):
 - `spinner.ins` usa la variable `n` en lugar de `x`: `x` es una percepción de
-  solo lectura y el núcleo rechaza asignarle (`cannot assign to perception 'x'`).
-  Semántica equivalente: ciclo puro de asignación sin acciones que quema el
-  límite de 100 líneas por turno.
-- El mapa `Arena` es 9×9 (no 10×10): roca en (4,4), filas/columnas válidas
-  0..8. El test de "fuera del mapa" coloca a Mother@2,8 con destino (2,9)
-  fuera del mapa (el propio `--place` rechaza coordenadas fuera del mapa, por
-  lo que no se puede colocar a la criatura fuera).
+  solo lectura y el núcleo rechaza asignarle.
+- El mapa `Arena` es 9×9 (filas/columnas válidas 0..8). El test de "fuera del
+  mapa" coloca a Mother@2,8 con destino (2,9), fuera del mapa.
 - `cargo test --workspace` falla únicamente en el test pre-existing
   `instinct-gui::tests::determinismo::t_determinismo_01_gui_iguala_directo_con_seed7`
-  (ajeno a F6-03; `instinct-gui` no se modificó). Todo lo demás del workspace
-  pasa.
+  (ajeno a F6-03; `instinct-gui` no se modificó).
 - `cargo clippy --workspace --all-targets -- -D warnings`: exit 0.
-- `cargo fmt --all --check`: falla únicamente en archivos pre-existing
-  (`crates/instinct-gui/src/ui/mod.rs`, `crates/instinct-core/tests/bank/common.rs`);
-  los archivos tocados en este issue están fmt-limpios.
-- `git status` limpio tras el commit final de plan files.
+- `cargo fmt --check -p instinct-core -p instinct-cli`: exit 0 (archivos
+  tocados en este issue están fmt-limpios; `instinct-gui` tiene pre-existing).
+- `git diff origin/develop -- crates/*/src/`: vacío (sin cambios en el núcleo).
+- `git status` limpio tras el commit final.
 
-Evidencia AC por AC:
-- AC1 (PASS): `cargo test -p instinct-core --test bank turns::birth_has_age_zero_and_no_variables` → ok.
-- AC2 (PASS): `cargo test -p instinct-core --test bank turns::birth_transfers_health` → ok.
-- AC3 (PASS): `cargo test -p instinct-cli --test cli_bank turns::offspring_first_turn_next_tick` → ok.
-- AC4 (PASS): `cargo test -p instinct-cli --test cli_bank turns::offspring_inherits_no_variables` → ok.
-- AC5 (PASS): `cargo test -p instinct-core --test bank turns::reproduce_aborts_silently` (ya existente) +
-  `reproduce_aborts_cell_occupied_by_creature`, `reproduce_aborts_cell_has_rock`,
-  `reproduce_aborts_out_of_map`, `reproduce_aborts_insufficient_health` → ok.
+Evidencia AC por AC (todos los tests en verde):
+- AC1 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::birth_has_age_zero_and_no_variables` → ok.
+- AC2 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::birth_transfers_health` → ok.
+- AC3 (PASS): `cargo test --offline -p instinct-cli --test cli_bank
+  turns::offspring_first_turn_next_tick` → ok.
+- AC4 (PASS): `cargo test --offline -p instinct-cli --test cli_bank
+  turns::offspring_inherits_no_variables` → ok.
+- AC5 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::reproduce_aborts_silently` +
+  `reproduce_aborts_cell_occupied_by_creature`,
+  `reproduce_aborts_cell_has_rock`, `reproduce_aborts_out_of_map`,
+  `reproduce_aborts_insufficient_health` → ok.
   AC5-cli (PASS): `cli_bank turns::cli_abort_cell_occupied_by_creature` → ok.
-- AC6 (PASS): `cargo test -p instinct-core --test bank turns::creature_dead_before_turn_does_not_play` → ok.
-- AC7 (PASS): `cargo test -p instinct-core --test bank turns::line_limit_caps_counter_per_turn` → ok.
-- AC8 (PASS): `cargo test -p instinct-core --test bank turns::variables_persist_across_turns` → ok.
-- AC9 (parcial por pre-existing): `cargo test --workspace` → FAIL solo en
-  `instinct-gui::determinismo` (pre-existing, ajeno); `cargo test -p instinct-cli
-  --test cli_bank turns` → ok; `cargo test -p instinct-core --test bank turns` →
-  ok; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0;
-  `cargo fmt --all --check` → falla solo en pre-existing (mis archivos limpios);
-  `git status` limpio tras commit final.
+- AC6 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::creature_dead_before_turn_does_not_play` → ok.
+- AC7 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::line_limit_caps_counter_per_turn` → ok.
+- AC8 (PASS): `cargo test --offline -p instinct-core --test bank
+  turns::variables_persist_across_turns` → ok.
+- AC9: `cargo test --offline -p instinct-core --test bank` → ok (21 tests);
+  `cargo test --offline -p instinct-cli --test cli_bank` → ok (14 tests);
+  `cargo clippy --offline --workspace --all-targets -- -D warnings` → exit 0;
+  `cargo fmt --check -p instinct-core -p instinct-cli` → exit 0;
+  `git diff origin/develop -- crates/*/src/` → vacío;
+  `git status` → limpio tras commit.
