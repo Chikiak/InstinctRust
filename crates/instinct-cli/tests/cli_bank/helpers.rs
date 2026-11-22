@@ -28,6 +28,12 @@ pub fn run_cli(args: &[&str]) -> (i32, String, String) {
     )
 }
 
+/// Trampas resources root directory: `examples/traps/`, relative to this
+/// crate's manifest.
+pub fn traps_dir() -> String {
+    format!("{}/../../examples/traps", env!("CARGO_MANIFEST_DIR"))
+}
+
 /// ASCII grid rows printed after the `== tick N ==` header,
 /// up to the next tick header (or end of output).
 pub fn rows_after_tick(stdout: &str, tick: u64) -> Vec<String> {
