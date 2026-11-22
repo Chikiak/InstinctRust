@@ -1,0 +1,11 @@
+creature Counter
+faction any
+health 20
+vision 3
+lifespan 100
+start:
+if tick > 0 goto later
+marked = tick
+wait(1)
+later:
+say(marked)

@@ -1,0 +1,14 @@
+creature Heir
+faction any
+health 20
+vision 3
+lifespan 100
+start:
+if health > 10 goto mother
+say(legacy)
+goto start
+mother:
+legacy = 42
+reproduce(0, 1, 5)
+wait(1)
+goto start

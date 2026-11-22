@@ -1,6 +1,6 @@
 use instinct_core::resources::load_resources;
 use instinct_core::sim::Simulation;
-use instinct_core::world::{CreatureMemento, World};
+use instinct_core::world::{CreatureId, CreatureMemento, World};
 use std::path::Path;
 use std::rc::Rc;
 
@@ -68,6 +68,32 @@ impl BankWorld {
         for _ in 0..n {
             self.sim.step_tick();
         }
+    }
+
+    /// Encuentra el id de una criatura viva en (x, y) que no esté en `exclude`.
+    /// Lee directamente del almacén (el recién nacido no está en `creature_ids`).
+    pub fn find_child_at(
+        &self,
+        x: usize,
+        y: usize,
+        exclude: &[instinct_core::world::CreatureId],
+    ) -> Option<instinct_core::world::CreatureId> {
+        self.sim
+            .world
+            .creatures
+            .iter()
+            .enumerate()
+            .find_map(|(index, slot)| {
+                let c = slot.as_ref()?;
+                if exclude.contains(&CreatureId(index)) {
+                    return None;
+                }
+                if c.x == x && c.y == y {
+                    Some(CreatureId(index))
+                } else {
+                    None
+                }
+            })
     }
 
     /// Returns the memento of the creature with the given species name.
