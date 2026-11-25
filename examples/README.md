@@ -1801,15 +1801,18 @@ Resultado esperado:
 .........
 .........
 .........
+[tick 0] Truths@2,2 says: 1
+[tick 0] Truths@2,2 says: 0
 [tick 0] Truths@2,2 says: 0
 [tick 0] Truths@2,2 says: 1
-[tick 0] Truths@2,2 says: 
-[tick 0] Truths@2,2 says: hola
+[tick 0] Truths@2,2 says: 0
+[tick 0] Truths@2,2 says: 0
+[tick 0] Truths@2,2 says: 1
 [tick 0] Truths@2,2 says: 1
 [tick 0] Truths@2,2 says: 0
 ```
-`0` es falso, `1` es verdadero, `""` es falso, `"hola"` es verdadero,
-`5 == 5` es 1 y `5 != 5` es 0.
+`not 0` es 1, `not 1` es 0, `not -5` es 0, `not ""` es 1, `not "hola"`
+es 0, `"" or 0` es 0, `"hola" and 1` es 1, `5 == 5` es 1 y `5 != 5` es 0.
 Test: `expressions::truthiness_of_numbers_and_texts`.
 
 ### S37 — textos solo admiten igual y distinto (`textorder.ins`)
@@ -2078,6 +2081,10 @@ Test: `expressions::text_argument_and_bad_direction_die` y
   (AC1, AC2, AC5, AC6, AC7, AC8).
 - `crates/instinct-core/tests/bank/perceptions.rs` — valores exactos de
   percepciones, `see` y `name` (AC1-AC8).
+- `crates/instinct-cli/tests/cli_bank/expressions.rs` — precedencia, verdad y
+  trampas de ejecución observables desde la terminal (AC1-AC3, AC8).
+- `crates/instinct-core/tests/bank/expressions.rs` — valores exactos de
+  expresiones y muerte por error en el estado interno (AC1-AC3, AC8).
 
 Ejecutar todos:
 ```sh
