@@ -1,0 +1,3 @@
+object Crystal
+char *
+resource_max 30

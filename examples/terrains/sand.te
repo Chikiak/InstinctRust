@@ -1,0 +1,4 @@
+terrain Sand
+char s
+resource_max 50
+regen 1

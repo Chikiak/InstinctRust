@@ -1,6 +1,11 @@
+use instinct_core::actions::Catalog;
+use instinct_core::expr::parse;
+use instinct_core::interp::InterpreterVisitor;
 use instinct_core::resources::load_resources;
 use instinct_core::sim::Simulation;
-use instinct_core::world::{CreatureId, CreatureMemento, World};
+use instinct_core::world::{CreatureContext, CreatureId, CreatureMemento, World};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -110,5 +115,13 @@ impl BankWorld {
             .get(id.0)
             .and_then(Option::as_ref)?;
         Some(creature.memento())
+    }
+
+    /// Evalúa una expresión de percepción para la criatura dada y devuelve el
+    /// valor resultante (igual que `tests/perceptions::common::eval`).
+    pub fn eval(&self, id: CreatureId, text: &str) -> Result<instinct_core::value::Value, String> {
+        let expr = parse(text, 1, "test.ins", Catalog::default().functions()).expect("parse");
+        let ctx = CreatureContext::new(&self.sim.world, id, Rc::new(RefCell::new(HashMap::new())));
+        expr.accept(&mut InterpreterVisitor { ctx: &ctx })
     }
 }

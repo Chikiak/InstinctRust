@@ -1031,7 +1031,680 @@ En el tick 0 `Counter` asigna `marked = 0` y termina el turno con `wait(1)`
 (sin decir nada). En el tick 1 dice `0` (leye `marked` sin reasignarlo),
 probando que la variable persiste de un turno a otro. Al llegar al final del
 archivo se reanuda en `start:`.
+
 Test: `bank::turns::variables_persist_across_turns`.
+
+## Scenarios S25–S33
+
+### S25 — self_perceptions_match_placement (Scout@2,2)
+
+Regla: 2.6 percepciones sobre sí misma (salud, edad, x, y, especie, facción,
+terreno bajo la criatura, reserva, ancho, alto, tick y totales).
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@2,2
+```
+Resultado esperado:
+```
+== tick 0 ==
+....s....
+....s....
+..S.s....
+....s....
+....s....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Scout@2,2 says: 20
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: Scout
+[tick 0] Scout@2,2 says: explorers
+[tick 0] Scout@2,2 says: Grass
+[tick 0] Scout@2,2 says: 100
+[tick 0] Scout@2,2 says: 9
+[tick 0] Scout@2,2 says: 9
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: -1
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: -1
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: Sand
+[tick 0] Scout@2,2 says: Grass
+[tick 0] Scout@2,2 says: 65
+[tick 0] Scout@2,2 says: 19
+== tick 1 ==
+....s....
+....s....
+..S.s....
+....s....
+....s....
+...#*....
+....s....
+....s....
+....s....
+```
+El explorador dice: 20 (salud), su edad, 2 (x), 2 (y), `Scout`, `explorers`,
+`Grass` (terreno), 100 (reserva), 9 (ancho), 9 (alto), 0/0/0 (totales, sin
+contarse a sí mismo).
+Test: `cli_bank::perceptions::cli_self_perceptions_say_placement` y
+`bank::perceptions::self_perceptions_match_placement`.
+
+### S26 — world_perceptions_count_others (Scout+Companion+Stranger)
+
+Regla: 2.6 percepciones del mundo (ancho, alto, tick y totales de criaturas,
+aliados y enemigos sin contarse a sí misma).
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`,
+`examples/creatures/companion.ins`, `examples/creatures/stranger.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@2,2 --place Companion@5,5 --place Stranger@7,7
+```
+Resultado esperado:
+```
+== tick 0 ==
+....s....
+....s....
+..S.s....
+....s....
+....s....
+...#*C...
+....s....
+....s..S.
+....s....
+[tick 0] Scout@2,2 says: 20
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: Scout
+[tick 0] Scout@2,2 says: explorers
+[tick 0] Scout@2,2 says: Grass
+[tick 0] Scout@2,2 says: 100
+[tick 0] Scout@2,2 says: 9
+[tick 0] Scout@2,2 says: 9
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 3
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 5
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: 2
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 0
+[tick 0] Scout@2,2 says: 1
+[tick 0] Scout@2,2 says: Sand
+[tick 0] Scout@2,2 says: Grass
+[tick 0] Scout@2,2 says: 90
+[tick 0] Scout@2,2 says: 35
+[tick 0] Companion@5,5 says: Sand
+[tick 0] Companion@5,5 says: Crystal
+[tick 0] Companion@5,5 says: Grass
+[tick 0] Companion@5,5 says: 
+== tick 1 ==
+....s....
+....s....
+..S.s....
+....s....
+....s....
+...#*C...
+....s....
+....s..S.
+....s....
+```
+El explorador dice 2 (total_creatures), 1 (total_allies), 1 (total_enemies),
+9 (width), 9 (height).
+Test: `cli_bank::perceptions::cli_world_perceptions_count_others` y
+`bank::perceptions::world_perceptions_count_others`.
+
+### S27 — near_counts_exclude_own_cell (Myope@5,4+Companion+Stranger+cristal)
+
+Regla: 2.6 conteos de cercanía (aliados, enemigos y objetos dentro del radio)
+excluyendo la casilla propia.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/myope.ins`,
+`examples/creatures/companion.ins`, `examples/creatures/stranger.ins`,
+`examples/objects/crystal.ob`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Myope@5,4 --place Companion@5,5 --place Stranger@6,4
+```
+Resultado esperado:
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....sMS..
+...#*C...
+....s....
+....s....
+....s....
+[tick 0] Myope@5,4 says: 0
+[tick 0] Myope@5,4 says: -1
+[tick 0] Myope@5,4 says: Sand
+[tick 0] Myope@5,4 says: 
+[tick 0] Myope@5,4 says: 
+[tick 0] Myope@5,4 says: 1
+[tick 0] Myope@5,4 says: 1
+[tick 0] Myope@5,4 says: 1
+[tick 0] Companion@5,5 says: Sand
+[tick 0] Companion@5,5 says: Crystal
+[tick 0] Companion@5,5 says: Grass
+[tick 0] Companion@5,5 says: 
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....sMS..
+...#*C...
+....s....
+....s....
+....s....
+```
+El mióope (visión 1) dice 1 (allies_near: Companion@5,5), 1 (enemies_near:
+Stranger@6,4) y 1 (objects_near: cristal en (4,5)); excluye su propia casilla.
+Test: `cli_bank::perceptions::cli_near_counts_exclude_own_cell` y
+`bank::perceptions::near_counts_exclude_own_cell`.
+
+### S28 — nearest_directions_and_distance (sin y con objetivo)
+
+Regla: 2.6 más cercano: sin objetivo, `enemy_dist` = -1 y direcciones 0; con
+objetivo, distancia y dirección en -1..1 que lo acerca.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`,
+`examples/creatures/stranger.ins`
+Comando A (sin objetivo):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4
+```
+Comando B (con Stranger@7,4):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4 --place Stranger@7,4
+```
+Resultado esperado (A):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Scout@4,4 says: 20
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: explorers
+[tick 0] Scout@4,4 says: Sand
+[tick 0] Scout@4,4 says: 50
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: Grass
+[tick 0] Scout@4,4 says: 65
+[tick 0] Scout@4,4 says: 19
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*....
+....s....
+....s....
+....s....
+```
+Resultado esperado (B):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....S..S.
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Scout@4,4 says: 20
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: explorers
+[tick 0] Scout@4,4 says: Sand
+[tick 0] Scout@4,4 says: 50
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 3
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: Grass
+[tick 0] Scout@4,4 says: 19
+[tick 0] Scout@4,4 says: 90
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....S..S.
+...#*....
+....s....
+....s....
+....s....
+```
+A: `enemy_dist` = -1, `enemy_dx` = 0, `enemy_dy` = 0. B: `enemy_dist` = 3,
+`enemy_dx` = 1, `enemy_dy` = 0.
+Test: `cli_bank::perceptions::cli_nearest_directions_and_distance` y
+`bank::perceptions::nearest_directions_and_distance`.
+
+### S29 — see y borde: OBJECT en roca y borde, GROUND en hierba, NONE más allá del radio
+
+Regla: 2.6 `see` devuelve las cinco constantes: GROUND en hierba, OBJECT en
+roca y en el borde fuera del mapa, ALLY en la propia casilla, ENEMY en la
+contraria y NONE más allá del radio de visión.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`,
+`examples/creatures/myope.ins`, `examples/objects/crystal.ob`
+Comando A (Scout@4,4, visión 6: cubre el borde):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4
+```
+Comando B (Myope@4,4, visión 1: (8,8) fuera de radio → NONE):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Myope@4,4
+```
+Resultado esperado (A):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Scout@4,4 says: 20
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: explorers
+[tick 0] Scout@4,4 says: Sand
+[tick 0] Scout@4,4 says: 50
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: Grass
+[tick 0] Scout@4,4 says: 65
+[tick 0] Scout@4,4 says: 19
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*....
+....s....
+....s....
+....s....
+```
+Resultado esperado (B):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....M....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Myope@4,4 says: 2
+[tick 0] Myope@4,4 says: -1
+[tick 0] Myope@4,4 says: Myope
+[tick 0] Myope@4,4 says: 
+[tick 0] Myope@4,4 says: 
+[tick 0] Myope@4,4 says: 0
+[tick 0] Myope@4,4 says: 0
+[tick 0] Myope@4,4 says: 2
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....M....
+...#*....
+....s....
+....s....
+....s....
+```
+A: `see(4,4)` = 2 (ALLY), `see(4,5)` = 1 (OBJECT cristal), `see(5,5)` = 0
+(GROUND), `see(8,8)` = 0 (GROUND), `see(-1,4)` = 1 (OBJECT borde).
+B: `see(8,8)` = -1 (NONE, fuera del radio de visión 1).
+Test: `cli_bank::perceptions::cli_see_returns_the_five_constants` y
+`bank::perceptions::see_returns_the_five_constants`.
+
+### S30 — ver aliados: ALLY en la casilla del compañero y en la propia
+
+Regla: 2.6 `see` devuelve ALLY en la casilla propia y en la casilla de un
+compañero de la misma facción.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`,
+`examples/creatures/companion.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4 --place Companion@5,5
+```
+Resultado esperado:
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*C...
+....s....
+....s....
+....s....
+[tick 0] Scout@4,4 says: 20
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: explorers
+[tick 0] Scout@4,4 says: Sand
+[tick 0] Scout@4,4 says: 50
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: Grass
+[tick 0] Scout@4,4 says: 19
+[tick 0] Scout@4,4 says: 90
+[tick 0] Companion@5,5 says: Scout
+[tick 0] Companion@5,5 says: Crystal
+[tick 0] Companion@5,5 says: Grass
+[tick 0] Companion@5,5 says: 
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*C...
+....s....
+....s....
+....s....
+```
+`see(4,4)` = 2 (ALLY propia casilla), `see(5,5)` = 2 (ALLY `Companion` en
+(5,5)).
+Test: `cli_bank::perceptions::cli_see_returns_the_five_constants` y
+`bank::perceptions::see_returns_the_five_constants`.
+
+### S31 — ver enemigos: ENEMY en la casilla del desconocido
+
+Regla: 2.6 `see` devuelve ENEMY en la casilla de una criatura de otra facción.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`,
+`examples/creatures/stranger.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4 --place Stranger@5,5
+```
+Resultado esperado:
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*S...
+....s....
+....s....
+....s....
+[tick 0] Scout@4,4 says: 20
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: 4
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: explorers
+[tick 0] Scout@4,4 says: Sand
+[tick 0] Scout@4,4 says: 50
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 9
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: -1
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 2
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: 3
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 0
+[tick 0] Scout@4,4 says: 1
+[tick 0] Scout@4,4 says: Scout
+[tick 0] Scout@4,4 says: Grass
+[tick 0] Scout@4,4 says: 19
+[tick 0] Scout@4,4 says: 90
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....S....
+...#*S...
+....s....
+....s....
+....s....
+```
+`see(4,4)` = 2 (ALLY propia casilla), `see(5,5)` = 3 (ENEMY `Stranger` en
+(5,5)).
+Test: `cli_bank::perceptions::cli_see_returns_the_five_constants` y
+`bank::perceptions::see_returns_the_five_constants`.
+
+### S32 — name: especie, objeto, terreno o vacío
+
+Regla: 2.6 `name` devuelve la especie con criatura, el nombre del objeto, el
+del terreno y el texto vacío fuera del radio o del mapa.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/companion.ins`,
+`examples/creatures/myope.ins`, `examples/objects/crystal.ob`,
+`examples/terrains/sand.te`
+Comando A (Companion@4,4, visión 3):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Companion@4,4
+```
+Comando B (Myope@4,4, visión 1: fuera de radio y fuera del mapa):
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Myope@4,4
+```
+Resultado esperado (A):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....C....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Companion@4,4 says: Companion
+[tick 0] Companion@4,4 says: Crystal
+[tick 0] Companion@4,4 says: Grass
+[tick 0] Companion@4,4 says: 
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....C....
+...#*....
+....s....
+....s....
+....s....
+```
+Resultado esperado (B):
+```
+== tick 0 ==
+....s....
+....s....
+....s....
+....s....
+....M....
+...#*....
+....s....
+....s....
+....s....
+[tick 0] Myope@4,4 says: 2
+[tick 0] Myope@4,4 says: -1
+[tick 0] Myope@4,4 says: Myope
+[tick 0] Myope@4,4 says: 
+[tick 0] Myope@4,4 says: 
+[tick 0] Myope@4,4 says: 0
+[tick 0] Myope@4,4 says: 0
+[tick 0] Myope@4,4 says: 2
+== tick 1 ==
+....s....
+....s....
+....s....
+....s....
+....M....
+...#*....
+....s....
+....s....
+....s....
+```
+Test: `cli_bank::perceptions::cli_name_returns_species_object_terrain_or_empty`
+y `bank::perceptions::name_returns_species_object_terrain_or_empty`.
+
+### S33 — random: entero en 0..=99, dos lecturas distintas (estadístico)
+
+Regla: 2.6 `random` devuelve un entero entre 0 y 99; dos lecturas seguidas son
+distintas. Scenario estadístico: no se fijan valores exactos.
+Archivos: `examples/maps/mixed.map`, `examples/creatures/scout.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Mixed --seed 1 --ticks 1 --every 1 --place Scout@4,4
+```
+Resultado esperado: dos lecturas de `random` en el rango 0 a 99, con valores
+distintos entre sí (estadístico, depende de la semilla). Ejemplo de salida
+real:
+```
+[tick 0] Scout@4,4 says: 65
+[tick 0] Scout@4,4 says: 19
+```
+Test: `cli_bank::perceptions::cli_random_is_in_range_and_advances` y
+`bank::perceptions::random_is_in_range_and_advances`.
+
+### Puertas AC9
+
+Regla: tras la implementación, todas las pruebas del banco pasan, clippy y
+fmt están limpios, y el árbol de trabajo queda limpio tras el commit.
+Archivos: todos los anteriores.
+Comando:
+```sh
+cargo test -p instinct-cli --test cli_bank perceptions
+cargo test -p instinct-core --test bank perceptions
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+```
+Resultado esperado: suites en verde, `cargo test --workspace` sale 0 (salvo
+fallos preexistentes de `instinct-gui`, reportados por separado), clippy sin
+advertencias; `cargo fmt --all --check` falla únicamente por formato
+preexistente en `crates/instinct-gui/src/ui/mod.rs` (archivo no tocado por
+F6-04), `git status` limpio tras el commit.
+
+Test: puertas AC9 (ejecución de gates).
+
 ## Tests del banco
 
 - `crates/instinct-cli/tests/cli_bank/movement.rs` — scenarios observables
@@ -1040,6 +1713,8 @@ Test: `bank::turns::variables_persist_across_turns`.
   observables desde la terminal (AC1, AC3, AC6, AC9).
 - `crates/instinct-cli/tests/cli_bank/turns.rs` — nacimiento, ciclo de turnos
   y abortos de `reproduce` observables desde la terminal (AC3, AC4, AC5-cli).
+- `crates/instinct-cli/tests/cli_bank/perceptions.rs` — percepciones propias,
+  de mundo, de cercanía, `see` y `name` observables desde la terminal (AC1-AC8).
 - `crates/instinct-core/tests/bank/movement.rs` — estado interno (posición y
   edad) tras los ticks.
 - `crates/instinct-core/tests/bank/combat.rs` — golpes, consumo y reservas
@@ -1047,6 +1722,8 @@ Test: `bank::turns::variables_persist_across_turns`.
 - `crates/instinct-core/tests/bank/turns.rs` — edad, variables, `pc`, líneas
   ejecutadas por turno, abortos silenciosos y criatura muerta que no juega
   (AC1, AC2, AC5, AC6, AC7, AC8).
+- `crates/instinct-core/tests/bank/perceptions.rs` — valores exactos de
+  percepciones, `see` y `name` (AC1-AC8).
 
 Ejecutar todos:
 ```sh
