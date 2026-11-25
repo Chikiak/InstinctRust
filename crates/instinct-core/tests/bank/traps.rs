@@ -8,8 +8,11 @@
 use instinct_core::resources::load_resources;
 use std::path::Path;
 
-/// Especies que declaran los 11 archivos de trampa (cada uno se descarta al
-/// cargar, por lo que ninguna debe aparecer entre las especies cargadas).
+/// Especies que declaran los 10 archivos de trampa con cabecera `creature`
+/// (cada uno se descarta al cargar, por lo que ninguna debe aparecer entre las
+/// especies cargadas). La trampa 11, `missing_creature.ins`, no declara la
+/// línea `creature`, por tanto no declara especie alguna y no figura aquí; su
+/// error de cabecera sí aparece en `diagnostics`.
 const TRAP_SPECIES: &[&str] = &[
     "BadLine",
     "UnknownLabel",
@@ -41,11 +44,48 @@ fn load_traps_resources_tolerates_invalid_creatures() {
         resources.diagnostics
     );
 
-    // La criatura valida se conserva.
+    // Solo la criatura valida se carga (garantiza que las trampas y la
+    // trampa 11 sin linea `creature` no dejan especie).
+    assert_eq!(
+        resources.creatures.len(),
+        1,
+        "debe cargar exactamente una especie (Valid), got {:?}",
+        creature_names(&resources)
+    );
     assert!(
         resources.creatures.iter().any(|s| s.name == "Valid"),
         "Valid debe estar cargada, especies: {:?}",
         creature_names(&resources)
+    );
+
+    // El terreno y el objeto invalidos (bad.te / bad.ob) se descartan.
+    assert!(
+        !resources.terrains.iter().any(|t| t.name == "Bad"),
+        "terrains no debe contener Bad (bad.te descartado), got {:?}",
+        terrain_names(&resources)
+    );
+    assert!(
+        !resources.objects.iter().any(|o| o.name == "Bad"),
+        "objects no debe contener Bad (bad.ob descartado), got {:?}",
+        object_names(&resources)
+    );
+
+    // Los diagnoticos nombran los archivos invalidos de cada tipo.
+    assert!(
+        resources
+            .diagnostics
+            .iter()
+            .any(|d| d.file.contains("bad.te")),
+        "diagnostics debe nombrar bad.te, got {:?}",
+        resources.diagnostics
+    );
+    assert!(
+        resources
+            .diagnostics
+            .iter()
+            .any(|d| d.file.contains("bad.ob")),
+        "diagnostics debe nombrar bad.ob, got {:?}",
+        resources.diagnostics
     );
 
     // Ninguna especie de trampa se conserva (todas fueron descartadas).
@@ -73,4 +113,12 @@ fn load_traps_resources_tolerates_invalid_creatures() {
 
 fn creature_names(resources: &instinct_core::resources::LoadedResources) -> Vec<String> {
     resources.creatures.iter().map(|s| s.name.clone()).collect()
+}
+
+fn terrain_names(resources: &instinct_core::resources::LoadedResources) -> Vec<String> {
+    resources.terrains.iter().map(|t| t.name.clone()).collect()
+}
+
+fn object_names(resources: &instinct_core::resources::LoadedResources) -> Vec<String> {
+    resources.objects.iter().map(|o| o.name.clone()).collect()
 }

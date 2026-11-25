@@ -1,6 +1,6 @@
 //! Diagnosticos de trampas y carga tolerable desde la terminal (AC6, AC7, AC8).
 
-use super::{run_cli, traps_dir};
+use super::{rows_after_tick, run_cli, traps_dir};
 
 /// Todas las trampas de compilacion (una por clase de error del enunciado 2.8).
 const TRAPS: &[&str] = &[
@@ -93,10 +93,20 @@ fn load_traps_root_keeps_valid_creature() {
         "Valid@2,2",
     ]);
     assert_eq!(code, 0, "run sobre traps debe salir 0, stderr: {stderr}");
-    // La valida simula: 'V' en (2,2) en el tick 0.
-    assert!(
-        stdout.contains("..V......"),
-        "tick 0: Valid en (2,2), got:\n{stdout}"
+    // La valida simula: celda exacta (2,2) == 'V' en tick 0 y tick 1.
+    let rows0 = rows_after_tick(&stdout, 0);
+    assert_eq!(
+        rows0.get(2).map(|row| &row[2..3]),
+        Some("V"),
+        "tick 0: celda (2,2) debe ser 'V', row[2]='{:?}', got:\n{stdout}",
+        rows0.get(2)
+    );
+    let rows1 = rows_after_tick(&stdout, 1);
+    assert_eq!(
+        rows1.get(2).map(|row| &row[2..3]),
+        Some("V"),
+        "tick 1: celda (2,2) debe ser 'V', row[2]='{:?}', got:\n{stdout}",
+        rows1.get(2)
     );
     // Los diagnosticos de las trampas salen por stderr (carga tolerante).
     assert!(

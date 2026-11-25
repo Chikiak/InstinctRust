@@ -57,8 +57,10 @@ fn listener_reads_last_roar_next_tick() {
         "tick 0: la oyente dice cero rugidos, got:\n{stdout}"
     );
     assert!(
-        stdout.contains("[tick 0] Listener@4,2 says: \n"),
-        "tick 0: la oyente dice texto vacio, got:\n{stdout}"
+        stdout
+            .lines()
+            .any(|line| line == "[tick 0] Listener@4,2 says: "),
+        "tick 0: la oyente dice texto vacio (linea exacta), got:\n{stdout}"
     );
     // Tick 1: el rugido del tick 0 ya esta en roars_previous (vision 5, dist 2).
     assert!(

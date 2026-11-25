@@ -1,6 +1,6 @@
 //! Mapas invalidos: caracter desconocido y fila dispareja (AC9, AC10).
 
-use super::run_cli;
+use super::{rows_after_tick, run_cli};
 
 // AC9: el mapa con caracter desconocido produce un diagnostico que nombra el
 // caracter y la linea, y el mapa se puede simular.
@@ -34,10 +34,13 @@ fn unknown_char_reports_and_loads() {
             || stderr.contains("unknown_char.map:5: unknown character in the map: 'X'"),
         "stderr debe tener archivo:linea: mensaje del caracter, got: {stderr}"
     );
-    // El mapa se puede simular: la valida aparece en la rejilla.
-    assert!(
-        stdout.contains("..V......"),
-        "tick 0: Valid en (2,2) sobre UnknownChar, got:\n{stdout}"
+    // El mapa se puede simular: celda exacta (2,2) == 'V' en tick 0.
+    let rows0 = rows_after_tick(&stdout, 0);
+    assert_eq!(
+        rows0.get(2).map(|row| &row[2..3]),
+        Some("V"),
+        "tick 0: celda (2,2) debe ser 'V' sobre UnknownChar, row[2]='{:?}', got:\n{stdout}",
+        rows0.get(2)
     );
 }
 
@@ -66,9 +69,13 @@ fn ragged_row_reports_line() {
         stderr.contains("ragged.map:4: the row has 10 characters, 9 were expected"),
         "stderr debe reportar la fila dispareja con su linea, got: {stderr}"
     );
-    // El mapa se puede simular (la fila dispareja se salta al cargar).
-    assert!(
-        stdout.contains("..V......"),
-        "tick 0: Valid en (2,2) sobre Ragged, got:\n{stdout}"
+    // El mapa se puede simular (la fila dispareja se salta al cargar):
+    // celda exacta (2,2) == 'V' en tick 0.
+    let rows0 = rows_after_tick(&stdout, 0);
+    assert_eq!(
+        rows0.get(2).map(|row| &row[2..3]),
+        Some("V"),
+        "tick 0: celda (2,2) debe ser 'V' sobre Ragged, row[2]='{:?}', got:\n{stdout}",
+        rows0.get(2)
     );
 }

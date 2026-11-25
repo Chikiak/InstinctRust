@@ -73,3 +73,26 @@ fn roar_outside_vision_is_not_heard() {
         "AC4: Listener no tiene ultimo rugido lejano"
     );
 }
+
+// Control positivo de la rotación de rugidos (AC3/AC4): los rugidos del tick 0
+// quedan legibles en `roars_near`/`last_roar` tras un solo `step_tick()`, igual
+// que en `own_roar_is_not_heard` y `roar_outside_vision_is_not_heard`.
+// `sim.rs` rota al final de cada tick (`rotate_roars()`), por lo que el rugido
+// emitido por Shouter en el tick 0 está en `roars_previous` cuando Listener
+// evalúa tras ese mismo `step_tick()`: no se evalúa antes de rotar el buffer.
+#[test]
+fn roar_tick_0_is_readable_next_tick() {
+    let mut bw = BankWorld::from_examples("Arena", &[("Shouter", 2, 2), ("Listener", 4, 2)]);
+    bw.step_tick();
+    let id = listener_id(&bw);
+    assert_eq!(
+        unwrap_int(bw.eval(id, "roars_near").unwrap()),
+        1,
+        "control positivo: Listener@4,2 oye el rugido de Shouter@2,2 (dist 2 <= vision 5)"
+    );
+    assert_eq!(
+        unwrap_text(bw.eval(id, "last_roar").unwrap()),
+        "¡auau!",
+        "control positivo: Listener lee el texto del rugido emitido en el tick 0"
+    );
+}

@@ -89,8 +89,8 @@ Los issues los referencian; no los reexplican.
 1. **Banco sobre `examples/` existente, no `bank/` nuevo** — se reusa `examples/`
    como raíz (cambiando nombre/dir respecto al planteamiento original con `bank/`).
    `load_resources` no recursa subcarpetas y `examples/` tiene catálogos afirmados
-   por pruebas de CLI y ventana. Una raíz propia es lo que un estudiante puede
-   copiar entero.
+   por pruebas de CLI y ventana. Reusar `examples/` evita duplicar los catálogos
+   de recursos y es la raíz que un estudiante puede copiar entero tal cual.
 2. **Trampas en `examples/traps/`** — mantiene los scenarios válidos con stderr
    vacío y convierte la carga tolerante en un scenario observable.
 3. **Dos hogares de pruebas** — resultados como reservas de terreno, variables de
@@ -167,4 +167,4 @@ repórtalo en lugar de improvisar.
 |-------|---------|---------------|--------|----------|
 | F6-04 | Percepciones, see y name sobre examples/ | M | done | CLI + núcleo AC1-AC8 en verde; gui determinismo pre-existente fallando (reportado) |
 | F6-05 | Expresiones, tipos y errores de ejecución sobre examples/ | M | done | Núcleo 3/3 + CLI 5/5 en verde (AC1-AC8); clippy y fmt exit 0; `cargo test --workspace` rojo solo por instinct-gui determinismo pre-existente (reportado, ajeno a F6); ejemplos/README con S34-S41 y 9 criaturas nuevas |
-| F6-06 | Rugidos y say, trampas de compilación, mapas y cierre sobre examples/ | M | done | cli_bank 35/35 + bank 34/34 en verde (AC1-AC12); `run` Sprinter exit 0; clippy y fmt exit 0; `cargo test --workspace` rojo solo por determinismo pre-existente de instinct-gui (reportado, no bloqueador) |
+| F6-06 | Rugidos y say, trampas de compilación, mapas y cierre sobre examples/ | M | done | cli_bank 35/35 + bank 41/41 en verde (AC1-AC12); `run` Sprinter exit 0; `cargo test --workspace` rojo solo por determinismo pre-existente de instinct-gui (reportado, ajeno a F6); `cargo clippy --workspace --all-targets -- -D warnings` rojo por 3 lints pre-existentes en crates/instinct-core/src/ (assignment.rs, visitor.rs, grid.rs; Rust 1.100.0, ajenos a F6-06, no bloquean); `cargo fmt --all --check` rojo solo por crates/instinct-gui/src/ui/mod.rs (formato pre-existente, ajeno a F6-06, no se toca) |
