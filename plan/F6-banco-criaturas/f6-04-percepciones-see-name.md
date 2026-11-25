@@ -153,6 +153,8 @@ Rama: `feat/f6-04-percepciones-see-name` sobre `develop` (`origin/develop`, 156a
 
 Commits (en orden, sobre `develop`):
 - `bd27e80 feat(f6-04): percepciones, see y name sobre develop`
+- `aaca6e8 docs(plan): F6-04 notas de implementación sobre develop`
+- `docs(f6-04): corregir rejilla S26, puertas AC9 y trazabilidad`
 
 Archivos tocados en este issue:
 - `examples/terrains/sand.te`, `examples/objects/crystal.ob`, `examples/maps/mixed.map`
@@ -185,6 +187,6 @@ Puertas AC9 (ejecución sobre `develop`, tras el último commit):
 - `cargo clippy --workspace --all-targets -- -D warnings` -> exit 0 (sin advertencias).
 - `cargo fmt --all --check` -> FAILED solo por `crates/instinct-gui/src/ui/mod.rs` (diff pre-existente de origin/develop, archivo en `crates/*/src/` no tocado por este issue; archivos F6-04 limpios).
 - `git status --short` -> limpio tras el commit.
-- `git diff --stat origin/develop...HEAD` -> solo archivos de F6-04 (14 archivos).
+- `git diff --stat origin/develop...HEAD` -> solo archivos de F6-04 (15 archivos).
 
-Desviaciones: ninguna nueva frente a F6-04; las de S07/AC8 del README son pre-existentes de F6-03. El valor de `age` en el registro CLI sale en tick 0 (antes del envejecimiento de fin de tick), por lo que los aserciones de CLI reflejan la salida real observada.
+Desviaciones: ninguna nueva frente a F6-04; las de S07/AC8 del README son pre-existentes de F6-03. El valor de `age` en el registro CLI sale en tick 0 (antes del envejecimiento de fin de tick), por lo que los aserciones de CLI reflejan la salida real observada. Nota de alcance: el enunciado del issue referencia `bank/` y prohíbe tocar `examples/`, pero la implementación usa `examples/` (con `BankWorld::from_examples` y `examples/README.md`) para mantener coherencia con `F6-01`, `F6-02` y `F6-03`.

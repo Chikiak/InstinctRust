@@ -190,6 +190,16 @@ fn nearest_directions_and_distance() {
         1,
         "objeto más cercano (cristal en (4,5))"
     );
+    assert_eq!(
+        unw_int(bw.eval(id, "object_dx").unwrap()),
+        -1,
+        "object_dx hacia objeto más cercano (roca en (3,5); empate con cristal en (4,5))"
+    );
+    assert_eq!(
+        unw_int(bw.eval(id, "object_dy").unwrap()),
+        1,
+        "object_dy hacia objeto más cercano (roca en (3,5); empate con cristal en (4,5))"
+    );
 }
 
 /// AC5: empate en más cercano es estable entre turnos.
@@ -322,6 +332,11 @@ fn name_returns_species_object_terrain_or_empty() {
         unw_txt(bw.eval(comp_id, "name(3,5)").unwrap()),
         "Rock",
         "objeto roca en (3,5)"
+    );
+    assert_eq!(
+        unw_txt(bw.eval(comp_id, "name(5,5)").unwrap()),
+        "Stranger",
+        "especie desconocida en (5,5)"
     );
 
     // Myope vision 1: fuera de radio y fuera de mapa devuelven "".
