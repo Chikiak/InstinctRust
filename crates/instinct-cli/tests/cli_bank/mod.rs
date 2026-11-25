@@ -1,4 +1,5 @@
 mod combat;
+mod expressions;
 mod helpers;
 mod movement;
 mod perceptions;
