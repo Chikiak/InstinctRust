@@ -2062,6 +2062,393 @@ exit 0.
 Test: `expressions::text_argument_and_bad_direction_die` y
 `expressions::runtime_error_kills_only_its_creature`.
 
+
+
+## Scenarios S42–S55
+
+### S42 — `roar` emite un evento con su texto en el tick 0 (`shouter.ins`)
+
+Regla: 2.6 una criatura ejecuta `roar(texto)` y el evento se registra con su texto.
+Archivos: `examples/maps/arena.map`, `examples/creatures/shouter.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place Shouter@2,2
+```
+Resultado esperado (salida 0, stderr vacío):
+```
+== tick 0 ==
+.........
+.........
+..S......
+.........
+....#....
+.........
+.........
+.........
+.........
+[tick 0] Shouter@2,2 roars: ¡auau!
+== tick 1 ==
+.........
+.........
+..S......
+.........
+....#....
+.........
+.........
+.........
+.........
+```
+Test: `cli_bank::roars::roar_emits_event`.
+
+### S43 — La oyente lee el último rugido al tick siguiente (`listener.ins`)
+
+Regla: 2.6 `last_roar`/`roars_near` reflejan los rugidos del tick previo dentro de la visión; en el tick del rugido aún no se oyen.
+Archivos: `examples/maps/arena.map`, `examples/creatures/shouter.ins`, `examples/creatures/listener.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 2 --every 1 --place Shouter@2,2 --place Listener@4,2
+```
+Resultado esperado (salida 0, stderr vacío):
+```
+== tick 0 ==
+.........
+.........
+..S.L....
+.........
+....#....
+.........
+.........
+.........
+.........
+[tick 0] Shouter@2,2 roars: ¡auau!
+[tick 0] Listener@4,2 says: 
+[tick 0] Listener@4,2 says: 0
+== tick 1 ==
+.........
+.........
+..S.L....
+.........
+....#....
+.........
+.........
+.........
+.........
+[tick 1] Shouter@2,2 roars: ¡auau!
+[tick 1] Listener@4,2 says: ¡auau!
+[tick 1] Listener@4,2 says: 1
+== tick 2 ==
+.........
+.........
+..S.L....
+.........
+....#....
+.........
+.........
+.........
+.........
+```
+En el tick 0 la oyente dice texto vacío y 0 (aún no oyó el rugido del tick 0); en el tick 1 dice "¡auau!" y 1. Test: `cli_bank::roars::listener_reads_last_roar_next_tick`.
+
+### S44 — `say` no consume turno (`singer.ins`)
+
+Regla: 2.6 `say` es una acción gratuita: la criatura dice y se mueve en el mismo turno.
+Archivos: `examples/maps/arena.map`, `examples/creatures/singer.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 1 --every 1 --place Singer@2,2
+```
+Resultado esperado (salida 0, stderr vacío):
+```
+== tick 0 ==
+.........
+.........
+..S......
+.........
+....#....
+.........
+.........
+.........
+.........
+[tick 0] Singer@2,2 says: uno
+[tick 0] Singer@2,2 says: dos
+== tick 1 ==
+.........
+.........
+...S.....
+.........
+....#....
+.........
+.........
+.........
+.........
+```
+La cantante dice "uno" y "dos" en el tick 0 y, en el tick 1, ya está en (3,2): `say` no gastó el turno. Test: `cli_bank::roars::say_does_not_consume_turn`.
+
+### S45 — `check` rechaza una trampa con `archivo:línea: mensaje` y salida 1 (`bad_line.ins`)
+
+Regla: 2.8 una línea no reconocida en la criatura es un error de compilación con archivo y línea.
+Archivos: `examples/traps/creatures/bad_line.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- check examples/traps/creatures/bad_line.ins
+```
+Resultado esperado (stderr, salida 1):
+```
+examples/traps/creatures/bad_line.ins:7: unrecognized line: 'hola mundo'
+```
+Test: `cli_bank::traps::check_rejects_every_trap_with_line`.
+
+### S46 — `check` acepta la criatura válida con `OK` y salida 0 (`valid.ins`)
+
+Regla: 2.8 una criatura bien formada compila sin errores.
+Archivos: `examples/traps/creatures/valid.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- check examples/traps/creatures/valid.ins
+```
+Resultado esperado (stdout, salida 0, stderr vacío):
+```
+OK
+```
+Test: `cli_bank::traps::check_accepts_valid_creature`.
+
+### S47 — `run --root examples/traps` conserva la criatura válida y emite diagnósticos de trampas
+
+Regla: 2.8 las criaturas inválidas se descartan con diagnóstico pero no impiden cargar el resto de recursos.
+Archivos: `examples/traps/` (mapa `Arena`, criatura `valid.ins` y 11 trampas de compilación)
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples/traps --map Arena --seed 1 --ticks 2 --every 1 --place Valid@2,2
+```
+Resultado esperado (salida 0):
+```
+== tick 0 ==
+.........
+.........
+..V......
+.........
+....#....
+.........
+.........
+.........
+.........
+== tick 1 ==
+.........
+.........
+..V......
+.........
+....#....
+.........
+.........
+.........
+.........
+== tick 2 ==
+.........
+.........
+..V......
+.........
+....#....
+.........
+.........
+.........
+.........
+```
+y en stderr aparecen los diagnósticos de las trampas (y de `bad.te` / `bad.ob`), p. ej.:
+```
+examples/traps/terrains/bad.te:1: 'regen' must be greater than or equal to 0, got -1
+examples/traps/objects/bad.ob:1: 'resource_max' must be greater than 0, got -3
+examples/traps/maps/ragged.map:4: the row has 10 characters, 9 were expected
+examples/traps/maps/unknown_char.map:5: unknown character in the map: 'X'
+examples/traps/creatures/assign_constant.ins:7: cannot assign to constant 'GROUND'
+examples/traps/creatures/assign_perception.ins:7: cannot assign to perception 'roars_near'
+examples/traps/creatures/bad_expr.ins:7: unexpected end of expression
+examples/traps/creatures/bad_line.ins:7: unrecognized line: 'hola mundo'
+examples/traps/creatures/dup_label.ins:7: duplicate label 'start'
+examples/traps/creatures/missing_creature.ins:1: missing required header key 'creature'
+examples/traps/creatures/missing_start.ins:1: missing required label 'start'
+examples/traps/creatures/missing_start.ins:6: unrecognized line: 'wait(1)'
+examples/traps/creatures/missing_start.ins:7: unknown header key 'goto'
+examples/traps/creatures/unknown_action.ins:7: unknown action 'fly'
+examples/traps/creatures/unknown_function.ins:7: unknown function 'magic'
+examples/traps/creatures/unknown_label.ins:7: goto to unknown label 'no_existe'
+examples/traps/creatures/wrong_arity.ins:7: action 'roar' expects 1 arguments, got 0
+```
+La criatura válida simula en (2,2) en todos los ticks. Test: `cli_bank::traps::load_traps_root_keeps_valid_creature`.
+
+### S48 — Mapa con carácter desconocido: diagnóstico con carácter y línea, aparece dos veces, simula (`unknown_char.map`)
+
+Regla: 2.8/3.3 un carácter no válido en el mapa se diagnostica pero no rechaza el mapa; la casilla se resuelve al primer terreno.
+Archivos: `examples/traps/maps/unknown_char.map`, `examples/traps/creatures/valid.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples/traps --map UnknownChar --seed 1 --ticks 1 --every 1 --place Valid@2,2
+```
+Resultado esperado (salida 0):
+```
+== tick 0 ==
+.........
+.........
+..V......
+.........
+.........
+.........
+.........
+.........
+.........
+== tick 1 ==
+.........
+.........
+..V......
+.........
+.........
+.........
+.........
+.........
+```
+y en stderr el diagnóstico del carácter aparece dos veces (una al cargar el mapa y otra al construir el mundo), entre los diagnósticos del resto de recursos de `examples/traps/`:
+```
+examples/traps/terrains/bad.te:1: 'regen' must be greater than or equal to 0, got -1
+examples/traps/objects/bad.ob:1: 'resource_max' must be greater than 0, got -3
+examples/traps/maps/ragged.map:4: the row has 10 characters, 9 were expected
+examples/traps/maps/unknown_char.map:5: unknown character in the map: 'X'
+examples/traps/creatures/assign_constant.ins:7: cannot assign to constant 'GROUND'
+examples/traps/creatures/assign_perception.ins:7: cannot assign to perception 'roars_near'
+examples/traps/creatures/bad_expr.ins:7: unexpected end of expression
+examples/traps/creatures/bad_line.ins:7: unrecognized line: 'hola mundo'
+examples/traps/creatures/dup_label.ins:7: duplicate label 'start'
+examples/traps/creatures/missing_creature.ins:1: missing required header key 'creature'
+examples/traps/creatures/missing_start.ins:1: missing required label 'start'
+examples/traps/creatures/missing_start.ins:6: unrecognized line: 'wait(1)'
+examples/traps/creatures/missing_start.ins:7: unknown header key 'goto'
+examples/traps/creatures/unknown_action.ins:7: unknown action 'fly'
+examples/traps/creatures/unknown_function.ins:7: unknown function 'magic'
+examples/traps/creatures/unknown_label.ins:7: goto to unknown label 'no_existe'
+examples/traps/creatures/wrong_arity.ins:7: action 'roar' expects 1 arguments, got 0
+UnknownChar:5: unknown character in the map: 'X'
+```
+Test: `cli_bank::traps_maps::unknown_char_reports_and_loads`.
+
+### S49 — Mapa con fila irregular: diagnóstico con la línea de la fila, simula (`ragged.map`)
+
+Regla: 2.8 una fila del mapa con ancho distinto se diagnostica y se salta al cargar.
+Archivos: `examples/traps/maps/ragged.map`, `examples/traps/creatures/valid.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples/traps --map Ragged --seed 1 --ticks 1 --every 1 --place Valid@2,2
+```
+Resultado esperado (salida 0):
+```
+== tick 0 ==
+.........
+.........
+..V......
+.........
+.........
+.........
+.........
+.........
+== tick 1 ==
+.........
+.........
+..V......
+.........
+.........
+.........
+.........
+.........
+```
+y en stderr, entre los diagnósticos del resto de recursos de `examples/traps/`:
+```
+examples/traps/terrains/bad.te:1: 'regen' must be greater than or equal to 0, got -1
+examples/traps/objects/bad.ob:1: 'resource_max' must be greater than 0, got -3
+examples/traps/maps/ragged.map:4: the row has 10 characters, 9 were expected
+examples/traps/maps/unknown_char.map:5: unknown character in the map: 'X'
+examples/traps/creatures/assign_constant.ins:7: cannot assign to constant 'GROUND'
+examples/traps/creatures/assign_perception.ins:7: cannot assign to perception 'roars_near'
+examples/traps/creatures/bad_expr.ins:7: unexpected end of expression
+examples/traps/creatures/bad_line.ins:7: unrecognized line: 'hola mundo'
+examples/traps/creatures/dup_label.ins:7: duplicate label 'start'
+examples/traps/creatures/missing_creature.ins:1: missing required header key 'creature'
+examples/traps/creatures/missing_start.ins:1: missing required label 'start'
+examples/traps/creatures/missing_start.ins:6: unrecognized line: 'wait(1)'
+examples/traps/creatures/missing_start.ins:7: unknown header key 'goto'
+examples/traps/creatures/unknown_action.ins:7: unknown action 'fly'
+examples/traps/creatures/unknown_function.ins:7: unknown function 'magic'
+examples/traps/creatures/unknown_label.ins:7: goto to unknown label 'no_existe'
+examples/traps/creatures/wrong_arity.ins:7: action 'roar' expects 1 arguments, got 0
+```
+Test: `cli_bank::traps_maps::ragged_row_reports_line`.
+
+### S50 — Una criatura no oye su propio rugido (núcleo, AC3)
+
+Regla: 2.6 `roars_near` cuenta los rugidos de otras criaturas, no el propio; `last_roar` es el de otra criatura.
+Archivos: `examples/maps/arena.map`, `examples/creatures/shouter.ins`
+Comando:
+```sh
+cargo test -p instinct-core --test bank roars::own_roar_is_not_heard
+```
+Resultado esperado: `test result: ok.` (tras un `step_tick`, `eval(id, "roars_near") == 0` y `eval(id, "last_roar") == ""`).
+Test: `bank::roars::own_roar_is_not_heard`.
+
+### S51 — Un rugido fuera de la visión no se oye (núcleo, AC4)
+
+Regla: 2.6 `roars_near` solo cuenta rugidos dentro del radio de visión (distancia <= visión).
+Archivos: `examples/maps/arena.map`, `examples/creatures/shouter.ins`, `examples/creatures/listener.ins`
+Comando:
+```sh
+cargo test -p instinct-core --test bank roars::roar_outside_vision_is_not_heard
+```
+Resultado esperado: `test result: ok.` (Shouter@2,2 ruge; Listener@8,8 está a distancia 6 > visión 5, evalúa `roars_near == 0` y `last_roar == ""`).
+Test: `bank::roars::roar_outside_vision_is_not_heard`.
+
+### S52 — El banco de recursos tolera las trampas: conserva `Valid`, descarta trampas y emite diagnósticos
+
+Regla: 2.8 cargar `examples/traps/` descarta criaturas inválidas con diagnóstico sin abortar la carga.
+Archivos: `examples/traps/` (terrains, objects, maps, creatures)
+Comando:
+```sh
+cargo test -p instinct-core --test bank traps::load_traps_resources_tolerates_invalid_creatures
+```
+Resultado esperado: `test result: ok.` (`Valid` entre las especies cargadas — exactamente una—, ninguna de las 10 especies de trampa cargada (la 11.ª, `missing_creature`, no declara `creature`), `terrains` tiene `Grass`, `objects` tiene `Rock`, `maps` tiene `Arena`, y `diagnostics` nombra `bad.te` y `bad.ob` entre otros).
+Test: `bank::traps::load_traps_resources_tolerates_invalid_creatures`.
+
+### S53 — Desviación 3.3: mapa con carácter desconocido no se rechaza
+
+Véase "## Desviaciones frente al enunciado", entrada **S53 / 3.3**. El mapa `examples/traps/maps/unknown_char.map` se conserva, emite diagnóstico con carácter y línea (dos veces: carga y construcción del mundo) y sigue simulando.
+Comando:
+```sh
+cargo test -p instinct-cli --test cli_bank traps_maps::unknown_char_reports_and_loads
+```
+Resultado esperado: `test result: ok.`
+Test: `cli_bank::traps_maps::unknown_char_reports_and_loads`.
+
+### S54 — La simulación base corre sin errores (`Sprinter@2,2`, 5 ticks)
+
+Regla: escenario base de ejecución por terminal (gate de cierre).
+Archivos: `examples/maps/arena.map`, `examples/creatures/sprinter.ins`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 5 --place Sprinter@2,2
+```
+Resultado esperado: salida 0 y rejillas de 5 ticks con `S` avanzando 3 casillas por tick. Verificado por la comprobación de cierre (gate de TASK 6), sin test unitario dedicado.
+Test: gate de cierre `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 5 --place Sprinter@2,2`.
+
+### S55 — Terreno y objeto inválidos se descartan, el resto de recursos carga (3.2)
+
+Regla: 3.2 un terreno o un objeto con una clave inválida se descarta con su mensaje, pero la carga de los demás recursos (criaturas, terrenos válidos, objetos, mapas) continúa.
+Archivos: `examples/traps/terrains/bad.te`, `examples/traps/objects/bad.ob`, `examples/traps/`
+Comando:
+```sh
+cargo run -p instinct-cli -- run --root examples/traps --map Arena --seed 1 --ticks 2 --every 1 --place Valid@2,2
+```
+Resultado esperado (salida 0): rejillas de `Arena` con `Valid` en (2,2) en todos los ticks.
+y en stderr, los diagnósticos de `bad.te` y `bad.ob` entre los de las demás trampas:
+```
+examples/traps/terrains/bad.te:1: 'regen' must be greater than or equal to 0, got -1
+examples/traps/objects/bad.ob:1: 'resource_max' must be greater than 0, got -3
+```
+La criatura válida sigue disponible y simulando en (2,2). Test: `bank::traps::load_traps_resources_tolerates_invalid_creatures` (comprueba que `bad.te` y `bad.ob` se descartan, que solo `Valid` carga y que `diagnostics` los nombra).
+
 ## Tests del banco
 
 - `crates/instinct-cli/tests/cli_bank/movement.rs` — scenarios observables
@@ -2086,12 +2473,17 @@ Test: `expressions::text_argument_and_bad_direction_die` y
 - `crates/instinct-core/tests/bank/expressions.rs` — valores exactos de
   expresiones y muerte por error en el estado interno (AC1-AC3, AC8).
 
+- `crates/instinct-cli/tests/cli_bank/roars.rs` — rugidos (`roar`), `say` sin consumo de turno y oyente de rugidos lee el último al tick siguiente (S42-S44).
+- `crates/instinct-cli/tests/cli_bank/traps.rs` — `check` rechaza trampas con `archivo:línea: mensaje`, acepta la válida y carga de `examples/traps/` conserva la válida (S45-S47, S55).
+- `crates/instinct-cli/tests/cli_bank/traps_maps.rs` — mapa con carácter desconocido diagnostica carácter y línea dos veces; fila irregular diagnostica su línea (S48-S49, S53).
+- `crates/instinct-core/tests/bank/roars.rs` — una criatura no oye su propio rugido y un rugido fuera de visión no se oye (S50-S51).
+- `crates/instinct-core/tests/bank/traps.rs` — el banco de recursos tolera trampas: conserva la válida, descarta inválidas y emite diagnósticos (S52).
+
 Ejecutar todos:
 ```sh
 cargo test -p instinct-cli --test cli_bank
 cargo test -p instinct-core --test bank
 ```
-
 ## Desviaciones frente al enunciado
 
 - **S07 / AC7**: el enunciado dice que `wait(3)` "actúa en el 3". En esta
@@ -2111,3 +2503,43 @@ cargo test -p instinct-core --test bank
 - **F6-03 / AC5**: el mapa `Arena` es 9×9 (filas/columnas válidas 0..8). El
   test de "fuera del mapa" coloca a Mother@2,8 con destino (2,9), que está
   fuera del mapa.
+- **S53 / 3.3**: el enunciado 3.3 dice que un mapa con un carácter que ningún
+  terreno ni objeto declara «se rechaza». La referencia lo conserva: el mapa
+  `examples/traps/maps/unknown_char.map` se simula, la casilla con `X` se resuelve
+  al primer terreno (hierba) y el diagnóstico `unknown character in the map: 'X'`
+  sale dos veces (una al cargar el mapa y otra al construir el mundo), ambas
+  nombrando el carácter y la línea (`unknown_char.map:5`). Este es un cambio de
+  comportamiento respecto al enunciado, documentado como desviación y deferido a
+  F7; el cargador y el constructor del mundo no se modifican en esta fase.
+  Archivo que lo evidencia: `examples/traps/maps/unknown_char.map`. Ambigüedad a
+  confirmar con los profesores (supuesto 4 del maestro): si «se rechaza» significa
+  abortar la carga del mapa o solo descartar la casilla inválida.
+- **Raíz del banco `examples/` frente a `bank/`**: el enunciado de la fase
+  planteaba una carpeta `bank/` propia; la referencia reusa la raíz `examples/`
+  existente (cambiando solo `--root` y los nombres de directorio), sin crear
+  `bank/` nueva, para que un estudiante pueda copiarla entera (decisión A14 de
+  F6-01, `PHASE.md`).
+- **`Arena` 9×9 frente a 10×10** (F6-02 / F6-03): el mapa `Arena` es 9×9
+  (filas/columnas válidas 0..8), no 10×10; el test de "fuera del mapa" coloca a
+  Mother@2,8 con destino (2,9), que está fuera del mapa.
+- **`spinner.ins` usa `n` frente a percepción `x` de solo lectura** (F6-03 /
+  AC7): `x` es una percepción de solo lectura y el núcleo rechaza asignarle
+  (`cannot assign to perception 'x'`), por lo que `spinner.ins` usa la variable
+  `n` con semántica equivalente (ciclo puro de asignación que quema el límite de
+  100 líneas por turno).
+- **`age` en tick 0 en el registro CLI** (F6-04): el valor de `age` aparece en
+  el registro de la CLI en el tick 0 (antes del envejecimiento de fin de tick),
+  por lo que las aserciones de CLI reflejan la salida real observada, no la del
+  enunciado.
+- **S37 separado en `textorder.ins`** (F6-05): en la especificación el scenario
+  S37 citaba `mixer.ins`, pero se implementó como `textorder.ins` para aislar una
+  criatura trampa por clase de error de ejecución (`textorder.ins` compara textos
+  con operador de orden; `mixer.ins` cubre S38, mezcla de entero y texto).
+- **AC8: `say` no consume turno junto al movimiento** (F6-01): el enunciado dice
+  que Pacer dice "paso" en el mismo tick que avanza; en la referencia `move`
+  consume el turno y `say` se ejecuta en el turno siguiente. Documentado como
+  desviación; el kernel no se modifica en esta fase.
+- **S07 / AC7: `wait(3)` actúa en el 3** (F6-01): el enunciado dice que
+  `wait(3)` "actúa en el 3"; en la referencia el `say("despierto")` de Napper se
+  emite con etiqueta `[tick 3]` durante la transición a tick 4. La semántica de
+  `wait` (duerme n-1 turnos, actúa en el n-ésimo) se respeta.

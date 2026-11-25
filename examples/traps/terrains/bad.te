@@ -1,0 +1,4 @@
+terrain Bad
+char .
+resource_max 100
+regen -1

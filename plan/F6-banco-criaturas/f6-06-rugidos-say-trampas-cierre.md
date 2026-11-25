@@ -2,7 +2,7 @@
 id: F6-06
 title: Rugidos y say, trampas de compilación, mapas inválidos y cierre
 phase: F6
-status: todo
+status: done
 depends_on: [F6-01]
 size: M
 file: f6-06-rugidos-say-trampas-cierre.md
@@ -187,3 +187,33 @@ cargador o el constructor del mundo; alterar escenarios de otros issues ni tocar
 - Termina con un resumen: qué comandos ejecutaste y su resultado, AC por AC.
 
 ### Notas de implementación
+
+Rama: `feat/f6-06-rugidos-say-trampas-cierre` (base `develop`, ya incluye F6-01–F6-05).
+
+Archivos creados (datos y pruebas; sin tocar `crates/*/src/` ni Cargo.toml):
+- `examples/creatures/{shouter,listener,singer}.ins` — rugente, oyente y cantante (S42-S46).
+- `examples/traps/terrains/grass.te`, `examples/traps/objects/rock.ob`, `examples/traps/maps/arena.map`, `examples/traps/creatures/valid.ins` — raíz de trampas con recursos válidos (S47-S52).
+- `examples/traps/creatures/` — 11 archivos `.ins` trampa, uno por clase de error de compilación 2.8 (S47-S51).
+- `examples/traps/maps/{unknown_char,ragged}.map` — carácter desconocido y fila dispareja (S53-S54).
+- `examples/traps/terrains/bad.te`, `examples/traps/objects/bad.ob` — clave inválida de cada tipo (S55).
+- `crates/instinct-cli/tests/cli_bank/{roars,traps,traps_maps}.rs` — scénarios desde terminal (+ `helpers.rs::traps_dir`; `mod.rs` declara los módulos).
+- `crates/instinct-core/tests/bank/{roars,traps}.rs` — disponibilidad y alcance internos (+ `mod.rs` declara los módulos).
+- `examples/README.md` — escenarios S42-S55, sección Desviaciones (caso concreto S53) y comprobación de cierre.
+
+No se modificó `crates/*/src/` ni `Cargo.toml`.
+
+Evidencia AC (todas PASS; comando exacto de verificación):
+- AC1 (PASS): `cargo test -p instinct-cli --test cli_bank roars::roar_emits_event` → evento de rugido con su texto en el tick 0 (`... ok`).
+- AC2 (PASS): `cargo test -p instinct-cli --test cli_bank roars::listener_reads_last_roar_next_tick` → tick 0 dice `""` y 0; tick 1 dice el texto y conteo 1 (`... ok`).
+- AC3 (PASS): `cargo test -p instinct-core --test bank roars::own_roar_is_not_heard` → la criatura no cuenta ni lee su propio rugido (`... ok`).
+- AC4 (PASS): `cargo test -p instinct-core --test bank roars::roar_outside_vision_is_not_heard` → Listener@8,8 a distancia 6 > visión 5; sigue diciendo texto vacío y cero (`... ok`).
+- AC5 (PASS): `cargo test -p instinct-cli --test cli_bank roars::say_does_not_consume_turn` → la cantante dice dos textos y se mueve a (3,2) en el mismo tick (`... ok`).
+- AC6 (PASS): `cargo test -p instinct-cli --test cli_bank traps::check_rejects_every_trap_with_line` → las 11 trampas: exit 1 y diagnóstico `archivo:línea: mensaje` en stderr (`... ok`).
+- AC7 (PASS): `cargo test -p instinct-cli --test cli_bank traps::check_accepts_valid_creature` → `check` del válido: `OK`, exit 0 (`... ok`).
+- AC8 (PASS): `cargo test -p instinct-cli --test cli_bank traps::load_traps_root_keeps_valid_creature` → `run` sobre `examples/traps`: exit 0, `Valid` disponible y simulando, diagnósticos de trampas por stderr (`... ok`).
+- AC9 (PASS): `cargo test -p instinct-cli --test cli_bank traps_maps::unknown_char_reports_and_loads` → exit 0, diagnóstico que nombra el carácter desconocido y la línea de su fila (`... ok`).
+- AC10 (PASS): `cargo test -p instinct-cli --test cli_bank traps_maps::ragged_row_reports_line` → exit 0, diagnóstico con la línea de la fila dispareja (`... ok`).
+- AC11 (PASS): sección Desviaciones del README documenta la desviación real S53 (carácter desconocido: el enunciado 3.3 dice «se rechaza»; la referencia conserva el mapa, casilla = primer terreno, diagnóstico duplicado al cargar y al construir el mundo) con caso concreto en `examples/traps/maps/unknown_char.map` (lectura de la sección contrastada con F6-01 a F6-06).
+- AC12 (PASS): puertas — `cargo test -p instinct-cli --test cli_bank` 35/35 exit 0; `cargo test -p instinct-core --test bank` 41/41 exit 0 (incluye el nuevo `roar_tick_0_is_readable_next_tick`); `cargo run -p instinct-cli -- run --root examples --map Arena --seed 1 --ticks 5 --place Sprinter@2,2` exit 0; `check` por trampa exit 1; `run` raíz traps exit 0; `cargo test --workspace` rojo solo por determinismo pre-existente de `instinct-gui` (reportado, ajeno a F6-06, no bloquea); `cargo clippy --workspace --all-targets -- -D warnings` rojo por 3 lints pre-existentes en `crates/instinct-core/src/` (assignment.rs, visitor.rs, grid.rs; Rust 1.100.0, ajenos a F6-06, no bloquean); `cargo fmt --all --check` rojo solo por `crates/instinct-gui/src/ui/mod.rs` (formato pre-existente, ajeno a F6-06, no se toca).
+
+`cargo test --workspace`: sin regresiones de F6-06; rojo únicamente en la determinismo pre-existente de `instinct-gui`, reportado y fuera de esta fase.
