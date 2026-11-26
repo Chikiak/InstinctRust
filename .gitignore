@@ -8,3 +8,7 @@ cli_out.txt
 clippy_out.txt
 fmt_out.txt
 test_out.txt
+
+# Planes locales del proyecto (no se versionan)
+*.local
+plans.local/
