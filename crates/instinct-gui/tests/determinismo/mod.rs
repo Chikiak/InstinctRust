@@ -48,7 +48,12 @@ fn t_determinismo_01_gui_iguala_directo_con_seed7() {
         .expect("mapa 'Plain with rocks' debe estar cargado en la sesión");
     app.update(Msg::PrepEnter(prep_map_idx));
     app.prep_state.as_mut().unwrap().recipe.seed = DETERMINISMO_SEED;
-    // Colocar las 4 criaturas del baseline.
+    // Colocar las criaturas del baseline.
+    assert_eq!(
+        baseline_criaturas().len(),
+        4,
+        "el baseline de determinismo debe contener 4 criaturas"
+    );
     for (name, x, y) in baseline_criaturas() {
         let idx = app
             .session
@@ -60,7 +65,11 @@ fn t_determinismo_01_gui_iguala_directo_con_seed7() {
             .unwrap_or_else(|| panic!("especie '{name}' no encontrada"));
         app.update(Msg::PrepPlace(idx, x, y));
     }
-    assert_eq!(app.prep_state.as_ref().unwrap().placed_count(), 4);
+    assert_eq!(
+        app.prep_state.as_ref().unwrap().placed_count(),
+        baseline_criaturas().len(),
+        "todas las criaturas del baseline deben colocarse"
+    );
     // Play arranca la simulación desde la receta (usa recipe.seed = 7).
     app.update(Msg::TickPlay);
     assert!(matches!(
