@@ -406,7 +406,7 @@ fn draw_roars(painter: &Painter, origin: Pos2, state: &AppState, snapshot: &Worl
         painter.rect_stroke(
             rect,
             2.0,
-            Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
+            Stroke::new(2.0_f32, Color32::from_rgb(210, 120, 0)),
             StrokeKind::Inside,
         );
         painter.text(
@@ -429,7 +429,7 @@ fn draw_roars(painter: &Painter, origin: Pos2, state: &AppState, snapshot: &Worl
 fn draw_lines(painter: &Painter, origin: Pos2, cols: usize, rows: usize) {
     let width = cols as f32 * CELL_SIZE_PX;
     let height = rows as f32 * CELL_SIZE_PX;
-    let stroke = Stroke::new(1.0, Color32::from_gray(120));
+    let stroke = Stroke::new(1.0_f32, Color32::from_gray(120));
     for col in 0..=cols {
         let x = col as f32 * CELL_SIZE_PX;
         painter.line_segment(

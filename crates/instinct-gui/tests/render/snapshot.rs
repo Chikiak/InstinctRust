@@ -151,8 +151,7 @@ fn criatura_tapa_objeto_y_terreno_de_la_misma_celda() {
 #[test]
 fn fila_solo_terreno_todas_celdas_iguales() {
     let grid = grid_from_snapshot(&sintetico());
-    for x in 0..3 {
-        let c = &grid.cells[1][x];
+    for (x, c) in grid.cells[1].iter().enumerate().take(3) {
         assert_eq!(c.symbol, '~');
         assert_eq!(c.label, "Agua");
         assert_eq!(c.kind, CellKind::Terrain);
