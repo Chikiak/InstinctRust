@@ -1,5 +1,6 @@
 //! T5: selection over maps and species via `Msg`.
 
+use instinct_gui::app::log::LogEntryKind;
 use instinct_gui::app::session::LoadedSession;
 use instinct_gui::app::{AppState, Msg};
 
@@ -85,4 +86,67 @@ fn t5_messages_are_noop_without_session() {
     state.update(Msg::SpeciesSelected(0));
     assert!(state.session.is_none());
     assert_eq!(state.selected, None);
+}
+
+/// T6: el brazo `Err(diagnostic)` de `Msg::PrepPlace` no incrementa
+/// `placed_count()` y guarda el diagnóstico en `log_buffer` durante la
+/// preparación. `PrepPlace` sobre una celda ocupada (roca en `(3, 1)` de
+/// "Plain with rocks") y fuera de rango (`(9999, 9999)`) deben fallar sin
+/// contar la colocación.
+#[test]
+fn t6_prep_place_err_no_incrementa_y_guarda_diagnostico() {
+    let session = LoadedSession::new(&examples_root());
+    let prep_map_idx = session
+        .maps()
+        .iter()
+        .position(|m| m.name == "Plain with rocks")
+        .expect("mapa 'Plain with rocks' debe estar cargado en la sesión");
+    let species_idx = session
+        .species_names()
+        .iter()
+        .position(|n| *n == "Dwarf")
+        .expect("especie 'Dwarf' debe estar en la sesión");
+
+    let mut state = AppState {
+        selected: None,
+        session: Some(session),
+        prep_state: None,
+        prep_selected_species: 0,
+        time: Default::default(),
+        sim: None,
+        log_buffer: None,
+        last_events: Vec::new(),
+    };
+
+    // Entrar en preparación sobre "Plain with rocks".
+    state.update(Msg::PrepEnter(prep_map_idx));
+    assert!(state.prep_state.is_some());
+    assert_eq!(state.prep_state.as_ref().unwrap().placed_count(), 0);
+
+    // (3, 1) está ocupada por una roca del mapa: colocación inválida.
+    state.update(Msg::PrepPlace(species_idx, 3, 1));
+    // (9999, 9999) está fuera del mapa: colocación inválida.
+    state.update(Msg::PrepPlace(species_idx, 9999, 9999));
+
+    // Ninguna colocación inválida incrementa el contador de colocaciones.
+    assert_eq!(
+        state.prep_state.as_ref().unwrap().placed_count(),
+        0,
+        "colocación inválida no debe incrementar placed_count()"
+    );
+
+    // Durante la preparación el diagnóstico debe quedar en log_buffer.
+    let buffer = state.log_buffer.as_ref().expect(
+        "log_buffer debe estar inicializado durante la preparación y guardar el diagnóstico",
+    );
+    let borrow = buffer.borrow();
+    let entries = borrow.entries();
+    assert!(
+        !entries.is_empty(),
+        "se esperaba al menos un diagnóstico en log_buffer"
+    );
+    assert!(
+        entries.iter().any(|e| e.kind == LogEntryKind::Load),
+        "se esperaba una entrada de tipo Load (diagnóstico) en log_buffer"
+    );
 }
