@@ -1,11 +1,11 @@
 ---
 phase: G0
 title: Convergencia main/develop
-status: done
+status: in_progress
 master: ../MASTER.md
 fuentes:
-  - ../docs/PROBLEMAS_Y_SOLUCIONES.md
-issues: 4 desglosados en archivos propios (G0-01 a G0-04)
+  - ../../docs/PROBLEMAS_Y_SOLUCIONES.md
+issues: 5 desglosados en archivos propios (G0-01 a G0-05)
 ---
 
 # G0 · Convergencia main/develop
@@ -50,12 +50,17 @@ Verificado el 2026-11-26 sobre el checkout local (`feat/gitignore-plans-local`):
 | G0-02 | Ajustar limpieza de `plan/` y `*.local` sobre main convergada | G0-01 | S | todo |
 | G0-03 | Línea base de calidad: clippy y fmt medidos sobre main convergada | G0-01 | S | todo |
 | G0-04 | Puesta en verde de origin/develop (fmt, clippy, determinismo) | G0-01 | M | done |
+| G0-05 | Rescate tras la revisión del PR #10 (test del error de colocación y correcciones documentales) | G0-04 | M | doing |
 
 `G0-04` nació de la medición de G0-01: develop llegó rojo en las tres puertas
 (notas en `g0-01-notas.md`), así que el PR a main espera a tener develop verde.
+`G0-05` nació de la revisión del PR #10: el revisor pidió un test del camino de
+error de `Msg::PrepPlace` y correcciones documentales; el rescate se trabaja en
+el worktree `wt-g0-fix`, nunca sobre el checkout personal (que quedó cambiado de
+rama durante G0-04).
 
 ### Orden y dependencias
 
-G0-01 va primero y desbloquea todo: hasta que main no tenga F6, dokumentar o
+G0-01 va primero y desbloquea todo: hasta que main no tenga F6, documentar o
 medir calidad sobre main es documentar un proyecto que no existe. G0-02 y G0-03
 son independientes entre sí y ambos parten de la main convergada.

@@ -10,9 +10,9 @@ file: g0-01-notas.md
 
 # G0-01 · Notas de verificación de `origin/develop`
 
-Medición ejecutada el 2026-11-26 sobre worktree aislado
-`/home/adrian/Proyectos/wt-g0-develop` (`origin/develop` @ `06df5f7`).
-Log completo: `/tmp/opencode/g0-verify.log`.
+Medición ejecutada el 2026-11-26 sobre worktree aislado con `origin/develop`
+(@ `06df5f7`), siguiendo el protocolo de worktree del proyecto (nunca sobre el
+checkout personal). Log completo conservado por el orquestador.
 
 ## Resultado de las puertas
 
@@ -37,11 +37,18 @@ test, y arreglarlo con evidencia.
 
 ## Conclusión
 
-**Se puede abrir el PR `develop → main`**: el issue **G0-04** (puesta en verde:
-fmt, clippy y test de determinismo) está completo y `origin/develop` pasó las
-tres puertas en worktree (`cargo test --workspace` 461 tests / 0 fallos,
-`cargo clippy ... -D warnings` exit 0, `cargo fmt --all --check` exit 0, más
-smoke del camino feliz). G0-01 procede con el PR.
+**No se abrió el PR `develop → main` en esta medición**: `origin/develop` llegó
+rojo en las tres puertas, así que integrarlo habría dejado `main` roja y sin CI
+que la protegiera (G1-03 todavía no existe). El issue **G0-04** (puesta en
+verde: fmt, clippy y test de determinismo) es quien pone a `develop` en verde;
+sus puertas se verificaron **sobre la rama de G0-04**
+(`feat/g0-04-verde-develop`), no sobre `origin/develop`. Queda pendiente, tras
+mergear G0-04, re-verificar `origin/develop` y entonces abrir el PR (G0-01).
+
+Nota sobre los conteos: `cargo test --workspace` es fail-fast por defecto, de
+modo que la corrida sobre `origin/develop` se detuvo tras la suite fallida de
+`instinct-gui` — 397 tests en 28 suites, frente a las 34 suites que corren en
+main—. El total completo (461) solo se ve con todas las suites en verde.
 
 ## Reproducción
 

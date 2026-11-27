@@ -69,7 +69,7 @@ revelar un bug real del camino GUI — hallazgo bienvenido, documentado en el PR
 | tests | `cargo test --workspace` | exit 0 (461 tests, 0 fallos) |
 | smoke camino feliz | `cargo run -p instinct-cli -- run --root examples --map "Plain with rocks" --place Dwarf@1,1 --ticks 5 --seed 7` | exit 0 |
 
-### Cambios realizados (5 commits, sin tocar main ni #[allow> sin razón)
+### Cambios realizados (6 commits, sin tocar main ni #[allow] sin razón)
 
 1. `fix(core)` — `world/grid.rs`, `compile/assignment.rs`, `interp/visitor.rs`:
    corrige los 3 lints de clippy de instinct-core medidos en G0-01
