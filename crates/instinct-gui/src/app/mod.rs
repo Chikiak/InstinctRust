@@ -90,7 +90,17 @@ impl AppState {
                 let Some(species) = session.species().get(species_idx) else {
                     return;
                 };
-                let _ = prep_state.place(session, &species.name, x, y);
+                // No silenciar el Result de `place`: si la celda está ocupada o
+                // fuera de rango, el diagnóstico se propaga al log compartido
+                // y la colocación no se cuenta en la receta.
+                match prep_state.place(session, &species.name, x, y) {
+                    Ok(_id) => {}
+                    Err(diagnostic) => {
+                        if let Some(buffer) = self.log_buffer.as_ref() {
+                            buffer.borrow_mut().push_diagnostic(&diagnostic);
+                        }
+                    }
+                }
             }
             Msg::PrepRemove(placement_id) => {
                 // Rechazar remoción si la simulación está corriendo o en pausa.
