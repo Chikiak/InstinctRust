@@ -50,7 +50,7 @@ Verificado el 2026-11-26 sobre el checkout local (`feat/gitignore-plans-local`):
 | G0-02 | Ajustar limpieza de `plan/` y `*.local` sobre main convergada | G0-01 | S | todo |
 | G0-03 | Línea base de calidad: clippy y fmt medidos sobre main convergada | G0-01 | S | todo |
 | G0-04 | Puesta en verde de origin/develop (fmt, clippy, determinismo) | G0-01 | M | done |
-| G0-05 | Rescate tras la revisión del PR #10 (test del error de colocación y correcciones documentales) | G0-04 | M | doing |
+| G0-05 | Rescate tras la revisión del PR #10 (test del error de colocación y correcciones documentales) | G0-04 | M | done |
 
 `G0-04` nació de la medición de G0-01: develop llegó rojo en las tres puertas
 (notas en `g0-01-notas.md`), así que el PR a main espera a tener develop verde.
