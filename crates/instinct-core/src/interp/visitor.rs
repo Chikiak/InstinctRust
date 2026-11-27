@@ -51,10 +51,8 @@ impl ExprVisitor for InterpreterVisitor<'_> {
                     return Ok(Value::Int(0));
                 }
             }
-            "or" => {
-                if left.is_truthy() {
-                    return Ok(Value::Int(1));
-                }
+            "or" if left.is_truthy() => {
+                return Ok(Value::Int(1));
             }
             _ => {}
         }

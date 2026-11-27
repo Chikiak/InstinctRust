@@ -39,12 +39,8 @@ pub fn looks_like_assignment(body: &str) -> bool {
     // Avoid treating `==` as an assignment: neither the character before nor
     // the character after the `=` may itself be `=`.
     let bytes = body.as_bytes();
-    if (eq_idx > 0 && bytes[eq_idx - 1] == b'=')
-        || (eq_idx + 1 < bytes.len() && bytes[eq_idx + 1] == b'=')
-    {
-        return false;
-    }
-    true
+    !((eq_idx > 0 && bytes[eq_idx - 1] == b'=')
+        || (eq_idx + 1 < bytes.len() && bytes[eq_idx + 1] == b'='))
 }
 
 /// Parses an assignment `name = expr`. Pushes a diagnostic naming the element

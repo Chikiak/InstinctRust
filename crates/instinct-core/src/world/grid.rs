@@ -121,9 +121,9 @@ impl World {
         }
 
         // Pass 2: grid by ascending rows, ascending columns, for objects.
-        for y in 0..self.rows {
-            for x in 0..self.columns {
-                if let CellContent::Object(_) = &self.content[y][x] {
+        for (y, row) in self.content.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                if let CellContent::Object(_) = cell {
                     let dx = x as i64 - self_pos.x as i64;
                     let dy = y as i64 - self_pos.y as i64;
                     let dist = dx.abs().max(dy.abs());
