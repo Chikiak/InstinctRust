@@ -101,10 +101,7 @@ fn preparation_section(ui: &mut egui::Ui, state: &AppState, msgs: &mut Vec<Msg>)
         return;
     };
 
-    let locked = matches!(
-        state.time.state,
-        RunState::Running(_) | RunState::Paused(_)
-    );
+    let locked = matches!(state.time.state, RunState::Running(_) | RunState::Paused(_));
 
     ui.label(format!("Mapa: {}", prep.recipe.map_name));
     ui.label(format!(
@@ -322,10 +319,7 @@ fn handle_grid_click(state: &AppState, cell: Cell, msgs: &mut Vec<Msg>) {
     let Some(prep) = state.prep_state.as_ref() else {
         return;
     };
-    if matches!(
-        state.time.state,
-        RunState::Running(_) | RunState::Paused(_)
-    ) {
+    if matches!(state.time.state, RunState::Running(_) | RunState::Paused(_)) {
         return;
     }
     if prep.world.creature_at(cell.x, cell.y).is_some() {
@@ -356,7 +350,13 @@ fn contrast_text(c: Rgb) -> Color32 {
 fn draw_cells(painter: &Painter, origin: Pos2, snapshot: &WorldSnapshot) {
     for row in grid_from_snapshot(snapshot).cells {
         for view in row {
-            let rect = cell_rect(origin, Cell { x: view.x, y: view.y });
+            let rect = cell_rect(
+                origin,
+                Cell {
+                    x: view.x,
+                    y: view.y,
+                },
+            );
             let Rgb { r, g, b } = view.color;
             painter.rect_filled(rect, 0.0, Color32::from_rgb(r, g, b));
             painter.text(
@@ -398,11 +398,15 @@ fn draw_roars(painter: &Painter, origin: Pos2, state: &AppState, snapshot: &Worl
 
     for (x, y, text) in roar_markers(&roars, snapshot.rows, snapshot.columns) {
         let rect = cell_rect(origin, Cell { x, y });
-        painter.rect_filled(rect, 0.0, Color32::from_rgba_unmultiplied(210, 160, 40, 120));
+        painter.rect_filled(
+            rect,
+            0.0,
+            Color32::from_rgba_unmultiplied(210, 160, 40, 120),
+        );
         painter.rect_stroke(
             rect,
             2.0,
-            Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
+            Stroke::new(2.0_f32, Color32::from_rgb(210, 120, 0)),
             StrokeKind::Inside,
         );
         painter.text(
@@ -425,7 +429,7 @@ fn draw_roars(painter: &Painter, origin: Pos2, state: &AppState, snapshot: &Worl
 fn draw_lines(painter: &Painter, origin: Pos2, cols: usize, rows: usize) {
     let width = cols as f32 * CELL_SIZE_PX;
     let height = rows as f32 * CELL_SIZE_PX;
-    let stroke = Stroke::new(1.0, Color32::from_gray(120));
+    let stroke = Stroke::new(1.0_f32, Color32::from_gray(120));
     for col in 0..=cols {
         let x = col as f32 * CELL_SIZE_PX;
         painter.line_segment(

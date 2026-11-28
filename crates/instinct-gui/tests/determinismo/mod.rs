@@ -34,9 +34,26 @@ fn t_determinismo_01_gui_iguala_directo_con_seed7() {
         session: Some(session),
         ..Default::default()
     };
-    app.update(Msg::PrepEnter(0));
+    // El camino directo compara contra el mapa "Plain with rocks"; la GUI debe
+    // preparar sobre el mismo mapa. El índice 0 del catálogo alfabético es
+    // "Arena" (9x9), que no tiene las celdas del baseline, por lo que se
+    // resuelve el mapa por nombre en lugar de usar el índice 0.
+    let prep_map_idx = app
+        .session
+        .as_ref()
+        .unwrap()
+        .maps()
+        .iter()
+        .position(|m| m.name == "Plain with rocks")
+        .expect("mapa 'Plain with rocks' debe estar cargado en la sesión");
+    app.update(Msg::PrepEnter(prep_map_idx));
     app.prep_state.as_mut().unwrap().recipe.seed = DETERMINISMO_SEED;
-    // Colocar las 4 criaturas del baseline.
+    // Colocar las criaturas del baseline.
+    assert_eq!(
+        baseline_criaturas().len(),
+        4,
+        "el baseline de determinismo debe contener 4 criaturas"
+    );
     for (name, x, y) in baseline_criaturas() {
         let idx = app
             .session
@@ -50,7 +67,8 @@ fn t_determinismo_01_gui_iguala_directo_con_seed7() {
     }
     assert_eq!(
         app.prep_state.as_ref().unwrap().placed_count(),
-        baseline_criaturas().len()
+        baseline_criaturas().len(),
+        "todas las criaturas del baseline deben colocarse"
     );
     // Play arranca la simulación desde la receta (usa recipe.seed = 7).
     app.update(Msg::TickPlay);
