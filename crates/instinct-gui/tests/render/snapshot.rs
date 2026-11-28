@@ -151,6 +151,11 @@ fn criatura_tapa_objeto_y_terreno_de_la_misma_celda() {
 #[test]
 fn fila_solo_terreno_todas_celdas_iguales() {
     let grid = grid_from_snapshot(&sintetico());
+    assert!(
+        grid.cells[1].len() >= 3,
+        "la fila 1 debe tener al menos 3 celdas para compararlas: tiene {}",
+        grid.cells[1].len()
+    );
     for (x, c) in grid.cells[1].iter().enumerate().take(3) {
         assert_eq!(c.symbol, '~');
         assert_eq!(c.label, "Agua");
