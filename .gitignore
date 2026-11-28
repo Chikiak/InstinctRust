@@ -2,6 +2,9 @@
 .idea/
 *.lock
 
+# Planes de auditoría nocturna y evidencia local (no se versionan)
+.local/
+
 # Artefactos de salida de comandos (se mantienen en disco, no se versionan)
 *_out.txt
 cli_out.txt
