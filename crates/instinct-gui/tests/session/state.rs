@@ -125,6 +125,35 @@ fn t6_prep_place_err_no_incrementa_y_guarda_diagnostico() {
 
     // (3, 1) está ocupada por una roca del mapa: colocación inválida.
     state.update(Msg::PrepPlace(species_idx, 3, 1));
+
+    // El primer rechazo deja exactamente un diagnóstico cargado en log_buffer.
+    {
+        let buffer = state.log_buffer.as_ref().expect(
+            "log_buffer debe guardar el diagnóstico durante la preparación (celda ocupada)",
+        );
+        let borrow = buffer.borrow();
+        let entries = borrow.entries();
+        assert_eq!(
+            entries.len(),
+            1,
+            "el primer PrepPlace inválido debe dejar exactamente un diagnóstico"
+        );
+        assert_eq!(
+            entries[0].kind,
+            LogEntryKind::Load,
+            "el diagnóstico de colocación inválida debe ser de tipo Load"
+        );
+        assert!(
+            !entries[0].line.trim().is_empty(),
+            "el diagnóstico no debe quedar con texto vacío"
+        );
+        assert!(
+            entries[0].line.contains("(3,1)") && entries[0].line.contains("occupied"),
+            "el primer diagnóstico debe nombrar la celda (3,1) y el motivo (ocupada): {}",
+            entries[0].line
+        );
+    }
+
     // (9999, 9999) está fuera del mapa: colocación inválida.
     state.update(Msg::PrepPlace(species_idx, 9999, 9999));
 
@@ -135,18 +164,39 @@ fn t6_prep_place_err_no_incrementa_y_guarda_diagnostico() {
         "colocación inválida no debe incrementar placed_count()"
     );
 
-    // Durante la preparación el diagnóstico debe quedar en log_buffer.
+    // Durante la preparación ambos diagnósticos deben quedar en log_buffer.
     let buffer = state.log_buffer.as_ref().expect(
         "log_buffer debe estar inicializado durante la preparación y guardar el diagnóstico",
     );
     let borrow = buffer.borrow();
     let entries = borrow.entries();
-    assert!(
-        !entries.is_empty(),
-        "se esperaba al menos un diagnóstico en log_buffer"
+    assert_eq!(
+        entries.len(),
+        2,
+        "se esperaba un diagnóstico por cada colocación inválida (ocupada y fuera de rango)"
     );
-    assert!(
-        entries.iter().any(|e| e.kind == LogEntryKind::Load),
-        "se esperaba una entrada de tipo Load (diagnóstico) en log_buffer"
+    for entry in entries {
+        assert_eq!(
+            entry.kind,
+            LogEntryKind::Load,
+            "todo diagnóstico de preparación debe ser de tipo Load"
+        );
+        assert!(
+            !entry.line.trim().is_empty(),
+            "el diagnóstico no debe quedar con texto vacío"
+        );
+        assert_eq!(entry.tick, 0, "un diagnóstico de carga no lleva tick");
+    }
+    let occupied = entries
+        .iter()
+        .position(|e| e.line.contains("(3,1)") && e.line.contains("occupied"))
+        .expect("falta el diagnóstico de celda ocupada en (3,1)");
+    let outside = entries
+        .iter()
+        .position(|e| e.line.contains("(9999,9999)") && e.line.contains("outside the map"))
+        .expect("falta el diagnóstico de fuera de rango en (9999,9999)");
+    assert_ne!(
+        occupied, outside,
+        "los dos diagnósticos deben tener contexto distintivo (ocupada vs fuera de rango)"
     );
 }
