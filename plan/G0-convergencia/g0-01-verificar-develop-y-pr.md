@@ -25,7 +25,7 @@ pasa las tres puertas y el smoke; después abrir el PR `develop → main`
   `cargo fmt --all --check`, y el smoke del camino feliz con un escenario del banco
   (p. ej. `run --root examples --map "Plain with rocks" --place Dwarf@1,1 --ticks 5`).
 - PR con `gh` de `develop` a `main` con título y cuerpo: qué integra (F6-01…F6-06),
-- evidencia de las puertas y enlace al plan (`plan/G0-convergencia/PHASE.md`).
+  evidencia de las puertas y enlace al plan (`plan/G0-convergencia/PHASE.md`).
 
 **No hagas**
 - No trabajes sobre el checkout personal.

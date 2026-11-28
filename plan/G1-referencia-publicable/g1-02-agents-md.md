@@ -27,7 +27,7 @@ diagnósticos, verificación esperada y Convenio de ramas/PRs.
   (`cargo test --workspace`, clippy, fmt) antes de proponer PR; ramas
   `feat/<slug>` y PR apilado; nada de merges locales; trabajo en worktree
   aislado, nunca sobre el checkout personal (lección del incidente de G0-04:
-  el checkout personal quedó cambiarado de rama con archivos sin commit).
+  el checkout personal quedó cambiado de rama con archivos sin commit).
 
 **No hagas**
 - No repitas lo que el README ya dice para humanos.
@@ -47,4 +47,4 @@ Puertas verdes · revisor contrastando cada regla con el código.
 
 ## Coste y riesgo
 Coste: S. Riesgo: bajo; documentar una regla que el código viola sería el peor
-resultado, y lo evita la verificación del aceptación 2.
+resultado, y lo evita la verificación del criterio de aceptación 2.

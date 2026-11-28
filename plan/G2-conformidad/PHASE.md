@@ -4,8 +4,8 @@ title: Conformidad con el enunciado
 status: todo
 master: ../MASTER.md
 fuentes:
-  - ../docs/enunciado.md
-  - ../docs/ambiguedades.md
+  - ../../docs/enunciado.md
+  - ../../docs/ambiguedades.md
 issues: 3 desglosados en archivos propios (G2-01 a G2-03)
 ---
 

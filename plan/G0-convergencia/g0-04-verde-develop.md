@@ -69,7 +69,7 @@ revelar un bug real del camino GUI — hallazgo bienvenido, documentado en el PR
 | tests | `cargo test --workspace` | exit 0 (461 tests, 0 fallos) |
 | smoke camino feliz | `cargo run -p instinct-cli -- run --root examples --map "Plain with rocks" --place Dwarf@1,1 --ticks 5 --seed 7` | exit 0 |
 
-### Cambios realizados (6 commits, sin tocar main ni #[allow] sin razón)
+### Cambios realizados (5 commits de código/test + 1 documental de cierre 7e6a3c0, sin tocar main ni #[allow] sin razón)
 
 1. `fix(core)` — `world/grid.rs`, `compile/assignment.rs`, `interp/visitor.rs`:
    corrige los 3 lints de clippy de instinct-core medidos en G0-01
@@ -94,7 +94,7 @@ revelar un bug real del camino GUI — hallazgo bienvenido, documentado en el PR
    catálogo alfabético es "Arena", 9x9, que deja 2 colocaciones del baseline
    fuera de rango: `placed_count()==2` RED). Tras el cambio: 4 colocaciones
    y `gui_events == direct_events` GREEN. Aserción explícita
-   `placed_count()==4`. No se tocan `DETERMINISMO_SEED`/`TICKS`,
+   `placed_count() == baseline_criaturas().len()`. No se tocan `DETERMINISMO_SEED`/`TICKS`,
    `baseline_criaturas`, `common.rs` ni el camino directo (Camino B).
 
 ### Archivos no tocados (por decisión del issue)

@@ -4,7 +4,7 @@ title: Endurecimiento selectivo
 status: todo
 master: ../MASTER.md
 fuentes:
-  - ../docs/PROBLEMAS_Y_SOLUCIONES.md
+  - ../../docs/PROBLEMAS_Y_SOLUCIONES.md
 issues: 2 desglosados en archivos propios (G3-01 a G3-02)
 ---
 

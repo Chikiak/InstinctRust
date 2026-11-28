@@ -4,7 +4,7 @@ title: Referencia publicable
 status: todo
 master: ../MASTER.md
 fuentes:
-  - ../docs/enunciado.md
+  - ../../docs/enunciado.md
 issues: 5 desglosados en archivos propios (G1-01 a G1-05)
 ---
 
@@ -14,7 +14,7 @@ issues: 5 desglosados en archivos propios (G1-01 a G1-05)
 
 Que un profesor cualquiera pueda clonar `main`, leer el README, compilar y
 correr un ejemplo del anexo sin ayuda; que un agente nuevo respete las reglas
-del núcleo sin que nadie se las recuerda (AGENTS.md); y que cada PR futuro
+del núcleo sin que nadie se las recuerde (AGENTS.md); y que cada PR futuro
 quede bloqueado si rompe tests, lint o formato (CI). Cierre con tag `v0.1.0`.
 
 ## Estado de partida
